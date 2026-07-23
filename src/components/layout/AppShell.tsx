@@ -6,10 +6,12 @@ import type { ViewId } from '@/lib/navigation';
 export function AppShell({
   current,
   onNavigate,
+  onEnterAdmin,
   children,
 }: {
   current: ViewId;
   onNavigate: (id: ViewId) => void;
+  onEnterAdmin: () => void;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -24,6 +26,7 @@ export function AppShell({
         onToggleCollapse={() => setCollapsed((c) => !c)}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
+        onEnterAdmin={onEnterAdmin}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar current={current} onOpenMobile={() => setMobileOpen(true)} />

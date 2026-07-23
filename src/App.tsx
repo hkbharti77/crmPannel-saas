@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { AuthScreen } from '@/components/auth/AuthScreen';
 import { AppShell } from '@/components/layout/AppShell';
+import { TopBar } from '@/components/layout/TopBar';
 import { DashboardView } from '@/components/dashboard/DashboardView';
 import { InboxView } from '@/components/inbox/InboxView';
 import { ChatRoomView } from '@/components/chatroom/ChatRoomView';
@@ -27,50 +30,69 @@ import { AdminSettings } from '@/components/admin/pages/AdminSettings';
 import { AdminTemplates } from '@/components/admin/pages/AdminTemplates';
 import type { AdminViewId } from '@/lib/adminNavigation';
 
-export default function App() {
+function AppContent() {
+  const { user, loading } = useAuth();
   const [mode, setMode] = useState<'crm' | 'admin'>('crm');
   const [view, setView] = useState<ViewId>('dashboard');
   const [adminView, setAdminView] = useState<AdminViewId>('overview');
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-base-c">
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-primary-500/30 border-t-primary-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
+
   if (mode === 'admin') {
     return (
-      <ThemeProvider>
-        <AdminShell
-          current={adminView}
-          onNavigate={setAdminView}
-          onExitAdmin={() => setMode('crm')}
-        >
-          {adminView === 'overview' && <AdminOverview onNavigate={(v) => setAdminView(v)} />}
-          {adminView === 'tenants' && <AdminTenants />}
-          {adminView === 'analytics' && <AdminAnalytics />}
-          {adminView === 'health' && <AdminHealth />}
-          {adminView === 'audit' && <AdminAudit />}
-          {adminView === 'tickets' && <AdminTickets />}
-          {adminView === 'subscriptions' && <AdminSubscriptions />}
-          {adminView === 'users' && <AdminUsers />}
-          {adminView === 'search' && <AdminSearch />}
-          {adminView === 'settings' && <AdminSettings />}
-          {adminView === 'templates' && <AdminTemplates />}
-        </AdminShell>
-      </ThemeProvider>
+      <AdminShell
+        current={adminView}
+        onNavigate={setAdminView}
+        onExitAdmin={() => setMode('crm')}
+      >
+        {adminView === 'overview' && <AdminOverview onNavigate={(v) => setAdminView(v)} />}
+        {adminView === 'tenants' && <AdminTenants />}
+        {adminView === 'analytics' && <AdminAnalytics />}
+        {adminView === 'health' && <AdminHealth />}
+        {adminView === 'audit' && <AdminAudit />}
+        {adminView === 'tickets' && <AdminTickets />}
+        {adminView === 'subscriptions' && <AdminSubscriptions />}
+        {adminView === 'users' && <AdminUsers />}
+        {adminView === 'search' && <AdminSearch />}
+        {adminView === 'settings' && <AdminSettings />}
+        {adminView === 'templates' && <AdminTemplates />}
+      </AdminShell>
     );
   }
 
   return (
+    <AppShell current={view} onNavigate={setView} onEnterAdmin={() => setMode('admin')}>
+      {view === 'dashboard' && <DashboardView onNavigate={(v) => setView(v as ViewId)} />}
+      {view === 'inbox' && <InboxView onOpenChat={() => setView('chatroom')} />}
+      {view === 'chatroom' && <ChatRoomView onBack={() => setView('inbox')} />}
+      {view === 'pipeline' && <PipelineView onOpenLead={() => setView('leaddetail')} />}
+      {view === 'broadcasts' && <BroadcastsView />}
+      {view === 'leaddetail' && <LeadDetailView onBack={() => setView('pipeline')} />}
+      {view === 'appointments' && <AppointmentsView />}
+      {view === 'booking' && <BookingView />}
+      {view === 'tickets' && <TicketsView />}
+      {view === 'emails' && <EmailsView />}
+      {view === 'settings' && <SettingsView />}
+    </AppShell>
+  );
+}
+
+export default function App() {
+  return (
     <ThemeProvider>
-      <AppShell current={view} onNavigate={setView} onEnterAdmin={() => setMode('admin')}>
-        {view === 'dashboard' && <DashboardView onNavigate={(v) => setView(v as ViewId)} />}
-        {view === 'inbox' && <InboxView onOpenChat={() => setView('chatroom')} />}
-        {view === 'chatroom' && <ChatRoomView onBack={() => setView('inbox')} />}
-        {view === 'pipeline' && <PipelineView onOpenLead={() => setView('leaddetail')} />}
-        {view === 'broadcasts' && <BroadcastsView />}
-        {view === 'leaddetail' && <LeadDetailView onBack={() => setView('pipeline')} />}
-        {view === 'appointments' && <AppointmentsView />}
-        {view === 'booking' && <BookingView />}
-        {view === 'tickets' && <TicketsView />}
-        {view === 'emails' && <EmailsView />}
-        {view === 'settings' && <SettingsView />}
-      </AppShell>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

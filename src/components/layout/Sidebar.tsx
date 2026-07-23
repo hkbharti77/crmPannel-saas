@@ -1,7 +1,7 @@
 import { NAV_ITEMS, type ViewId } from '@/lib/navigation';
 import { cx } from '@/lib/types';
 import { Logo } from '@/components/ui/primitives';
-import { ChevronLeft, X } from 'lucide-react';
+import { ChevronLeft, X, Shield } from 'lucide-react';
 
 export function Sidebar({
   current,
@@ -10,6 +10,7 @@ export function Sidebar({
   onToggleCollapse,
   mobileOpen,
   onCloseMobile,
+  onEnterAdmin,
 }: {
   current: ViewId;
   onNavigate: (id: ViewId) => void;
@@ -17,6 +18,7 @@ export function Sidebar({
   onToggleCollapse: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  onEnterAdmin: () => void;
 }) {
   return (
     <>
@@ -87,6 +89,21 @@ export function Sidebar({
             );
           })}
         </nav>
+
+        {/* Super Admin entry */}
+        <div className="border-t border-base-c p-3">
+          <button
+            onClick={onEnterAdmin}
+            className={cx(
+              'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+              collapsed && 'justify-center',
+              'bg-gradient-to-br from-rose-500/10 to-orange-500/10 text-rose-600 hover:from-rose-500/20 hover:to-orange-500/20 dark:text-rose-400',
+            )}
+          >
+            <Shield className="h-[18px] w-[18px] shrink-0" />
+            {!collapsed && <span>Super Admin</span>}
+          </button>
+        </div>
 
         <div className="hidden border-t border-base-c p-3 lg:block">
           <button
