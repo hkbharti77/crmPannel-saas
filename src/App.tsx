@@ -7,6 +7,7 @@ import { ChatRoomView } from '@/components/chatroom/ChatRoomView';
 import { PipelineView } from '@/components/pipeline/PipelineView';
 import { LeadDetailView } from '@/components/leaddetail/LeadDetailView';
 import { AppointmentsView } from '@/components/appointments/AppointmentsView';
+import { BookingView } from '@/components/booking/BookingView';
 import { GlassCard } from '@/components/ui/primitives';
 import type { ViewId } from '@/lib/navigation';
 import { Construction } from 'lucide-react';
@@ -35,7 +36,7 @@ const VIEWS: Record<ViewId, { label: string; built: boolean }> = {
   pipeline: { label: 'Pipeline', built: true },
   leaddetail: { label: 'Lead Detail', built: true },
   appointments: { label: 'Appointments', built: true },
-  booking: { label: 'Booking', built: false },
+  booking: { label: 'Booking', built: true },
   tickets: { label: 'Tickets', built: false },
   emails: { label: 'Emails', built: false },
   settings: { label: 'Settings', built: false },
@@ -60,6 +61,8 @@ export default function App() {
           <LeadDetailView onBack={() => setView('pipeline')} />
         ) : meta.built && view === 'appointments' ? (
           <AppointmentsView />
+        ) : meta.built && view === 'booking' ? (
+          <BookingView />
         ) : (
           <Placeholder label={meta.label} />
         )}
