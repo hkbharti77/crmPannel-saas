@@ -10,6 +10,7 @@ import { AppointmentsView } from '@/components/appointments/AppointmentsView';
 import { BookingView } from '@/components/booking/BookingView';
 import { TicketsView } from '@/components/tickets/TicketsView';
 import { EmailsView } from '@/components/emails/EmailsView';
+import { SettingsView } from '@/components/settings/SettingsView';
 import { GlassCard } from '@/components/ui/primitives';
 import type { ViewId } from '@/lib/navigation';
 import { Construction } from 'lucide-react';
@@ -41,7 +42,7 @@ const VIEWS: Record<ViewId, { label: string; built: boolean }> = {
   booking: { label: 'Booking', built: true },
   tickets: { label: 'Tickets', built: true },
   emails: { label: 'Emails', built: true },
-  settings: { label: 'Settings', built: false },
+  settings: { label: 'Settings', built: true },
 };
 
 export default function App() {
@@ -69,6 +70,8 @@ export default function App() {
           <TicketsView />
         ) : meta.built && view === 'emails' ? (
           <EmailsView />
+        ) : meta.built && view === 'settings' ? (
+          <SettingsView />
         ) : (
           <Placeholder label={meta.label} />
         )}
