@@ -8,6 +8,7 @@ const TITLES: Record<ViewId, string> = {
   inbox: 'Inbox',
   chatroom: 'Chat Room',
   pipeline: 'Pipeline',
+  broadcasts: 'Broadcasts',
   leaddetail: 'Lead Detail',
   appointments: 'Appointments',
   booking: 'Booking',

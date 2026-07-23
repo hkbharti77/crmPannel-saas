@@ -5,6 +5,7 @@ import { DashboardView } from '@/components/dashboard/DashboardView';
 import { InboxView } from '@/components/inbox/InboxView';
 import { ChatRoomView } from '@/components/chatroom/ChatRoomView';
 import { PipelineView } from '@/components/pipeline/PipelineView';
+import { BroadcastsView } from '@/components/broadcasts/BroadcastsView';
 import { LeadDetailView } from '@/components/leaddetail/LeadDetailView';
 import { AppointmentsView } from '@/components/appointments/AppointmentsView';
 import { BookingView } from '@/components/booking/BookingView';
@@ -37,6 +38,7 @@ const VIEWS: Record<ViewId, { label: string; built: boolean }> = {
   inbox: { label: 'Inbox', built: true },
   chatroom: { label: 'Chat Room', built: true },
   pipeline: { label: 'Pipeline', built: true },
+  broadcasts: { label: 'Broadcasts', built: true },
   leaddetail: { label: 'Lead Detail', built: true },
   appointments: { label: 'Appointments', built: true },
   booking: { label: 'Booking', built: true },
@@ -60,6 +62,8 @@ export default function App() {
           <ChatRoomView onBack={() => setView('inbox')} />
         ) : meta.built && view === 'pipeline' ? (
           <PipelineView onOpenLead={() => setView('leaddetail')} />
+        ) : meta.built && view === 'broadcasts' ? (
+          <BroadcastsView />
         ) : meta.built && view === 'leaddetail' ? (
           <LeadDetailView onBack={() => setView('pipeline')} />
         ) : meta.built && view === 'appointments' ? (
