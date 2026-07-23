@@ -12,73 +12,64 @@ import { BookingView } from '@/components/booking/BookingView';
 import { TicketsView } from '@/components/tickets/TicketsView';
 import { EmailsView } from '@/components/emails/EmailsView';
 import { SettingsView } from '@/components/settings/SettingsView';
-import { GlassCard } from '@/components/ui/primitives';
 import type { ViewId } from '@/lib/navigation';
-import { Construction } from 'lucide-react';
-
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="mx-auto max-w-3xl p-4 lg:p-8">
-      <GlassCard className="flex flex-col items-center justify-center p-16 text-center">
-        <div className="grid h-14 w-14 place-items-center rounded-xl2 bg-gradient-accent-soft">
-          <Construction className="h-7 w-7 text-primary-600 dark:text-primary-400" />
-        </div>
-        <h3 className="mt-4 text-lg font-semibold text-primary-c">{label}</h3>
-        <p className="mt-1 max-w-sm text-sm text-secondary-c">
-          This screen is part of the upcoming build stages. Reply with the next
-          stage number to continue.
-        </p>
-      </GlassCard>
-    </div>
-  );
-}
-
-const VIEWS: Record<ViewId, { label: string; built: boolean }> = {
-  dashboard: { label: 'Dashboard', built: true },
-  inbox: { label: 'Inbox', built: true },
-  chatroom: { label: 'Chat Room', built: true },
-  pipeline: { label: 'Pipeline', built: true },
-  broadcasts: { label: 'Broadcasts', built: true },
-  leaddetail: { label: 'Lead Detail', built: true },
-  appointments: { label: 'Appointments', built: true },
-  booking: { label: 'Booking', built: true },
-  tickets: { label: 'Tickets', built: true },
-  emails: { label: 'Emails', built: true },
-  settings: { label: 'Settings', built: true },
-};
+import { AdminShell } from '@/components/admin/AdminShell';
+import { AdminOverview } from '@/components/admin/pages/AdminOverview';
+import { AdminTenants } from '@/components/admin/pages/AdminTenants';
+import { AdminAnalytics } from '@/components/admin/pages/AdminAnalytics';
+import { AdminHealth } from '@/components/admin/pages/AdminHealth';
+import { AdminAudit } from '@/components/admin/pages/AdminAudit';
+import { AdminTickets } from '@/components/admin/pages/AdminTickets';
+import { AdminSubscriptions } from '@/components/admin/pages/AdminSubscriptions';
+import { AdminUsers } from '@/components/admin/pages/AdminUsers';
+import { AdminSearch } from '@/components/admin/pages/AdminSearch';
+import { AdminSettings } from '@/components/admin/pages/AdminSettings';
+import { AdminTemplates } from '@/components/admin/pages/AdminTemplates';
+import type { AdminViewId } from '@/lib/adminNavigation';
 
 export default function App() {
+  const [mode, setMode] = useState<'crm' | 'admin'>('crm');
   const [view, setView] = useState<ViewId>('dashboard');
-  const meta = VIEWS[view];
+  const [adminView, setAdminView] = useState<AdminViewId>('overview');
+
+  if (mode === 'admin') {
+    return (
+      <ThemeProvider>
+        <AdminShell
+          current={adminView}
+          onNavigate={setAdminView}
+          onExitAdmin={() => setMode('crm')}
+        >
+          {adminView === 'overview' && <AdminOverview onNavigate={(v) => setAdminView(v)} />}
+          {adminView === 'tenants' && <AdminTenants />}
+          {adminView === 'analytics' && <AdminAnalytics />}
+          {adminView === 'health' && <AdminHealth />}
+          {adminView === 'audit' && <AdminAudit />}
+          {adminView === 'tickets' && <AdminTickets />}
+          {adminView === 'subscriptions' && <AdminSubscriptions />}
+          {adminView === 'users' && <AdminUsers />}
+          {adminView === 'search' && <AdminSearch />}
+          {adminView === 'settings' && <AdminSettings />}
+          {adminView === 'templates' && <AdminTemplates />}
+        </AdminShell>
+      </ThemeProvider>
+    );
+  }
 
   return (
     <ThemeProvider>
-      <AppShell current={view} onNavigate={setView}>
-        {meta.built && view === 'dashboard' ? (
-          <DashboardView onNavigate={(v) => setView(v as ViewId)} />
-        ) : meta.built && view === 'inbox' ? (
-          <InboxView onOpenChat={() => setView('chatroom')} />
-        ) : meta.built && view === 'chatroom' ? (
-          <ChatRoomView onBack={() => setView('inbox')} />
-        ) : meta.built && view === 'pipeline' ? (
-          <PipelineView onOpenLead={() => setView('leaddetail')} />
-        ) : meta.built && view === 'broadcasts' ? (
-          <BroadcastsView />
-        ) : meta.built && view === 'leaddetail' ? (
-          <LeadDetailView onBack={() => setView('pipeline')} />
-        ) : meta.built && view === 'appointments' ? (
-          <AppointmentsView />
-        ) : meta.built && view === 'booking' ? (
-          <BookingView />
-        ) : meta.built && view === 'tickets' ? (
-          <TicketsView />
-        ) : meta.built && view === 'emails' ? (
-          <EmailsView />
-        ) : meta.built && view === 'settings' ? (
-          <SettingsView />
-        ) : (
-          <Placeholder label={meta.label} />
-        )}
+      <AppShell current={view} onNavigate={setView} onEnterAdmin={() => setMode('admin')}>
+        {view === 'dashboard' && <DashboardView onNavigate={(v) => setView(v as ViewId)} />}
+        {view === 'inbox' && <InboxView onOpenChat={() => setView('chatroom')} />}
+        {view === 'chatroom' && <ChatRoomView onBack={() => setView('inbox')} />}
+        {view === 'pipeline' && <PipelineView onOpenLead={() => setView('leaddetail')} />}
+        {view === 'broadcasts' && <BroadcastsView />}
+        {view === 'leaddetail' && <LeadDetailView onBack={() => setView('pipeline')} />}
+        {view === 'appointments' && <AppointmentsView />}
+        {view === 'booking' && <BookingView />}
+        {view === 'tickets' && <TicketsView />}
+        {view === 'emails' && <EmailsView />}
+        {view === 'settings' && <SettingsView />}
       </AppShell>
     </ThemeProvider>
   );
