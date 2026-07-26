@@ -16,6 +16,9 @@ const TITLES: Record<ViewId, string> = {
   booking: 'Booking',
   tickets: 'Tickets',
   emails: 'Emails',
+  properties: 'Properties',
+  reports: 'Reports',
+  team: 'Team',
   settings: 'Settings',
 };
 

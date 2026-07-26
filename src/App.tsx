@@ -15,6 +15,9 @@ import { BookingView } from '@/components/booking/BookingView';
 import { TicketsView } from '@/components/tickets/TicketsView';
 import { EmailsView } from '@/components/emails/EmailsView';
 import { SettingsView } from '@/components/settings/SettingsView';
+import { PropertiesView } from '@/components/properties/PropertiesView';
+import { ReportsView } from '@/components/reports/ReportsView';
+import { TeamView } from '@/components/team/TeamView';
 import type { ViewId } from '@/lib/navigation';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { AdminOverview } from '@/components/admin/pages/AdminOverview';
@@ -83,6 +86,9 @@ function AppContent() {
       {view === 'booking' && <BookingView />}
       {view === 'tickets' && <TicketsView />}
       {view === 'emails' && <EmailsView />}
+      {view === 'properties' && <PropertiesView />}
+      {view === 'reports' && <ReportsView />}
+      {view === 'team' && <TeamView />}
       {view === 'settings' && <SettingsView />}
     </AppShell>
   );
