@@ -1,15 +1,21 @@
-import { useState, useMemo } from 'react';
-import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { TicketStatus, TicketPriority } from '@/lib/types';
 import {
-  TICKETS,
   STATUS_META,
   PRIORITY_META,
   CATEGORY_META,
   type Ticket,
   type TicketCategory,
 } from './ticketData';
+import {
+  fetchTickets,
+  createTicket as apiCreateTicket,
+  updateTicketStatus as apiUpdateTicketStatus,
+  addTicketComment as apiAddTicketComment,
+  type TicketDTO,
+} from '@/lib/ticketsApi';
 import {
   Search,
   Plus,
@@ -24,11 +30,12 @@ import {
   AlertCircle,
   Clock,
   UserCheck,
-  ChevronRight,
   Filter,
   Inbox,
   CheckCircle2,
   Sparkles,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 
 const CATEGORY_ICONS: Record<string, typeof Cog> = {
@@ -42,13 +49,82 @@ const CATEGORY_ICONS: Record<string, typeof Cog> = {
 type FilterStatus = TicketStatus | 'ALL';
 type FilterPriority = TicketPriority | 'ALL';
 
+function mapDtoToTicket(dto: TicketDTO): Ticket {
+  const cat = (dto.category?.toLowerCase() || 'technical') as TicketCategory;
+  const validCategories: TicketCategory[] = ['technical', 'billing', 'general', 'feature_request', 'bug'];
+  const finalCat = validCategories.includes(cat) ? cat : 'technical';
+
+  const comments = (dto.comments || []).map((c, idx) => ({
+    id: c.id || `c-${idx}`,
+    author: c.authorName || 'User',
+    isAgent: c.authorRole === 'AGENT' || c.authorRole === 'ADMIN',
+    text: c.message,
+    time: c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently',
+  }));
+
+  if (comments.length === 0 && dto.description) {
+    comments.push({
+      id: 'c-0',
+      author: dto.submitterName || 'Requester',
+      isAgent: false,
+      text: dto.description,
+      time: dto.createdAtHuman || 'Recently',
+    });
+  }
+
+  return {
+    id: dto.id,
+    subject: dto.subject,
+    description: dto.description,
+    category: finalCat,
+    status: dto.status || 'OPEN',
+    priority: dto.priority || 'MEDIUM',
+    requester: dto.submitterName || dto.contactName || 'Customer',
+    requesterEmail: dto.submitterEmail || 'N/A',
+    assignedTo: dto.assignedToName || 'Unassigned',
+    createdAt: dto.createdAtHuman || (dto.createdAt ? new Date(dto.createdAt).toLocaleDateString() : 'Recently'),
+    updatedAt: dto.createdAtHuman || 'Recently',
+    comments,
+  };
+}
+
 export function TicketsView() {
-  const [tickets, setTickets] = useState<Ticket[]>(TICKETS);
-  const [selectedId, setSelectedId] = useState<string | null>(TICKETS[0]?.id ?? null);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('ALL');
   const [priorityFilter, setPriorityFilter] = useState<FilterPriority>('ALL');
   const [showCreate, setShowCreate] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const loadTickets = useCallback(async () => {
+    setLoading(true);
+    setApiError(null);
+    const res = await fetchTickets({
+      status: statusFilter !== 'ALL' ? statusFilter : undefined,
+      search: search.trim() || undefined,
+    });
+
+    if (res.error) {
+      setApiError(res.error);
+      setTickets([]);
+      setSelectedId(null);
+    } else if (res.data) {
+      const mapped = res.data.map(mapDtoToTicket);
+      setTickets(mapped);
+      if (mapped.length > 0) {
+        setSelectedId((prev) => (prev && mapped.some((t) => t.id === prev) ? prev : mapped[0].id));
+      } else {
+        setSelectedId(null);
+      }
+    }
+    setLoading(false);
+  }, [statusFilter, search]);
+
+  useEffect(() => {
+    loadTickets();
+  }, [loadTickets]);
 
   const filtered = useMemo(() => {
     return tickets.filter((t) => {
@@ -65,40 +141,58 @@ export function TicketsView() {
 
   const selected = tickets.find((t) => t.id === selectedId) ?? null;
 
-  const handleCreate = (data: { subject: string; description: string; category: TicketCategory; priority: TicketPriority; requester: string; requesterEmail: string }) => {
-    const id = `TK-${String(tickets.length + 1).padStart(3, '0')}`;
-    const newTicket: Ticket = {
-      ...data,
-      id,
-      status: 'OPEN',
-      assignedTo: 'Unassigned',
-      createdAt: 'Just now',
-      updatedAt: 'Just now',
-      comments: [
-        { id: 'c1', author: data.requester, isAgent: false, text: data.description, time: 'Just now' },
-      ],
-    };
-    setTickets((prev) => [newTicket, ...prev]);
-    setSelectedId(id);
-    setShowCreate(false);
+  const handleCreate = async (data: {
+    subject: string;
+    description: string;
+    category: TicketCategory;
+    priority: TicketPriority;
+    requester: string;
+    requesterEmail: string;
+  }) => {
+    const res = await apiCreateTicket({
+      subject: data.subject,
+      description: data.description,
+      category: data.category,
+      priority: data.priority,
+      submitterName: data.requester,
+      submitterEmail: data.requesterEmail,
+    });
+
+    if (res.error) {
+      alert(`Failed to create ticket: ${res.error}`);
+      return;
+    }
+
+    if (res.data) {
+      const newTicket = mapDtoToTicket(res.data);
+      setTickets((prev) => [newTicket, ...prev]);
+      setSelectedId(newTicket.id);
+      setShowCreate(false);
+    }
   };
 
-  const handleAddComment = (ticketId: string, text: string) => {
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === ticketId
-          ? {
-              ...t,
-              updatedAt: 'Just now',
-              comments: [...t.comments, { id: `c${t.comments.length + 1}`, author: 'You', isAgent: true, text, time: 'Just now' }],
-            }
-          : t,
-      ),
-    );
+  const handleAddComment = async (ticketId: string, text: string) => {
+    const res = await apiAddTicketComment(ticketId, text);
+    if (res.error) {
+      alert(`Failed to add reply: ${res.error}`);
+      return;
+    }
+    if (res.data) {
+      const updated = mapDtoToTicket(res.data);
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)));
+    }
   };
 
-  const handleStatusChange = (ticketId: string, status: TicketStatus) => {
-    setTickets((prev) => prev.map((t) => (t.id === ticketId ? { ...t, status, updatedAt: 'Just now' } : t)));
+  const handleStatusChange = async (ticketId: string, status: TicketStatus) => {
+    const res = await apiUpdateTicketStatus(ticketId, status);
+    if (res.error) {
+      alert(`Failed to update status: ${res.error}`);
+      return;
+    }
+    if (res.data) {
+      const updated = mapDtoToTicket(res.data);
+      setTickets((prev) => prev.map((t) => (t.id === ticketId ? updated : t)));
+    }
   };
 
   return (
@@ -109,13 +203,23 @@ export function TicketsView() {
           <h2 className="text-xl font-bold tracking-tight text-primary-c">Support Tickets</h2>
           <p className="mt-0.5 text-sm text-secondary-c">Track and resolve issues, feature requests, and inquiries.</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
-        >
-          <Plus className="h-3.5 w-3.5" /> New Ticket
-        </button>
+        <div className="flex items-center gap-2">
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-primary-500" />}
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
+          >
+            <Plus className="h-3.5 w-3.5" /> New Ticket
+          </button>
+        </div>
       </div>
+
+      {apiError && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Backend API Error: {apiError}. Make sure you are logged in and backend is running.</span>
+        </div>
+      )}
 
       {/* Stats strip */}
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -174,7 +278,12 @@ export function TicketsView() {
 
           {/* Ticket list */}
           <div className="space-y-2 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
-            {filtered.length === 0 ? (
+            {loading && tickets.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+                <p className="mt-3 text-xs text-muted-c">Loading tickets from backend…</p>
+              </div>
+            ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Inbox className="h-10 w-10 text-muted-c/30" />
                 <p className="mt-3 text-sm text-muted-c">No tickets found</p>
@@ -203,7 +312,9 @@ export function TicketsView() {
           <GlassCard className="grid place-items-center py-20">
             <div className="text-center">
               <TicketIcon className="mx-auto h-12 w-12 text-muted-c/30" />
-              <p className="mt-3 text-sm text-muted-c">Select a ticket to view details</p>
+              <p className="mt-3 text-sm text-muted-c">
+                {tickets.length === 0 ? 'No tickets available. Click "+ New Ticket" to create one.' : 'Select a ticket to view details'}
+              </p>
             </div>
           </GlassCard>
         )}
@@ -219,16 +330,16 @@ export function TicketsView() {
 
 /* ─── Ticket List Item ─── */
 function TicketListItem({ ticket, selected, onClick }: { ticket: Ticket; selected: boolean; onClick: () => void }) {
-  const statusMeta = STATUS_META[ticket.status];
-  const priorityMeta = PRIORITY_META[ticket.priority];
-  const catMeta = CATEGORY_META[ticket.category];
+  const statusMeta = STATUS_META[ticket.status] || STATUS_META.OPEN;
+  const priorityMeta = PRIORITY_META[ticket.priority] || PRIORITY_META.MEDIUM;
+  const catMeta = CATEGORY_META[ticket.category] || CATEGORY_META.general;
   const CatIcon = CATEGORY_ICONS[catMeta.icon] ?? MessageCircle;
 
   return (
     <button
       onClick={onClick}
       className={cx(
-        'w-full rounded-xl2 border-l-4 border border-l-4 p-3 text-left transition-all',
+        'w-full rounded-xl2 border-l-4 border p-3 text-left transition-all',
         priorityMeta.ring,
         selected
           ? 'border-primary-500/30 bg-primary-500/5 shadow-soft'
@@ -236,9 +347,9 @@ function TicketListItem({ ticket, selected, onClick }: { ticket: Ticket; selecte
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5">
-          <CatIcon className="h-3.5 w-3.5 text-muted-c" />
-          <span className="text-[10px] font-bold text-muted-c">{ticket.id}</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <CatIcon className="h-3.5 w-3.5 shrink-0 text-muted-c" />
+          <span className="truncate text-[10px] font-bold text-muted-c">{ticket.id.length > 8 ? `${ticket.id.slice(0, 8)}…` : ticket.id}</span>
         </div>
         <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold', statusMeta.color)}>
           {statusMeta.label}
@@ -246,7 +357,7 @@ function TicketListItem({ ticket, selected, onClick }: { ticket: Ticket; selecte
       </div>
       <p className="mt-1.5 line-clamp-2 text-sm font-semibold text-primary-c">{ticket.subject}</p>
       <div className="mt-2 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 min-w-0">
           <Avatar name={ticket.requester} size={18} />
           <span className="truncate text-[10px] text-secondary-c">{ticket.requester}</span>
         </div>
@@ -275,9 +386,9 @@ function TicketDetail({
   onStatusChange: (status: TicketStatus) => void;
 }) {
   const [reply, setReply] = useState('');
-  const statusMeta = STATUS_META[ticket.status];
-  const priorityMeta = PRIORITY_META[ticket.priority];
-  const catMeta = CATEGORY_META[ticket.category];
+  const statusMeta = STATUS_META[ticket.status] || STATUS_META.OPEN;
+  const priorityMeta = PRIORITY_META[ticket.priority] || PRIORITY_META.MEDIUM;
+  const catMeta = CATEGORY_META[ticket.category] || CATEGORY_META.general;
   const CatIcon = CATEGORY_ICONS[catMeta.icon] ?? MessageCircle;
 
   const handleSend = () => {
@@ -294,7 +405,7 @@ function TicketDetail({
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               <CatIcon className="h-4 w-4 text-muted-c" />
-              <span className="text-xs font-bold text-muted-c">{ticket.id}</span>
+              <span className="text-xs font-bold text-muted-c">{ticket.id.length > 12 ? `${ticket.id.slice(0, 12)}…` : ticket.id}</span>
               <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold', statusMeta.color)}>
                 {statusMeta.label}
               </span>

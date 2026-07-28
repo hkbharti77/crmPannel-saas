@@ -3,51 +3,89 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { cx } from '@/lib/types';
 import {
-  Mail, Lock, User, Eye, EyeOff, ArrowRight, Sun, Moon,
-  Building2, MessageSquare, TrendingUp, Calendar, Shield,
+  Mail, KeyRound, User, ArrowRight, Sun, Moon,
+  Building2, MessageSquare, TrendingUp, Calendar, Shield, RefreshCw, Edit2
 } from 'lucide-react';
 
 type Mode = 'login' | 'signup';
 
 export function AuthScreen() {
-  const { signIn, signUp } = useAuth();
+  const { requestOtp, verifyOtp } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mode, setMode] = useState<Mode>('login');
+  const [step, setStep] = useState<1 | 2>(1); // 1 = Enter Email, 2 = Enter OTP
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
+    setInfoMessage(null);
 
-    if (mode === 'login') {
-      const { error } = await signIn(email, password);
-      if (error) setError(error);
-    } else {
-      if (name.trim().length < 2) {
-        setError('Please enter your full name');
-        setLoading(false);
-        return;
-      }
-      if (password.length < 6) {
-        setError('Password must be at least 6 characters');
-        setLoading(false);
-        return;
-      }
-      const { error } = await signUp(email, password, name);
-      if (error) setError(error);
+    if (!email || !email.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
     }
+
+    if (mode === 'signup' && name.trim().length < 2) {
+      setError('Please enter your full name');
+      return;
+    }
+
+    setLoading(true);
+    const { error, message } = await requestOtp(email);
     setLoading(false);
+
+    if (error) {
+      setError(error);
+    } else {
+      setStep(2);
+      setInfoMessage(message || 'A 6-digit verification code has been sent to your email.');
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!otp || !/^\d{6}$/.test(otp.trim())) {
+      setError('Please enter a valid 6-digit OTP code');
+      return;
+    }
+
+    setLoading(true);
+    const { error } = await verifyOtp(email, otp);
+    setLoading(false);
+
+    if (error) {
+      setError(error);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setError(null);
+    setInfoMessage(null);
+    setLoading(true);
+    const { error, message } = await requestOtp(email);
+    setLoading(false);
+
+    if (error) {
+      setError(error);
+    } else {
+      setInfoMessage(message || 'A new verification code has been sent to your email.');
+    }
   };
 
   const switchMode = (m: Mode) => {
     setMode(m);
+    setStep(1);
+    setOtp('');
     setError(null);
+    setInfoMessage(null);
   };
 
   return (
@@ -145,129 +183,180 @@ export function AuthScreen() {
           {/* Heading */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold tracking-tight text-primary-c">
-              {mode === 'login' ? 'Welcome back' : 'Create your account'}
+              {step === 1
+                ? mode === 'login' ? 'Welcome back' : 'Create your account'
+                : 'Enter verification code'}
             </h2>
             <p className="mt-1.5 text-sm text-secondary-c">
-              {mode === 'login'
-                ? 'Enter your credentials to access your dashboard'
-                : 'Start your 14-day free trial — no credit card required'}
+              {step === 1
+                ? mode === 'login'
+                  ? 'Sign in to access your CRM dashboard'
+                  : 'Start your 14-day free trial — no credit card required'
+                : `We sent a 6-digit code to ${email}`}
             </p>
           </div>
 
-          {/* Mode tabs */}
-          <div className="mb-6 flex rounded-xl2 border border-base-c bg-card-c p-1">
-            <button
-              onClick={() => switchMode('login')}
-              className={cx(
-                'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
-                mode === 'login'
-                  ? 'bg-gradient-accent text-white shadow-soft'
-                  : 'text-secondary-c hover:text-primary-c',
-              )}
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => switchMode('signup')}
-              className={cx(
-                'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
-                mode === 'signup'
-                  ? 'bg-gradient-accent text-white shadow-soft'
-                  : 'text-secondary-c hover:text-primary-c',
-              )}
-            >
-              Sign Up
-            </button>
-          </div>
+          {/* Mode tabs (only on Step 1) */}
+          {step === 1 && (
+            <div className="mb-6 flex rounded-xl2 border border-base-c bg-card-c p-1">
+              <button
+                onClick={() => switchMode('login')}
+                className={cx(
+                  'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
+                  mode === 'login'
+                    ? 'bg-gradient-accent text-white shadow-soft'
+                    : 'text-secondary-c hover:text-primary-c',
+                )}
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => switchMode('signup')}
+                className={cx(
+                  'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
+                  mode === 'signup'
+                    ? 'bg-gradient-accent text-white shadow-soft'
+                    : 'text-secondary-c hover:text-primary-c',
+                )}
+              >
+                Sign Up
+              </button>
+            </div>
+          )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === 'signup' && (
-              <InputField
-                icon={User}
-                label="Full Name"
-                type="text"
-                value={name}
-                onChange={setName}
-                placeholder="Arjun Kapoor"
-                autoComplete="name"
-              />
-            )}
-            <InputField
-              icon={Mail}
-              label="Email Address"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="you@example.com"
-              autoComplete="email"
-            />
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-secondary-c">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-c" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === 'signup' ? 'Min 6 characters' : '••••••••'}
-                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  className="form-input px-10"
+          {/* Messages */}
+          {infoMessage && (
+            <div className="mb-4 rounded-lg border border-primary-500/30 bg-primary-500/10 px-3 py-2.5 text-xs font-medium text-primary-600 dark:text-primary-400 animate-slide-down">
+              {infoMessage}
+            </div>
+          )}
+          {error && (
+            <div className="mb-4 rounded-lg border border-danger-500/30 bg-danger-500/5 px-3 py-2.5 text-xs font-medium text-danger-600 dark:text-danger-400 animate-slide-down">
+              {error}
+            </div>
+          )}
+
+          {/* STEP 1 FORM: Email / Name */}
+          {step === 1 && (
+            <form onSubmit={handleRequestOtp} className="space-y-4">
+              {mode === 'signup' && (
+                <InputField
+                  icon={User}
+                  label="Full Name"
+                  type="text"
+                  value={name}
+                  onChange={setName}
+                  placeholder="Arjun Kapoor"
+                  autoComplete="name"
                 />
+              )}
+              <InputField
+                icon={Mail}
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={setEmail}
+                placeholder="you@example.com"
+                autoComplete="email"
+              />
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl2 bg-gradient-accent py-3 text-sm font-semibold text-white shadow-soft transition-all hover:shadow-glow-blue disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <>
+                    Send Login Code
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+
+          {/* STEP 2 FORM: OTP Code */}
+          {step === 2 && (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="flex items-center justify-between text-xs text-secondary-c mb-1">
+                <span className="font-medium text-primary-c">{email}</span>
                 <button
                   type="button"
-                  onClick={() => setShowPassword((s) => !s)}
-                  className="absolute right-3 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-muted-c hover:text-primary-c"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-1 font-medium text-primary-600 hover:underline dark:text-primary-400"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  <Edit2 className="h-3 w-3" /> Edit Email
                 </button>
               </div>
-            </div>
 
-            {/* Error */}
-            {error && (
-              <div className="rounded-lg border border-danger-500/30 bg-danger-500/5 px-3 py-2.5 text-xs font-medium text-danger-600 dark:text-danger-400 animate-slide-down">
-                {error}
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-secondary-c">6-Digit OTP Code</label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-c" />
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="123456"
+                    className="form-input pl-10 tracking-widest font-mono text-base"
+                    required
+                    autoFocus
+                  />
+                </div>
               </div>
-            )}
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl2 bg-gradient-accent py-3 text-sm font-semibold text-white shadow-soft transition-all hover:shadow-glow-blue disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              ) : (
-                <>
-                  {mode === 'login' ? 'Sign In' : 'Create Account'}
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl2 bg-gradient-accent py-3 text-sm font-semibold text-white shadow-soft transition-all hover:shadow-glow-blue disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <>
+                    Verify & Enter Dashboard
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={loading}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-secondary-c hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" /> Resend Code
+                </button>
+              </div>
+            </form>
+          )}
 
           {/* Footer */}
-          <p className="mt-6 text-center text-xs text-muted-c">
-            {mode === 'login' ? (
-              <>
-                Don't have an account?{' '}
-                <button onClick={() => switchMode('signup')} className="font-semibold text-primary-600 hover:underline dark:text-primary-400">Sign up free</button>
-              </>
-            ) : (
-              <>
-                Already have an account?{' '}
-                <button onClick={() => switchMode('login')} className="font-semibold text-primary-600 hover:underline dark:text-primary-400">Sign in</button>
-              </>
-            )}
-          </p>
+          {step === 1 && (
+            <p className="mt-6 text-center text-xs text-muted-c">
+              {mode === 'login' ? (
+                <>
+                  Don't have an account?{' '}
+                  <button onClick={() => switchMode('signup')} className="font-semibold text-primary-600 hover:underline dark:text-primary-400">Sign up free</button>
+                </>
+              ) : (
+                <>
+                  Already have an account?{' '}
+                  <button onClick={() => switchMode('login')} className="font-semibold text-primary-600 hover:underline dark:text-primary-400">Sign in</button>
+                </>
+              )}
+            </p>
+          )}
 
           {/* Trust badge */}
           <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-muted-c">
             <Shield className="h-3.5 w-3.5" />
-            Secured by Supabase Auth
+            Secured by CRMLite REST Auth
           </div>
         </div>
       </div>

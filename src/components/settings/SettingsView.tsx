@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import {
   User, Shield, Globe, Users, CreditCard,
@@ -11,34 +11,30 @@ import {
 import { AccountProfilePanel } from './panels/AccountPanels';
 import { SecurityPanel } from './panels/AccountPanels';
 import { GoogleCalendarPanel } from './panels/AccountPanels';
-import { StaffManagementPanel } from './panels/AccountPanels';
 import { BillingPanel } from './panels/AccountPanels';
 import { CustomBrandingPanel } from './panels/AppearancePanels';
 import { DarkModePanel } from './panels/AppearancePanels';
 import { NotificationsPanel } from './panels/AppearancePanels';
-import { MetaIntegrationPanel } from './panels/ConfigPanels';
-import { WhatsAppTemplatesPanel } from './panels/ConfigPanels';
-import { MenuButtonsPanel } from './panels/ConfigPanels';
-import { MenuBuilderPanel } from './panels/ConfigPanels';
-import { ProductsServicesPanel } from './panels/ConfigPanels';
-import { FormFieldsPanel } from './panels/ConfigPanels';
-import { CustomSubMenusPanel } from './panels/ConfigPanels';
-import { EmailTemplatesPanel } from './panels/ConfigPanels';
-import { QuickResponsesPanel } from './panels/ConfigPanels';
-import { FlowCTAPanel } from './panels/ConfigPanels';
-import { KnowledgeBasePanel } from './panels/AiSystemPanels';
+import { MenuButtonsPanel } from './panels/MenuButtonsPanel';
+import { MenuBuilderPanel } from './panels/MenuBuilderPanel';
+import { ProductsServicesPanel } from './panels/ProductsServicesPanel';
+import { FormFieldsPanel } from './panels/FormFieldsPanel';
+import { CustomSubMenusPanel } from './panels/CustomSubMenusPanel';
+import { EmailTemplatesPanel } from './panels/EmailTemplatesPanel';
+import { QuickResponsesPanel } from './panels/QuickResponsesPanel';
+import { FlowCTAPanel } from './panels/FlowCTAPanel';
 import { SupportCategoriesPanel } from './panels/AiSystemPanels';
 import { SystemHealthPanel } from './panels/AiSystemPanels';
 import { NeedHelpPanel } from './panels/AiSystemPanels';
 
 export type SettingsSub =
-  | 'account-profile' | 'security' | 'google-calendar' | 'staff' | 'billing'
+  | 'account-profile' | 'security' | 'google-calendar' | 'billing'
   | 'branding' | 'dark-mode'
   | 'notifications'
-  | 'meta-integration' | 'wa-templates' | 'menu-buttons' | 'menu-builder'
+  | 'menu-buttons' | 'menu-builder'
   | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates'
   | 'quick-responses' | 'flow-cta'
-  | 'knowledge-base' | 'support-categories'
+  | 'support-categories'
   | 'system-health'
   | 'need-help';
 
@@ -62,7 +58,6 @@ const NAV: NavGroup[] = [
       { id: 'account-profile', label: 'Account Profile', desc: 'Manage your account details', icon: User },
       { id: 'security', label: 'Security & Privacy', desc: 'Password and authentication', icon: Shield },
       { id: 'google-calendar', label: 'Google Calendar & Meet', desc: 'Link Google account for online meetings', icon: Globe },
-      { id: 'staff', label: 'Staff Management', desc: 'Invite and manage employees', icon: Users },
       { id: 'billing', label: 'Subscription & Billing', desc: 'Manage limits and pricing plans', icon: CreditCard },
     ],
   },
@@ -82,8 +77,6 @@ const NAV: NavGroup[] = [
   {
     section: 'Configuration',
     items: [
-      { id: 'meta-integration', label: 'Meta Integration', desc: 'WhatsApp API credentials & Dual Connection Modes', icon: Plug },
-      { id: 'wa-templates', label: 'WhatsApp Template Builder', desc: 'Create HSM message templates & sync Meta directory', icon: FileText },
       { id: 'menu-buttons', label: 'Menu & Buttons', desc: 'Customize UI buttons', icon: LayoutList },
       { id: 'menu-builder', label: 'Menu Builder', desc: 'Customize the main sidebar cards', icon: LayoutList },
       { id: 'products', label: 'Products & Services', desc: 'Manage your catalog', icon: ShoppingBag },
@@ -97,7 +90,6 @@ const NAV: NavGroup[] = [
   {
     section: 'AI & Knowledge',
     items: [
-      { id: 'knowledge-base', label: 'Knowledge Base', desc: 'Train your RAG bot', icon: Brain },
       { id: 'support-categories', label: 'Support Categories', desc: 'WhatsApp support requests', icon: HelpCircle },
     ],
   },
@@ -119,13 +111,10 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'account-profile': AccountProfilePanel,
   'security': SecurityPanel,
   'google-calendar': GoogleCalendarPanel,
-  'staff': StaffManagementPanel,
   'billing': BillingPanel,
   'branding': CustomBrandingPanel,
   'dark-mode': DarkModePanel,
   'notifications': NotificationsPanel,
-  'meta-integration': MetaIntegrationPanel,
-  'wa-templates': WhatsAppTemplatesPanel,
   'menu-buttons': MenuButtonsPanel,
   'menu-builder': MenuBuilderPanel,
   'products': ProductsServicesPanel,
@@ -134,7 +123,6 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'email-templates': EmailTemplatesPanel,
   'quick-responses': QuickResponsesPanel,
   'flow-cta': FlowCTAPanel,
-  'knowledge-base': KnowledgeBasePanel,
   'support-categories': SupportCategoriesPanel,
   'system-health': SystemHealthPanel,
   'need-help': NeedHelpPanel,
@@ -143,6 +131,17 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
 export function SettingsView() {
   const [active, setActive] = useState<SettingsSub>('account-profile');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    const handleSwitchTab = (e: Event) => {
+      const customEvent = e as CustomEvent<SettingsSub>;
+      if (customEvent.detail && PANEL_MAP[customEvent.detail]) {
+        setActive(customEvent.detail);
+      }
+    };
+    window.addEventListener('switchSettingsTab', handleSwitchTab);
+    return () => window.removeEventListener('switchSettingsTab', handleSwitchTab);
+  }, []);
 
   const Panel = PANEL_MAP[active];
   const activeItem = NAV.flatMap((g) => g.items).find((i) => i.id === active)!;

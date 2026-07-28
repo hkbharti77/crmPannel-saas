@@ -1,7 +1,6 @@
 import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import type { LeadContext } from './chatData';
-import { CONVERSATION_SUMMARY } from './chatData';
+import type { ContactDTO } from '@/lib/messagesApi';
 import {
   Phone,
   Mail,
@@ -15,6 +14,7 @@ import {
   MessageSquare,
   Bot,
   Sparkles,
+  X,
 } from 'lucide-react';
 
 const STAGE_COLORS: Record<string, string> = {
@@ -33,67 +33,74 @@ const QUICK_ACTIONS = [
 ];
 
 export function LeadContextPanel({
-  lead,
+  contact,
   onClose,
 }: {
-  lead: LeadContext;
+  contact: ContactDTO | null;
   onClose?: () => void;
 }) {
+  const name = contact?.name || contact?.waId || 'WhatsApp Lead';
+  const phone = contact?.phone || contact?.waId || 'N/A';
+  const email = contact?.email || 'Not provided';
+  const source = contact?.source || 'WhatsApp Ingress';
+  const tags = contact?.tags || ['NEW'];
+  const stage = 'CONTACTED';
+  const botStatus = contact?.botPaused ? 'Paused (Manual)' : 'Active (Bot)';
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto scrollbar-thin">
+    <div className="flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-base-c p-4">
-        <h3 className="text-sm font-semibold text-primary-c">Lead Details</h3>
+      <div className="flex shrink-0 items-center justify-between border-b border-base-c px-3.5 py-2.5">
+        <h3 className="text-sm font-semibold text-primary-c">Contact Details</h3>
         {onClose && (
           <button
             onClick={onClose}
             className="grid h-7 w-7 place-items-center rounded-lg text-muted-c hover:text-primary-c xl:hidden"
             aria-label="Close panel"
           >
-            <X />
+            <X className="h-4 w-4" />
           </button>
         )}
       </div>
 
-      <div className="space-y-4 p-4">
+      {/* Body */}
+      <div className="flex-1 space-y-3 overflow-y-auto p-3 scrollbar-thin">
         {/* Profile */}
         <div className="flex flex-col items-center text-center">
-          <Avatar name={lead.name} size={72} />
-          <h4 className="mt-3 text-base font-bold text-primary-c">{lead.name}</h4>
-          <p className="text-xs text-muted-c">{lead.phone}</p>
-          <div className="mt-2 flex items-center gap-1.5">
-            <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-bold', STAGE_COLORS[lead.stage])}>
-              {lead.stage}
+          <Avatar name={name} size={56} />
+          <h4 className="mt-2 text-sm font-bold text-primary-c">{name}</h4>
+          <p className="text-xs text-muted-c">{phone}</p>
+          <div className="mt-1.5 flex items-center gap-1.5 flex-wrap justify-center">
+            <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold', STAGE_COLORS[stage])}>
+              {stage}
             </span>
-            {lead.tags.map((t) => (
-              <Badge key={t} variant={t === 'HOT' ? 'danger' : 'primary'}>{t}</Badge>
+            {tags.map((t) => (
+              <Badge key={t} variant={t === 'HOT' ? 'danger' : 'primary'} className="text-[10px] px-1.5 py-0.5">{t}</Badge>
             ))}
           </div>
         </div>
 
         {/* Contact info */}
-        <div className="space-y-2 rounded-xl2 border border-base-c p-3">
-          <InfoRow icon={Phone} label="Phone" value={lead.phone} />
-          <InfoRow icon={Mail} label="Email" value={lead.email} />
-          <InfoRow icon={MapPin} label="Source" value={lead.source} />
-          <InfoRow icon={TrendingUp} label="Budget" value={lead.budget} />
-          <InfoRow icon={Tag} label="Interest" value={lead.interest} />
-          <InfoRow icon={UserCheck} label="Assigned" value={lead.assignedTo} />
-          <InfoRow icon={Clock} label="Last activity" value={lead.lastActivity} />
+        <div className="space-y-2 rounded-xl border border-base-c p-2.5">
+          <InfoRow icon={Phone} label="Phone" value={phone} />
+          <InfoRow icon={Mail} label="Email" value={email} />
+          <InfoRow icon={MapPin} label="Source" value={source} />
+          <InfoRow icon={Bot} label="AI Bot Status" value={botStatus} />
+          <InfoRow icon={Clock} label="Last activity" value="Just now" />
         </div>
 
         {/* Quick actions */}
         <div>
-          <p className="mb-2 text-xs font-semibold text-muted-c">Quick Actions</p>
-          <div className="grid grid-cols-2 gap-2">
+          <p className="mb-1.5 text-[11px] font-semibold text-muted-c">Quick Actions</p>
+          <div className="grid grid-cols-2 gap-1.5">
             {QUICK_ACTIONS.map((a) => {
               const Icon = a.icon;
               return (
                 <button
                   key={a.label}
-                  className="flex flex-col items-center gap-1.5 rounded-xl2 border border-base-c p-3 text-center transition-all hover:border-primary-500/30 hover:shadow-soft"
+                  className="flex flex-col items-center gap-1 rounded-xl border border-base-c p-2 text-center transition-all hover:border-primary-500/30 hover:shadow-soft"
                 >
-                  <Icon className={cx('h-4 w-4', a.color)} />
+                  <Icon className={cx('h-3.5 w-3.5', a.color)} />
                   <span className="text-[10px] font-medium text-secondary-c">{a.label}</span>
                 </button>
               );
@@ -101,18 +108,16 @@ export function LeadContextPanel({
           </div>
         </div>
 
-        {/* AI Conversation Summary */}
-        <GlassCard className="p-4">
-          <div className="mb-3 flex items-center gap-1.5">
+        {/* Real Status Summary */}
+        <GlassCard className="p-3">
+          <div className="mb-2 flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5 text-secondary-600 dark:text-secondary-400" />
-            <span className="text-xs font-semibold text-primary-c">AI Summary</span>
+            <span className="text-xs font-semibold text-primary-c">Live Status</span>
           </div>
-          <div className="space-y-2.5">
-            <SummaryRow icon={TrendingUp} label="Sentiment" value={CONVERSATION_SUMMARY.sentiment} />
-            <SummaryRow icon={MessageSquare} label="Intent" value={CONVERSATION_SUMMARY.intent} />
-            <SummaryRow icon={Bot} label="Bot resolved" value={`${CONVERSATION_SUMMARY.botResolved} queries`} />
-            <SummaryRow icon={Clock} label="Avg response" value={CONVERSATION_SUMMARY.avgResponseTime} />
-            <SummaryRow icon={MessageSquare} label="Total messages" value={String(CONVERSATION_SUMMARY.totalMessages)} />
+          <div className="space-y-2">
+            <SummaryRow icon={TrendingUp} label="Channel" value="WhatsApp Business" />
+            <SummaryRow icon={MessageSquare} label="Status" value="Connected" />
+            <SummaryRow icon={Bot} label="Auto-Response" value={contact?.botPaused ? 'Disabled' : 'Enabled'} />
           </div>
         </GlassCard>
       </div>
@@ -130,10 +135,10 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-2">
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-c" />
       <span className="text-[11px] text-muted-c">{label}</span>
-      <span className="ml-auto truncate text-xs font-medium text-primary-c">{value}</span>
+      <span className="ml-auto truncate text-xs font-medium text-primary-c max-w-[120px] text-right">{value}</span>
     </div>
   );
 }
@@ -155,5 +160,3 @@ function SummaryRow({
     </div>
   );
 }
-
-import { X } from 'lucide-react';

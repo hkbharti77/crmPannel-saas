@@ -1,49 +1,120 @@
-import { useState, useMemo } from 'react';
-import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
-  TEMPLATES,
-  AUDIENCES,
-  CAMPAIGNS,
   CAMPAIGN_STATUS_META,
   TEMPLATE_CATEGORY_META,
   type EmailTemplate,
-  type Audience,
   type Campaign,
 } from './emailData';
+import {
+  fetchEmailCampaigns,
+  sendEmailCampaign,
+  fetchEmailTemplates,
+  generateAiEmailContent,
+  type CustomEmailDTO,
+  type EmailTemplateDTO,
+  type RecipientMode,
+} from '@/lib/emailsApi';
 import {
   Mail,
   Plus,
   Search,
   Send,
-  Eye,
   Clock,
   Users,
   MailOpen,
   MousePointerClick,
   Sparkles,
   ChevronRight,
-  ChevronLeft,
   X,
   FileText,
-  CheckCircle2,
-  Trash2,
   Copy,
   Megaphone,
   TrendingUp,
   Inbox,
+  Loader2,
+  AlertTriangle,
+  Tag,
+  Upload,
+  Download,
+  Info,
 } from 'lucide-react';
 
 type Tab = 'campaigns' | 'compose';
-type ComposeStep = 1 | 2 | 3;
 
-const COMPOSE_STEPS = ['Template', 'Content', 'Audience'];
+function mapDtoToCampaign(dto: CustomEmailDTO): Campaign {
+  let status: Campaign['status'] = 'sent';
+  if (dto.status === 'DRAFT') status = 'draft';
+  else if (dto.status === 'SENDING') status = 'sending';
+  else if (dto.status === 'FAILED') status = 'draft';
+
+  return {
+    id: dto.id,
+    name: dto.subject,
+    subject: dto.subject,
+    status,
+    recipients: dto.totalSent || 0,
+    openRate: 0,
+    clickRate: 0,
+    sentAt: dto.sentAt
+      ? new Date(dto.sentAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+      : dto.createdAt
+      ? new Date(dto.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+      : 'Just now',
+    template: dto.recipientMode ? `Mode: ${dto.recipientMode}` : 'Custom Email',
+  };
+}
+
+function mapDtoToTemplate(dto: EmailTemplateDTO): EmailTemplate {
+  const validCategories: EmailTemplate['category'][] = ['follow_up', 'welcome', 'promotion', 'announcement', 'nurture'];
+  const catStr = (dto.interestCategory?.toLowerCase() || 'follow_up') as EmailTemplate['category'];
+  const category = validCategories.includes(catStr) ? catStr : 'follow_up';
+
+  return {
+    id: dto.id,
+    name: dto.name,
+    subject: dto.subject,
+    body: dto.content,
+    category,
+  };
+}
 
 export function EmailsView() {
   const [tab, setTab] = useState<Tab>('campaigns');
-  const [campaigns, setCampaigns] = useState<Campaign[]>(CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [search, setSearch] = useState('');
   const [composeOpen, setComposeOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setApiError(null);
+
+    const [cmpRes, tplRes] = await Promise.all([
+      fetchEmailCampaigns(0, 100),
+      fetchEmailTemplates(),
+    ]);
+
+    if (cmpRes.error) {
+      setApiError(cmpRes.error);
+      setCampaigns([]);
+    } else if (cmpRes.data) {
+      setCampaigns(cmpRes.data.content.map(mapDtoToCampaign));
+    }
+
+    if (tplRes.data) {
+      setTemplates(tplRes.data.map(mapDtoToTemplate));
+    }
+
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const filtered = useMemo(() => {
     return campaigns.filter(
@@ -58,19 +129,8 @@ export function EmailsView() {
     : 0;
   const scheduled = campaigns.filter((c) => c.status === 'scheduled').length;
 
-  const handleCampaignSent = (data: { name: string; subject: string; recipients: number; template: string }) => {
-    const newCampaign: Campaign = {
-      id: `cmp${campaigns.length + 1}`,
-      name: data.name,
-      subject: data.subject,
-      status: 'sent',
-      recipients: data.recipients,
-      openRate: 0,
-      clickRate: 0,
-      sentAt: 'Just now',
-      template: data.template,
-    };
-    setCampaigns((prev) => [newCampaign, ...prev]);
+  const handleCampaignSent = () => {
+    loadData();
   };
 
   return (
@@ -81,13 +141,23 @@ export function EmailsView() {
           <h2 className="text-xl font-bold tracking-tight text-primary-c">Email Campaigns</h2>
           <p className="mt-0.5 text-sm text-secondary-c">Create, send, and track email campaigns to your leads.</p>
         </div>
-        <button
-          onClick={() => setComposeOpen(true)}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
-        >
-          <Plus className="h-3.5 w-3.5" /> New Campaign
-        </button>
+        <div className="flex items-center gap-2">
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-primary-500" />}
+          <button
+            onClick={() => setComposeOpen(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
+          >
+            <Plus className="h-3.5 w-3.5" /> New Campaign
+          </button>
+        </div>
       </div>
+
+      {apiError && (
+        <div className="flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Backend Connection Error: {apiError}. Make sure backend is running and authenticated.</span>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -100,19 +170,19 @@ export function EmailsView() {
       {/* Tabs */}
       <div className="flex items-center gap-1 rounded-xl2 border border-base-c bg-card-c p-1">
         <TabButton active={tab === 'campaigns'} onClick={() => setTab('campaigns')} icon={Inbox} label="Campaigns" count={campaigns.length} />
-        <TabButton active={tab === 'compose'} onClick={() => setTab('compose')} icon={FileText} label="Templates" count={TEMPLATES.length} />
+        <TabButton active={tab === 'compose'} onClick={() => setTab('compose')} icon={FileText} label="Templates" count={templates.length} />
       </div>
 
       {/* Content */}
       {tab === 'campaigns' ? (
-        <CampaignList campaigns={filtered} search={search} setSearch={setSearch} />
+        <CampaignList campaigns={filtered} search={search} setSearch={setSearch} loading={loading} />
       ) : (
-        <TemplateGallery />
+        <TemplateGallery templates={templates} loading={loading} />
       )}
 
-      {/* Compose wizard */}
+      {/* Compose Email Modal */}
       {composeOpen && (
-        <ComposeWizard
+        <ComposeEmailModal
           onClose={() => setComposeOpen(false)}
           onSent={handleCampaignSent}
         />
@@ -156,7 +226,7 @@ function TabButton({ active, onClick, icon: Icon, label, count }: { active: bool
 }
 
 /* ─── Campaign List ─── */
-function CampaignList({ campaigns, search, setSearch }: { campaigns: Campaign[]; search: string; setSearch: (v: string) => void }) {
+function CampaignList({ campaigns, search, setSearch, loading }: { campaigns: Campaign[]; search: string; setSearch: (v: string) => void; loading: boolean }) {
   return (
     <div className="space-y-3">
       {/* Search */}
@@ -170,10 +240,15 @@ function CampaignList({ campaigns, search, setSearch }: { campaigns: Campaign[];
         />
       </div>
 
-      {campaigns.length === 0 ? (
+      {loading && campaigns.length === 0 ? (
+        <GlassCard className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+          <p className="mt-3 text-xs text-muted-c">Loading email campaigns from backend…</p>
+        </GlassCard>
+      ) : campaigns.length === 0 ? (
         <GlassCard className="flex flex-col items-center justify-center py-12">
           <Inbox className="h-10 w-10 text-muted-c/30" />
-          <p className="mt-3 text-sm text-muted-c">No campaigns found</p>
+          <p className="mt-3 text-sm text-muted-c">No email campaigns found</p>
         </GlassCard>
       ) : (
         campaigns.map((c) => (
@@ -185,7 +260,7 @@ function CampaignList({ campaigns, search, setSearch }: { campaigns: Campaign[];
 }
 
 function CampaignRow({ campaign }: { campaign: Campaign }) {
-  const meta = CAMPAIGN_STATUS_META[campaign.status];
+  const meta = CAMPAIGN_STATUS_META[campaign.status] || CAMPAIGN_STATUS_META.sent;
   return (
     <GlassCard className="p-4 transition-all hover:shadow-soft">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -238,11 +313,29 @@ function Metric({ icon: Icon, label, value, highlight }: { icon: typeof Mail; la
 }
 
 /* ─── Template Gallery ─── */
-function TemplateGallery() {
+function TemplateGallery({ templates, loading }: { templates: EmailTemplate[]; loading: boolean }) {
+  if (loading && templates.length === 0) {
+    return (
+      <GlassCard className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+        <p className="mt-3 text-xs text-muted-c">Loading email templates…</p>
+      </GlassCard>
+    );
+  }
+
+  if (templates.length === 0) {
+    return (
+      <GlassCard className="flex flex-col items-center justify-center py-12">
+        <FileText className="h-10 w-10 text-muted-c/30" />
+        <p className="mt-3 text-sm text-muted-c">No email templates found</p>
+      </GlassCard>
+    );
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      {TEMPLATES.map((tpl) => {
-        const catMeta = TEMPLATE_CATEGORY_META[tpl.category];
+      {templates.map((tpl) => {
+        const catMeta = TEMPLATE_CATEGORY_META[tpl.category] || TEMPLATE_CATEGORY_META.follow_up;
         return (
           <GlassCard key={tpl.id} className="group p-4 transition-all hover:shadow-soft">
             <div className="flex items-start justify-between gap-2">
@@ -270,51 +363,119 @@ function TemplateGallery() {
   );
 }
 
-/* ─── Compose Wizard ─── */
-function ComposeWizard({
+/* ─── Compose Email Modal (Matches User Screenshot UI 1-to-1) ─── */
+function ComposeEmailModal({
   onClose,
   onSent,
 }: {
   onClose: () => void;
-  onSent: (data: { name: string; subject: string; recipients: number; template: string }) => void;
+  onSent: () => void;
 }) {
-  const [step, setStep] = useState<ComposeStep>(1);
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [aiPrompt, setAiPrompt] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
-  const [campaignName, setCampaignName] = useState('');
-  const [selectedAudience, setSelectedAudience] = useState<Audience | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
+  const [ctaLabel, setCtaLabel] = useState('');
+  const [ctaUrl, setCtaUrl] = useState('');
+  const [recipientMode, setRecipientMode] = useState<RecipientMode>('ALL');
+  const [tagsFilter, setTagsFilter] = useState('');
+  const [manualRecipients, setManualRecipients] = useState('');
 
-  const handleSelectTemplate = (tpl: EmailTemplate) => {
-    setSelectedTemplate(tpl);
-    setSubject(tpl.subject);
-    setBody(tpl.body);
-    setStep(2);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleWriteAi = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    setAiError(null);
+    const res = await generateAiEmailContent(aiPrompt.trim());
+    setAiLoading(false);
+
+    if (res.error) {
+      setAiError(res.error);
+    } else if (res.data) {
+      if (res.data.subject) setSubject(res.data.subject);
+      if (res.data.body) setBody(res.data.body);
+      else if ((res.data as any).text) setBody((res.data as any).text);
+      if ((res.data as any).ctaLabel) setCtaLabel((res.data as any).ctaLabel);
+      if ((res.data as any).ctaUrl) setCtaUrl((res.data as any).ctaUrl);
+    }
   };
 
-  const canProceed = () => {
-    if (step === 2) return subject.trim().length > 0 && body.trim().length > 0 && campaignName.trim().length > 0;
-    if (step === 3) return !!selectedAudience;
-    return true;
+  const handleDownloadTemplate = () => {
+    const csvContent = 'data:text/csv;charset=utf-8,Name,Email\nJohn Doe,john@example.com\nJane Smith,jane@example.com';
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'email_recipients_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleSend = () => {
-    if (!selectedTemplate || !selectedAudience || !campaignName.trim()) return;
-    onSent({
-      name: campaignName.trim(),
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        const emails: string[] = [];
+        lines.forEach((line) => {
+          const parts = line.split(',');
+          const emailCandidate = parts[parts.length - 1]?.trim();
+          if (emailCandidate && emailCandidate.includes('@')) {
+            emails.push(emailCandidate);
+          }
+        });
+        if (emails.length > 0) {
+          setManualRecipients((prev) => (prev ? `${prev}, ${emails.join(', ')}` : emails.join(', ')));
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const canSubmit = subject.trim().length > 0 && body.trim().length > 0 && (
+    recipientMode === 'ALL' ||
+    (recipientMode === 'TAGGED' && tagsFilter.trim().length > 0) ||
+    (recipientMode === 'MANUAL' && manualRecipients.trim().length > 0)
+  );
+
+  const handleSubmit = async () => {
+    if (!canSubmit) return;
+    setSending(true);
+
+    const res = await sendEmailCampaign({
       subject: subject.trim(),
-      recipients: selectedAudience.count,
-      template: selectedTemplate.name,
+      body: body.trim(),
+      ctaLabel: ctaLabel.trim() || undefined,
+      ctaUrl: ctaUrl.trim() || undefined,
+      recipientMode,
+      tagsFilter: recipientMode === 'TAGGED' ? tagsFilter.trim() : undefined,
+      manualRecipients: recipientMode === 'MANUAL' ? manualRecipients.trim() : undefined,
     });
-    setShowPreview(true);
+
+    setSending(false);
+
+    if (res.error) {
+      alert(`Failed to send campaign: ${res.error}`);
+      return;
+    }
+
+    onSent();
+    setShowConfirmation(true);
   };
 
-  if (showPreview) {
+  if (showConfirmation) {
     return (
       <SentConfirmation
-        campaignName={campaignName}
-        recipientCount={selectedAudience?.count ?? 0}
+        campaignName={subject}
+        recipientMode={recipientMode}
         onClose={onClose}
       />
     );
@@ -323,19 +484,14 @@ function ComposeWizard({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
       <div
-        className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-t-xl2 border border-base-c bg-card-c shadow-soft-lg animate-slide-up sm:rounded-xl2"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-t-xl2 border border-base-c bg-card-c shadow-soft-lg animate-slide-up sm:rounded-xl2"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-base-c p-4">
-          <div className="flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl2 bg-gradient-accent">
-              <Mail className="h-4.5 w-4.5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-primary-c">New Campaign</h3>
-              <p className="text-xs text-muted-c">{COMPOSE_STEPS[step - 1]} · Step {step} of 3</p>
-            </div>
+        <div className="flex items-center justify-between border-b border-base-c px-6 py-4">
+          <div>
+            <h3 className="text-base font-bold text-primary-c">Compose Email</h3>
+            <p className="text-xs text-muted-c">Send a new email campaign</p>
           </div>
           <button
             onClick={onClose}
@@ -345,190 +501,234 @@ function ComposeWizard({
           </button>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 px-4 py-3">
-          {COMPOSE_STEPS.map((label, i) => {
-            const stepNum = (i + 1) as ComposeStep;
-            const isComplete = stepNum < step;
-            const isCurrent = stepNum === step;
-            return (
-              <div key={label} className="flex flex-1 items-center last:flex-none">
-                <div className="flex items-center gap-2">
-                  <div className={cx(
-                    'grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-bold transition-all',
-                    isComplete ? 'bg-success-500 text-white' : isCurrent ? 'bg-gradient-accent text-white ring-4 ring-primary-500/15' : 'border-2 border-base-c text-muted-c',
-                  )}>
-                    {isComplete ? <CheckCircle2 className="h-3.5 w-3.5" /> : stepNum}
-                  </div>
-                  <span className={cx('hidden text-xs font-semibold sm:block', isCurrent ? 'text-primary-c' : 'text-muted-c')}>{label}</span>
-                </div>
-                {i < COMPOSE_STEPS.length - 1 && (
-                  <div className="mx-2 h-0.5 flex-1 rounded-full">
-                    <div className={cx('h-full rounded-full transition-colors', isComplete ? 'bg-success-500' : 'bg-base-c')} />
-                  </div>
-                )}
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-thin">
+          
+          {/* Section 1: Email Content */}
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-primary-c">Email Content</h4>
+
+            {/* AI Email Writer Banner */}
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-emerald-500" />
+                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">AI Email Writer</span>
+                <span className="rounded-full bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-500">
+                  PRO Feature
+                </span>
               </div>
-            );
-          })}
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
-          {step === 1 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-secondary-c">Choose a template to start from</p>
-              {TEMPLATES.map((tpl) => {
-                const catMeta = TEMPLATE_CATEGORY_META[tpl.category];
-                return (
-                  <button
-                    key={tpl.id}
-                    onClick={() => handleSelectTemplate(tpl)}
-                    className={cx(
-                      'flex w-full items-start gap-3 rounded-xl2 border-2 p-3 text-left transition-all',
-                      selectedTemplate?.id === tpl.id
-                        ? 'border-primary-500 bg-primary-500/5 shadow-soft'
-                        : 'border-base-c hover:border-primary-500/30',
-                    )}
-                  >
-                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl2 bg-gradient-accent-soft">
-                      <FileText className="h-4.5 w-4.5 text-secondary-600 dark:text-secondary-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-semibold text-primary-c">{tpl.name}</h4>
-                        <span className={cx('rounded-full px-1.5 py-0.5 text-[9px] font-bold', catMeta.color)}>{catMeta.label}</span>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-secondary-c">{tpl.subject}</p>
-                      <p className="mt-1 line-clamp-2 text-[11px] text-muted-c">{tpl.body}</p>
-                    </div>
-                    <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted-c" />
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">Campaign Name <span className="text-danger-500">*</span></label>
+              <div className="flex gap-2">
                 <input
-                  value={campaignName}
-                  onChange={(e) => setCampaignName(e.target.value)}
-                  placeholder="e.g. August Follow-up Campaign"
-                  className="form-input"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="e.g. Write a summer sale promo email"
+                  className="form-input flex-1 bg-white dark:bg-ink-900 text-xs"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleWriteAi();
+                  }}
                 />
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">Subject Line <span className="text-danger-500">*</span></label>
-                <div className="relative">
-                  <input
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Email subject…"
-                    className="form-input pr-24"
-                  />
-                  <button className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 rounded-md bg-gradient-accent-soft px-2 py-1 text-[10px] font-semibold text-secondary-600 dark:text-secondary-400">
-                    <Sparkles className="h-3 w-3" /> AI
-                  </button>
-                </div>
-                <p className="mt-1 text-[10px] text-muted-c">Use {'{{name}}'}, {'{{property}}'}, {'{{agentName}}'} for personalization</p>
-              </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">Email Body <span className="text-danger-500">*</span></label>
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={10}
-                  className="form-input resize-none font-mono text-xs leading-relaxed"
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div className="space-y-3">
-              <p className="text-sm font-medium text-secondary-c">Select target audience</p>
-              {AUDIENCES.map((aud) => (
                 <button
-                  key={aud.id}
-                  onClick={() => setSelectedAudience(aud)}
+                  onClick={handleWriteAi}
+                  disabled={!aiPrompt.trim() || aiLoading}
                   className={cx(
-                    'flex w-full items-center gap-3 rounded-xl2 border-2 p-3 text-left transition-all',
-                    selectedAudience?.id === aud.id
-                      ? 'border-primary-500 bg-primary-500/5 shadow-soft'
-                      : 'border-base-c hover:border-primary-500/30',
+                    'rounded-lg px-4 py-2 text-xs font-semibold transition-all',
+                    aiPrompt.trim() && !aiLoading
+                      ? 'bg-gradient-accent text-white hover:scale-105'
+                      : 'bg-slate-200 text-slate-400 dark:bg-ink-800 cursor-not-allowed',
                   )}
                 >
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl2 bg-primary-500/10">
-                    <Users className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="text-sm font-semibold text-primary-c">{aud.name}</h4>
-                      <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-secondary-c dark:bg-ink-800">
-                        {aud.count} leads
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-c">{aud.description}</p>
-                  </div>
-                  {selectedAudience?.id === aud.id && (
-                    <CheckCircle2 className="h-5 w-5 shrink-0 text-primary-500" />
-                  )}
+                  {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Write'}
                 </button>
-              ))}
+              </div>
 
-              {/* Summary */}
-              {selectedAudience && (
-                <div className="rounded-xl2 border border-base-c bg-slate-50 p-3 dark:bg-ink-850/60">
-                  <p className="text-xs font-semibold text-primary-c">Campaign Summary</p>
-                  <div className="mt-2 space-y-1 text-[11px] text-secondary-c">
-                    <p>Name: <span className="font-medium text-primary-c">{campaignName || '—'}</span></p>
-                    <p>Subject: <span className="font-medium text-primary-c">{subject || '—'}</span></p>
-                    <p>Audience: <span className="font-medium text-primary-c">{selectedAudience.name}</span></p>
-                    <p>Recipients: <span className="font-medium text-primary-c">{selectedAudience.count}</span></p>
-                  </div>
-                </div>
+              {aiError ? (
+                <p className="text-[10px] text-rose-500 flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" /> {aiError}
+                </p>
+              ) : (
+                <p className="text-[10px] text-muted-c flex items-center gap-1">
+                  <span>🔒 AI Content Generation is available for PRO & Enterprise users.</span>
+                </p>
               )}
             </div>
-          )}
+
+            {/* Subject Input */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-secondary-c">
+                Subject <span className="text-danger-500">*</span>
+              </label>
+              <input
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="Subject *"
+                className="form-input text-xs"
+              />
+            </div>
+
+            {/* Body Textarea */}
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-secondary-c">
+                Body <span className="text-danger-500">*</span>
+              </label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={6}
+                placeholder="Body *"
+                className="form-input resize-none text-xs leading-relaxed"
+              />
+            </div>
+          </div>
+
+          {/* Section 2: Call to Action */}
+          <div className="space-y-3 border-t border-base-c pt-5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-primary-c">Call to Action</h4>
+
+            <div>
+              <input
+                value={ctaLabel}
+                onChange={(e) => setCtaLabel(e.target.value)}
+                placeholder="CTA Button Label (optional)"
+                className="form-input text-xs"
+              />
+            </div>
+
+            <div>
+              <input
+                value={ctaUrl}
+                onChange={(e) => setCtaUrl(e.target.value)}
+                placeholder="CTA Button URL (optional)"
+                className="form-input text-xs"
+              />
+            </div>
+          </div>
+
+          {/* Section 3: Recipients */}
+          <div className="space-y-3 border-t border-base-c pt-5">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-primary-c">Recipients</h4>
+
+            {/* Recipient Mode Tabs */}
+            <div className="grid grid-cols-3 gap-1 rounded-xl border border-base-c bg-slate-100/60 dark:bg-ink-850 p-1">
+              <button
+                type="button"
+                onClick={() => setRecipientMode('ALL')}
+                className={cx(
+                  'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all',
+                  recipientMode === 'ALL'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 shadow-sm'
+                    : 'text-secondary-c hover:text-primary-c',
+                )}
+              >
+                <Users className="h-3.5 w-3.5 text-indigo-500" /> All
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecipientMode('TAGGED')}
+                className={cx(
+                  'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all',
+                  recipientMode === 'TAGGED'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 shadow-sm'
+                    : 'text-secondary-c hover:text-primary-c',
+                )}
+              >
+                <Tag className="h-3.5 w-3.5 text-amber-500" /> Tagged
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecipientMode('MANUAL')}
+                className={cx(
+                  'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-semibold transition-all',
+                  recipientMode === 'MANUAL'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 shadow-sm'
+                    : 'text-secondary-c hover:text-primary-c',
+                )}
+              >
+                <Mail className="h-3.5 w-3.5 text-purple-500" /> Manual
+              </button>
+            </div>
+
+            {/* Conditional Recipient Inputs */}
+            {recipientMode === 'TAGGED' && (
+              <div className="space-y-2 animate-fade-in">
+                <input
+                  value={tagsFilter}
+                  onChange={(e) => setTagsFilter(e.target.value)}
+                  placeholder="Tags (comma-separated)"
+                  className="form-input text-xs"
+                />
+              </div>
+            )}
+
+            {recipientMode === 'MANUAL' && (
+              <div className="space-y-2 animate-fade-in">
+                <textarea
+                  value={manualRecipients}
+                  onChange={(e) => setManualRecipients(e.target.value)}
+                  rows={3}
+                  placeholder="Email Addresses (comma-separated)"
+                  className="form-input resize-none text-xs"
+                />
+                <p className="text-[10px] text-muted-c leading-relaxed">
+                  💡 <strong>Format:</strong> Name &lt;email&gt; or simple <strong>email</strong>. Placeholders like [User Name] or [Customer Name] in subject/body will be automatically replaced with their name.
+                </p>
+
+                <div className="flex items-center gap-3 pt-1">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept=".csv,.txt,.xlsx"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20"
+                  >
+                    <Upload className="h-3.5 w-3.5" /> Upload CSV / Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="flex items-center gap-1 text-xs text-secondary-c hover:text-primary-c"
+                  >
+                    <Download className="h-3.5 w-3.5 text-muted-c" /> Download Template
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Footer Branded Template Note */}
+            <div className="flex items-center gap-2 rounded-xl bg-blue-500/10 p-3 text-xs text-blue-700 dark:text-blue-400">
+              <Info className="h-4 w-4 shrink-0" />
+              <span>Emails are sent using your branded template with header and footer.</span>
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between border-t border-base-c p-4">
+        {/* Modal Actions Footer */}
+        <div className="flex items-center justify-end gap-3 border-t border-base-c px-6 py-4">
           <button
-            onClick={() => setStep((s) => (s > 1 ? ((s - 1) as ComposeStep) : s))}
-            disabled={step === 1}
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canSubmit || sending}
             className={cx(
-              'flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium transition-all',
-              step === 1 ? 'cursor-not-allowed text-muted-c/40' : 'border border-base-c text-secondary-c hover:text-primary-c',
+              'flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold transition-all',
+              canSubmit && !sending
+                ? 'bg-gradient-accent text-white hover:scale-105'
+                : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
             )}
           >
-            <ChevronLeft className="h-4 w-4" /> Back
+            {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />} Send Campaign
           </button>
-          {step < 3 ? (
-            <button
-              onClick={() => setStep((s) => ((s + 1) as ComposeStep))}
-              disabled={!canProceed()}
-              className={cx(
-                'flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold transition-all',
-                canProceed() ? 'bg-gradient-accent text-white hover:scale-105' : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
-              )}
-            >
-              Continue <ChevronRight className="h-4 w-4" />
-            </button>
-          ) : (
-            <button
-              onClick={handleSend}
-              disabled={!selectedAudience}
-              className={cx(
-                'flex items-center gap-1.5 rounded-lg px-5 py-2 text-xs font-semibold transition-all',
-                selectedAudience ? 'bg-gradient-accent text-white hover:scale-105' : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
-              )}
-            >
-              <Send className="h-3.5 w-3.5" /> Send to {selectedAudience?.count ?? 0} Leads
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -536,7 +736,7 @@ function ComposeWizard({
 }
 
 /* ─── Sent Confirmation ─── */
-function SentConfirmation({ campaignName, recipientCount, onClose }: { campaignName: string; recipientCount: number; onClose: () => void }) {
+function SentConfirmation({ campaignName, recipientMode, onClose }: { campaignName: string; recipientMode: RecipientMode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div
@@ -551,10 +751,9 @@ function SentConfirmation({ campaignName, recipientCount, onClose }: { campaignN
         </div>
         <h3 className="text-lg font-bold text-primary-c">Campaign Sent!</h3>
         <p className="mt-1.5 text-sm text-secondary-c">
-          <span className="font-semibold text-primary-c">{campaignName}</span> has been sent to{' '}
-          <span className="font-semibold text-primary-c">{recipientCount}</span> leads.
+          <span className="font-semibold text-primary-c">{campaignName}</span> has been dispatched via backend email service (Mode: <span className="font-semibold text-primary-c">{recipientMode}</span>).
         </p>
-        <p className="mt-1 text-xs text-muted-c">You'll see open and click metrics as they come in.</p>
+        <p className="mt-1 text-xs text-muted-c">Delivery logs are saved in campaign history.</p>
         <button
           onClick={onClose}
           className="mt-5 w-full rounded-lg bg-gradient-accent py-2.5 text-xs font-semibold text-white transition-transform hover:scale-105"

@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
+import { useState, useEffect } from 'react';
+import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { LEAD_DETAIL } from './leadDetailData';
 import { LeadDetailHeader } from './LeadDetailHeader';
 import { ActivityTimeline, NotesPanel, FilesPanel } from './DetailTabs';
+import { fetchLeadById, type LeadDTO } from '@/lib/leadsApi';
 import {
   Phone,
   Mail,
@@ -23,26 +23,73 @@ import {
 
 type TabId = 'timeline' | 'notes' | 'files';
 
-const TABS: { id: TabId; label: string; icon: typeof ActivityIcon; count?: number }[] = [
-  { id: 'timeline', label: 'Timeline', icon: ActivityIcon, count: LEAD_DETAIL.timeline.length },
-  { id: 'notes', label: 'Notes', icon: StickyNote, count: LEAD_DETAIL.notes.length },
-  { id: 'files', label: 'Files', icon: FolderOpen, count: LEAD_DETAIL.files.length },
-];
-
-export function LeadDetailView({ onBack }: { onBack: () => void }) {
+export function LeadDetailView({
+  leadId,
+  leadObj,
+  onBack,
+}: {
+  leadId?: string | null;
+  leadObj?: any;
+  onBack: () => void;
+}) {
   const [tab, setTab] = useState<TabId>('timeline');
-  const lead = LEAD_DETAIL;
+  const [lead, setLead] = useState<LeadDTO | null>(leadObj || null);
+  const [loading, setLoading] = useState(false);
+  const [localNotes, setLocalNotes] = useState<{ id: string; author: string; time: string; text: string }[]>([]);
+  const [localFiles, setLocalFiles] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (leadId && leadId.includes('-')) {
+      setLoading(true);
+      fetchLeadById(leadId).then(({ data }) => {
+        setLoading(false);
+        if (data) {
+          setLead(data);
+        }
+      });
+    }
+  }, [leadId]);
+
+  const phone = lead?.contact?.phone || lead?.contact?.waId || leadObj?.phone || 'N/A';
+  const email = lead?.contact?.email || leadObj?.email || 'N/A';
+  const location = lead?.contact?.source || 'N/A';
+  const budget = lead?.dealValue ? `₹${lead.dealValue}` : 'Not specified';
+  const firstEnquiry = lead?.enquiries?.[0];
+  const interest = firstEnquiry?.requirement || firstEnquiry?.serviceCategory || lead?.dealLabel || 'General Inquiry';
+  const source = lead?.contact?.source || leadObj?.source || 'WhatsApp Ingress';
+  const assignedTo = lead?.ownerName || leadObj?.assignedTo || 'Unassigned';
+  const createdAtStr = lead?.createdAtHuman || 'Recently';
+  const lastActivityStr = lead?.lastActivity ? new Date(lead.lastActivity).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recently';
+  const dealValueStr = lead?.dealValue ? `₹${lead.dealValue}` : '₹0';
+  const priority = lead?.score && lead.score > 70 ? 'HIGH' : leadObj?.priority || 'MEDIUM';
+  const enquiries = lead?.enquiries || [];
+
+  const handleAddNote = (text: string) => {
+    const newNote = {
+      id: `n-${Date.now()}`,
+      author: lead?.ownerName || 'Agent',
+      time: 'Just now',
+      text,
+    };
+    setLocalNotes((prev) => [newNote, ...prev]);
+  };
+
+  const tabs: { id: TabId; label: string; icon: typeof ActivityIcon; count?: number }[] = [
+    { id: 'timeline', label: 'Timeline', icon: ActivityIcon, count: enquiries.length },
+    { id: 'notes', label: 'Notes', icon: StickyNote, count: localNotes.length },
+    { id: 'files', label: 'Files', icon: FolderOpen, count: localFiles.length },
+  ];
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4 lg:p-6">
-      <LeadDetailHeader onBack={onBack} />
+      <LeadDetailHeader lead={lead} onBack={onBack} />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         {/* Left: tabbed content */}
         <div className="space-y-4">
           {/* Tab bar */}
           <div className="flex items-center gap-1.5 rounded-xl2 border border-base-c bg-card-c p-1">
-            {TABS.map((t) => {
+            {tabs.map((t) => {
               const Icon = t.icon;
               const active = tab === t.id;
               return (
@@ -72,9 +119,9 @@ export function LeadDetailView({ onBack }: { onBack: () => void }) {
 
           {/* Tab content */}
           <GlassCard className="p-5">
-            {tab === 'timeline' && <ActivityTimeline />}
-            {tab === 'notes' && <NotesPanel />}
-            {tab === 'files' && <FilesPanel />}
+            {tab === 'timeline' && <ActivityTimeline enquiries={enquiries} />}
+            {tab === 'notes' && <NotesPanel notes={localNotes} onAddNote={handleAddNote} />}
+            {tab === 'files' && <FilesPanel files={localFiles} />}
           </GlassCard>
         </div>
 
@@ -84,15 +131,15 @@ export function LeadDetailView({ onBack }: { onBack: () => void }) {
           <GlassCard className="p-5">
             <h3 className="mb-4 text-sm font-semibold text-primary-c">Lead Information</h3>
             <div className="space-y-3">
-              <InfoRow icon={Phone} label="Phone" value={lead.phone} />
-              <InfoRow icon={Mail} label="Email" value={lead.email} />
-              <InfoRow icon={MapPin} label="Location" value={lead.location} />
-              <InfoRow icon={DollarSign} label="Budget" value={lead.budget} />
-              <InfoRow icon={Target} label="Interest" value={lead.interest} />
-              <InfoRow icon={Radio} label="Source" value={lead.source} />
-              <InfoRow icon={UserCheck} label="Assigned to" value={lead.assignedTo} />
-              <InfoRow icon={Calendar} label="Created" value={lead.createdAt} />
-              <InfoRow icon={Clock} label="Last activity" value={lead.lastActivity} />
+              <InfoRow icon={Phone} label="Phone" value={phone} />
+              <InfoRow icon={Mail} label="Email" value={email} />
+              <InfoRow icon={MapPin} label="Location" value={location} />
+              <InfoRow icon={DollarSign} label="Budget" value={budget} />
+              <InfoRow icon={Target} label="Interest" value={interest} />
+              <InfoRow icon={Radio} label="Source" value={source} />
+              <InfoRow icon={UserCheck} label="Assigned to" value={assignedTo} />
+              <InfoRow icon={Calendar} label="Created" value={createdAtStr} />
+              <InfoRow icon={Clock} label="Last activity" value={lastActivityStr} />
             </div>
           </GlassCard>
 
@@ -102,30 +149,23 @@ export function LeadDetailView({ onBack }: { onBack: () => void }) {
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-xl2 bg-gradient-accent-soft p-3">
                 <span className="text-xs text-secondary-c">Deal Value</span>
-                <span className="text-xl font-bold text-primary-c tabular-nums">{lead.value}</span>
+                <span className="text-xl font-bold text-primary-c tabular-nums">{dealValueStr}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-secondary-c">Priority</span>
-                <Badge variant={lead.priority === 'HIGH' ? 'danger' : lead.priority === 'MEDIUM' ? 'warning' : 'neutral'}>
-                  {lead.priority}
+                <Badge variant={priority === 'HIGH' ? 'danger' : priority === 'MEDIUM' ? 'warning' : 'neutral'}>
+                  {priority}
                 </Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-secondary-c">Sentiment</span>
-                <Badge variant={lead.sentiment === 'Positive' ? 'success' : lead.sentiment === 'Negative' ? 'danger' : 'neutral'}>
-                  {lead.sentiment}
-                </Badge>
+                <Badge variant="success">Positive</Badge>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-secondary-c">Lead Quality</span>
                 <div className="flex items-center gap-1.5">
-                  <span className={cx(
-                    'h-2.5 w-2.5 rounded-full',
-                    lead.quality === 'GREEN' && 'bg-success-500',
-                    lead.quality === 'YELLOW' && 'bg-warning-500',
-                    lead.quality === 'RED' && 'bg-danger-500',
-                  )} />
-                  <span className="text-xs font-medium text-primary-c">{lead.quality}</span>
+                  <span className="h-2.5 w-2.5 rounded-full bg-success-500" />
+                  <span className="text-xs font-medium text-primary-c">GREEN</span>
                 </div>
               </div>
             </div>
@@ -157,9 +197,6 @@ export function LeadDetailView({ onBack }: { onBack: () => void }) {
                 color="text-warning-600 dark:text-warning-400"
               />
             </div>
-            <button className="mt-4 w-full rounded-xl2 bg-gradient-accent-soft py-2 text-xs font-medium text-primary-600 transition-colors hover:bg-gradient-accent hover:text-white dark:text-primary-300">
-              View full AI report
-            </button>
           </GlassCard>
         </div>
       </div>
@@ -180,7 +217,7 @@ function InfoRow({
     <div className="flex items-center gap-2.5">
       <Icon className="h-3.5 w-3.5 shrink-0 text-muted-c" />
       <span className="text-xs text-muted-c">{label}</span>
-      <span className="ml-auto truncate text-right text-xs font-medium text-primary-c">{value}</span>
+      <span className="ml-auto truncate text-right text-xs font-medium text-primary-c max-w-[150px]">{value}</span>
     </div>
   );
 }

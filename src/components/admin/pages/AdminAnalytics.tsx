@@ -1,35 +1,78 @@
+import { useState, useEffect } from 'react';
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { REVENUE_DATA, GROWTH_DATA, TENANTS, PLAN_META, type PlanTier } from '@/components/admin/adminData';
+import { PLAN_META, REVENUE_DATA, GROWTH_DATA } from '@/components/admin/adminData';
 import {
-  TrendingUp, TrendingDown, Users, Building2, DollarSign, Activity,
+  TrendingUp, TrendingDown, Users, Building2, DollarSign, Activity, RefreshCw
 } from 'lucide-react';
+import {
+  fetchAnalyticsOverview,
+  fetchAnalyticsGrowth,
+  fetchAnalyticsSubscriptions,
+  fetchAnalyticsChurn,
+  fetchAnalyticsNiches,
+  type ApiAnalyticsOverview,
+} from '@/lib/platformApi';
 
 export function AdminAnalytics() {
-  const totalMRR = REVENUE_DATA[REVENUE_DATA.length - 1].mrr;
+  const [overview, setOverview] = useState<ApiAnalyticsOverview | null>(null);
+  const [growthData, setGrowthData] = useState<any[]>(GROWTH_DATA);
+  const [subscriptionData, setSubscriptionData] = useState<any>(null);
+  const [churnRate, setChurnRate] = useState<string>('4.2%');
+  const [nicheData, setNicheData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    const [ovRes, grRes, subRes, chRes, nchRes] = await Promise.all([
+      fetchAnalyticsOverview(),
+      fetchAnalyticsGrowth(),
+      fetchAnalyticsSubscriptions(),
+      fetchAnalyticsChurn(),
+      fetchAnalyticsNiches(),
+    ]);
+
+    if (ovRes.data) setOverview(ovRes.data);
+    if (grRes.data && Array.isArray(grRes.data)) setGrowthData(grRes.data);
+    if (subRes.data) setSubscriptionData(subRes.data);
+    if (chRes.data) setChurnRate(chRes.data.churnRate ?? '4.2%');
+    if (nchRes.data && Array.isArray(nchRes.data)) setNicheData(nchRes.data);
+    if (ovRes.error && grRes.error) setError(ovRes.error || grRes.error || null);
+
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const totalMRR = overview?.mrr ?? REVENUE_DATA[REVENUE_DATA.length - 1].mrr;
   const prevMRR = REVENUE_DATA[REVENUE_DATA.length - 2].mrr;
-  const mrrGrowth = ((totalMRR - prevMRR) / prevMRR * 100).toFixed(1);
-
-  const planDistribution = (Object.keys(PLAN_META) as PlanTier[]).map((p) => ({
-    plan: p,
-    count: TENANTS.filter((t) => t.plan === p).length,
-    ...PLAN_META[p],
-  }));
-  const maxPlanCount = Math.max(...planDistribution.map((p) => p.count));
-
-  const regionData = Object.entries(
-    TENANTS.reduce((acc, t) => { acc[t.region] = (acc[t.region] || 0) + 1; return acc; }, {} as Record<string, number>),
-  ).sort((a, b) => b[1] - a[1]);
-  const maxRegion = Math.max(...regionData.map((r) => r[1]));
+  const mrrGrowth = ((totalMRR - prevMRR) / (prevMRR || 1) * 100).toFixed(1);
 
   return (
     <div className="mx-auto max-w-7xl p-4 lg:p-6 space-y-4">
+      {/* Top Bar */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-primary-c">Platform Analytics</h2>
+          <p className="mt-0.5 text-sm text-secondary-c">Comprehensive growth, revenue, and usage insights.</p>
+        </div>
+        <button onClick={load} disabled={loading} className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c hover:text-primary-c transition-colors">
+          <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
+        </button>
+      </div>
+
+      {error && <p className="text-xs text-danger-500 bg-danger-50 dark:bg-danger-500/10 rounded-lg px-3 py-2">{error} — showing fallback metrics</p>}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard icon={DollarSign} label="Current MRR" value={`₹${(totalMRR / 1000).toFixed(1)}K`} change={`+${mrrGrowth}%`} trend="up" color="#10B981" />
-        <MetricCard icon={Users} label="Total Platform Users" value={String(TENANTS.reduce((s, t) => s + t.users, 0))} change="+8.2%" trend="up" color="#2563EB" />
-        <MetricCard icon={Building2} label="Total Leads" value={TENANTS.reduce((s, t) => s + t.leads, 0).toLocaleString()} change="+15.3%" trend="up" color="#7C3AED" />
-        <MetricCard icon={Activity} label="Churn Rate" value="4.2%" change="-1.1%" trend="up" color="#F59E0B" />
+        <MetricCard icon={DollarSign} label="Current MRR" value={loading ? '—' : `₹${(totalMRR / 1000).toFixed(1)}K`} change={`+${mrrGrowth}%`} trend="up" color="#10B981" />
+        <MetricCard icon={Users} label="Total Platform Users" value={loading ? '—' : String(overview?.totalUsers ?? 0)} change="+8.2%" trend="up" color="#2563EB" />
+        <MetricCard icon={Building2} label="Total Leads" value={loading ? '—' : (overview?.totalLeads ?? 0).toLocaleString()} change="+15.3%" trend="up" color="#7C3AED" />
+        <MetricCard icon={Activity} label="Churn Rate" value={loading ? '—' : churnRate} change="-1.1%" trend="up" color="#F59E0B" />
       </div>
 
       {/* Revenue trend */}
@@ -49,30 +92,34 @@ export function AdminAnalytics() {
         <GlassCard className="p-5">
           <h3 className="mb-4 text-sm font-semibold text-primary-c">Plan Distribution</h3>
           <div className="space-y-3">
-            {planDistribution.map((p) => (
-              <div key={p.plan}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="font-medium text-primary-c">{p.label}</span>
-                  <span className="text-muted-c">{p.count} tenants · ₹{(p.count * p.price / 1000).toFixed(1)}K MRR</span>
+            {Object.keys(PLAN_META).map((p) => {
+              const meta = PLAN_META[p as keyof typeof PLAN_META];
+              const count = subscriptionData?.[p] ?? 1;
+              return (
+                <div key={p}>
+                  <div className="mb-1 flex items-center justify-between text-xs">
+                    <span className="font-medium text-primary-c">{meta.label}</span>
+                    <span className="text-muted-c">{count} tenants · ₹{(count * meta.price / 1000).toFixed(1)}K MRR</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-ink-850">
+                    <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 transition-all" style={{ width: `${Math.min(100, count * 25)}%` }} />
+                  </div>
                 </div>
-                <div className="h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-ink-850">
-                  <div className={cx('h-full rounded-full bg-gradient-to-r from-primary-500 to-secondary-500 transition-all')} style={{ width: `${(p.count / maxPlanCount) * 100}%` }} />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </GlassCard>
 
         <GlassCard className="p-5">
           <h3 className="mb-4 text-sm font-semibold text-primary-c">Weekly Growth (Signups vs Churn)</h3>
           <div className="flex items-end justify-between gap-1.5" style={{ height: 160 }}>
-            {GROWTH_DATA.map((d) => (
-              <div key={d.week} className="flex flex-1 flex-col items-center gap-1">
+            {growthData.map((d: any, i: number) => (
+              <div key={d.week || i} className="flex flex-1 flex-col items-center gap-1">
                 <div className="flex w-full items-end justify-center gap-0.5" style={{ height: 120 }}>
-                  <div className="w-1/2 rounded-t bg-success-500 transition-all hover:bg-success-600" style={{ height: `${(d.signups / 7) * 120}px` }} title={`${d.signups} signups`} />
-                  <div className="w-1/2 rounded-t bg-danger-500 transition-all hover:bg-danger-600" style={{ height: `${(d.churn / 7) * 120}px` }} title={`${d.churn} churned`} />
+                  <div className="w-1/2 rounded-t bg-success-500 transition-all hover:bg-success-600" style={{ height: `${((d.signups || 1) / 10) * 120}px` }} title={`${d.signups || 0} signups`} />
+                  <div className="w-1/2 rounded-t bg-danger-500 transition-all hover:bg-danger-600" style={{ height: `${((d.churn || 0) / 10) * 120}px` }} title={`${d.churn || 0} churned`} />
                 </div>
-                <span className="text-[9px] text-muted-c">{d.week}</span>
+                <span className="text-[9px] text-muted-c">{d.week || `W${i + 1}`}</span>
               </div>
             ))}
           </div>
@@ -83,21 +130,20 @@ export function AdminAnalytics() {
         </GlassCard>
       </div>
 
-      {/* Regional breakdown */}
-      <GlassCard className="p-5">
-        <h3 className="mb-4 text-sm font-semibold text-primary-c">Tenants by Region</h3>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {regionData.map(([region, count]) => (
-            <div key={region} className="rounded-xl2 border border-base-c p-3 text-center">
-              <p className="text-2xl font-bold tabular-nums text-primary-c">{count}</p>
-              <p className="text-[10px] text-muted-c">{region}</p>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-ink-850">
-                <div className="h-full rounded-full bg-gradient-to-r from-rose-500 to-orange-500" style={{ width: `${(count / maxRegion) * 100}%` }} />
+      {/* Niche Breakdown */}
+      {nicheData.length > 0 && (
+        <GlassCard className="p-5">
+          <h3 className="mb-4 text-sm font-semibold text-primary-c">Tenants by Niche</h3>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {nicheData.map((n: any) => (
+              <div key={n.niche || n.name} className="rounded-xl2 border border-base-c p-3 text-center">
+                <p className="text-2xl font-bold tabular-nums text-primary-c">{n.count || 0}</p>
+                <p className="text-[10px] text-muted-c">{n.niche || n.name}</p>
               </div>
-            </div>
-          ))}
-        </div>
-      </GlassCard>
+            ))}
+          </div>
+        </GlassCard>
+      )}
     </div>
   );
 }

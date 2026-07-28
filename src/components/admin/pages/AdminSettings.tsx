@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { GlassCard, Badge } from '@/components/ui/primitives';
+import { useState, useEffect } from 'react';
+import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
-  Settings, Globe, Shield, Bell, Mail, CreditCard, Save, Check,
-  Server, Lock, Smartphone, AlertCircle, Sparkles,
+  Globe, Shield, Bell, Save, Check, Lock, Smartphone, AlertCircle, Sparkles, Loader2, RefreshCw
 } from 'lucide-react';
+import { fetchPlatformSettings, updatePlatformSettings } from '@/lib/platformApi';
 
 type SettingsTab = 'platform' | 'security' | 'notifications' | 'features' | 'danger';
 
@@ -18,13 +18,53 @@ const TABS: { id: SettingsTab; label: string; icon: typeof Globe }[] = [
 
 export function AdminSettings() {
   const [tab, setTab] = useState<SettingsTab>('platform');
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    const res = await fetchPlatformSettings();
+    if (res.error) {
+      setError(res.error);
+    } else if (res.data) {
+      setSettings(res.data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSave = async (updates: Record<string, string>) => {
+    setSaving(true);
+    const merged = { ...settings, ...updates };
+    const res = await updatePlatformSettings(merged);
+    setSaving(false);
+    if (res.error) {
+      setError(res.error);
+    } else {
+      setSettings(merged);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2000);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-4xl p-4 lg:p-6">
-      <div className="mb-5">
-        <h2 className="text-xl font-bold tracking-tight text-primary-c">Platform Settings</h2>
-        <p className="mt-0.5 text-sm text-secondary-c">Configure global platform behavior and policies.</p>
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-primary-c">Platform Settings</h2>
+          <p className="mt-0.5 text-sm text-secondary-c">Configure global platform behavior and policies.</p>
+        </div>
+        <button onClick={load} disabled={loading} className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c hover:text-primary-c transition-colors">
+          <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
+        </button>
       </div>
+
+      {error && <p className="mb-4 text-xs text-danger-500 bg-danger-50 dark:bg-danger-500/10 rounded-lg px-3 py-2">{error}</p>}
 
       <div className="grid gap-5 lg:grid-cols-[180px_1fr]">
         <div className="flex gap-1 overflow-x-auto lg:flex-col lg:overflow-visible">
@@ -41,34 +81,50 @@ export function AdminSettings() {
         </div>
 
         <div className="min-w-0">
-          {tab === 'platform' && <PlatformTab />}
-          {tab === 'security' && <SecurityTab />}
-          {tab === 'notifications' && <NotificationsTab />}
-          {tab === 'features' && <FeaturesTab />}
-          {tab === 'danger' && <DangerTab />}
+          {loading ? (
+            <div className="h-64 rounded-xl2 bg-slate-100 dark:bg-ink-800 animate-pulse" />
+          ) : (
+            <>
+              {tab === 'platform' && <PlatformTab settings={settings} onSave={handleSave} saving={saving} savedSuccess={savedSuccess} />}
+              {tab === 'security' && <SecurityTab settings={settings} onSave={handleSave} saving={saving} savedSuccess={savedSuccess} />}
+              {tab === 'notifications' && <NotificationsTab settings={settings} onSave={handleSave} saving={saving} savedSuccess={savedSuccess} />}
+              {tab === 'features' && <FeaturesTab settings={settings} onSave={handleSave} saving={saving} savedSuccess={savedSuccess} />}
+              {tab === 'danger' && <DangerTab />}
+            </>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function SaveButton() {
-  const [saved, setSaved] = useState(false);
+function SaveButton({ onSave, saving, savedSuccess }: { onSave: () => void; saving: boolean; savedSuccess: boolean }) {
   return (
-    <button onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }} className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
-      {saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
-      {saved ? 'Saved!' : 'Save Changes'}
+    <button onClick={onSave} disabled={saving} className="flex items-center gap-1.5 rounded-lg bg-gradient-to-br from-rose-500 to-orange-500 px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
+      {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : savedSuccess ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+      {saving ? 'Saving…' : savedSuccess ? 'Saved!' : 'Save Changes'}
     </button>
   );
 }
 
-function PlatformTab() {
-  const [name, setName] = useState('CRMLite');
-  const [url, setUrl] = useState('https://app.crmlite.io');
-  const [supportEmail, setSupportEmail] = useState('support@crmlite.io');
-  const [defaultPlan, setDefaultPlan] = useState('starter');
-  const [trialDays, setTrialDays] = useState('14');
-  const [maxLeadsStarter, setMaxLeadsStarter] = useState('500');
+function PlatformTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
+  const [name, setName] = useState(settings.platform_name || 'CRMLite');
+  const [url, setUrl] = useState(settings.platform_url || 'https://app.crmlite.io');
+  const [supportEmail, setSupportEmail] = useState(settings.support_email || 'support@crmlite.io');
+  const [defaultPlan, setDefaultPlan] = useState(settings.default_plan || 'starter');
+  const [trialDays, setTrialDays] = useState(settings.trial_days || '14');
+  const [maxLeadsStarter, setMaxLeadsStarter] = useState(settings.max_leads_starter || '500');
+
+  const handleSave = () => {
+    onSave({
+      platform_name: name,
+      platform_url: url,
+      support_email: supportEmail,
+      default_plan: defaultPlan,
+      trial_days: trialDays,
+      max_leads_starter: maxLeadsStarter,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -82,26 +138,24 @@ function PlatformTab() {
           <Field label="Trial Period (days)"><input value={trialDays} onChange={(e) => setTrialDays(e.target.value)} className="form-input" /></Field>
           <Field label="Max Leads (Starter Plan)"><input value={maxLeadsStarter} onChange={(e) => setMaxLeadsStarter(e.target.value)} className="form-input" /></Field>
         </div>
-        <div className="mt-4 flex justify-end"><SaveButton /></div>
-      </GlassCard>
-
-      <GlassCard className="p-5">
-        <h3 className="mb-4 text-sm font-semibold text-primary-c">Available Regions</h3>
-        <div className="flex flex-wrap gap-2">
-          {['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Chennai', 'Hyderabad', 'Goa', 'Kolkata', 'Ahmedabad'].map((r) => (
-            <span key={r} className="rounded-full border border-base-c bg-card-c px-3 py-1.5 text-xs font-medium text-secondary-c">{r}</span>
-          ))}
-          <button className="rounded-full border border-dashed border-base-c px-3 py-1.5 text-xs text-muted-c hover:border-primary-500/40 hover:text-primary-c">+ Add Region</button>
-        </div>
+        <div className="mt-4 flex justify-end"><SaveButton onSave={handleSave} saving={saving} savedSuccess={savedSuccess} /></div>
       </GlassCard>
     </div>
   );
 }
 
-function SecurityTab() {
-  const [enforce2FA, setEnforce2FA] = useState(false);
-  const [passwordPolicy, setPasswordPolicy] = useState('strict');
-  const [sessionTimeout, setSessionTimeout] = useState('30');
+function SecurityTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
+  const [enforce2FA, setEnforce2FA] = useState(settings.enforce_2fa === 'true');
+  const [passwordPolicy, setPasswordPolicy] = useState(settings.password_policy || 'strict');
+  const [sessionTimeout, setSessionTimeout] = useState(settings.session_timeout || '30');
+
+  const handleSave = () => {
+    onSave({
+      enforce_2fa: String(enforce2FA),
+      password_policy: passwordPolicy,
+      session_timeout: sessionTimeout,
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -119,26 +173,13 @@ function SecurityTab() {
           </div>
           <Field label="Session Timeout (minutes)"><input value={sessionTimeout} onChange={(e) => setSessionTimeout(e.target.value)} className="form-input" /></Field>
         </div>
-        <div className="mt-4 flex justify-end"><SaveButton /></div>
-      </GlassCard>
-
-      <GlassCard className="p-5">
-        <h3 className="mb-3 text-sm font-semibold text-primary-c">IP Whitelist</h3>
-        <div className="space-y-2">
-          {['103.21.45.10', '103.21.45.11', '103.21.45.12'].map((ip) => (
-            <div key={ip} className="flex items-center justify-between rounded-lg border border-base-c p-2.5">
-              <span className="text-xs font-mono text-primary-c">{ip}</span>
-              <button className="text-[11px] font-medium text-danger-500 hover:underline">Remove</button>
-            </div>
-          ))}
-          <button className="w-full rounded-lg border border-dashed border-base-c py-2 text-xs text-muted-c hover:border-primary-500/40 hover:text-primary-c">+ Add IP Address</button>
-        </div>
+        <div className="mt-4 flex justify-end"><SaveButton onSave={handleSave} saving={saving} savedSuccess={savedSuccess} /></div>
       </GlassCard>
     </div>
   );
 }
 
-function NotificationsTab() {
+function NotificationsTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
   const [prefs, setPrefs] = useState({ newTenant: true, tenantSuspended: true, paymentFailed: true, ticketUrgent: true, systemAlert: true, weeklyDigest: true });
   const toggle = (k: keyof typeof prefs) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
 
@@ -164,12 +205,17 @@ function NotificationsTab() {
           </div>
         ))}
       </div>
+      <div className="mt-4 flex justify-end"><SaveButton onSave={() => onSave({ notifications: JSON.stringify(prefs) })} saving={saving} savedSuccess={savedSuccess} /></div>
     </GlassCard>
   );
 }
 
-function FeaturesTab() {
-  const [features, setFeatures] = useState({ whatsapp: true, emailCampaigns: true, aiSuggestions: true, calendarSync: true, leadScoring: true, customDomains: false, apiAccess: true, sso: false });
+function FeaturesTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
+  let initialFlags = { whatsapp: true, emailCampaigns: true, aiSuggestions: true, calendarSync: true, leadScoring: true, customDomains: false, apiAccess: true, sso: false };
+  if (settings.feature_flags) {
+    try { initialFlags = { ...initialFlags, ...JSON.parse(settings.feature_flags) }; } catch {}
+  }
+  const [features, setFeatures] = useState(initialFlags);
   const toggle = (k: keyof typeof features) => setFeatures((f) => ({ ...f, [k]: !f[k] }));
 
   const items = [
@@ -197,6 +243,7 @@ function FeaturesTab() {
           </div>
         ))}
       </div>
+      <div className="mt-4 flex justify-end"><SaveButton onSave={() => onSave({ feature_flags: JSON.stringify(features) })} saving={saving} savedSuccess={savedSuccess} /></div>
     </GlassCard>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { Badge, Avatar } from '@/components/ui/primitives';
 import {
@@ -6,8 +6,13 @@ import {
   Upload, FileText, Trash2, Plus, Check, Search,
   Server, Database, Cpu, HardDrive, Activity, RefreshCw,
   Mail, MessageSquare, Phone, ExternalLink, BookOpen,
+  ChevronUp, ChevronDown, Settings, Tag as TagIcon, MessageCircle, Sliders,
+  ArrowUp, ArrowDown, User, AtSign, CheckCircle2, RotateCcw, Save, Loader2, AlertCircle,
+  ArrowLeft, X, Send, Calendar
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, StatPill } from './_shared';
+import { apiFetch } from '@/lib/api';
+import { fetchTickets, createTicket, type TicketDTO } from '@/lib/ticketsApi';
 
 /* ─── Knowledge Base ─── */
 export function KnowledgeBasePanel() {
@@ -89,59 +94,569 @@ export function KnowledgeBasePanel() {
   );
 }
 
-/* ─── Support Categories ─── */
+interface FlowFieldItem {
+  key: string;
+  label: string;
+  enabled: boolean;
+  required: boolean;
+  order: number;
+  fieldType: string;
+}
+
 export function SupportCategoriesPanel() {
-  const [cats, setCats] = useState([
-    { id: 'cat1', name: 'Pricing Inquiry', emoji: '💰', tickets: 42 },
-    { id: 'cat2', name: 'Site Visit Request', emoji: '🏠', tickets: 28 },
-    { id: 'cat3', name: 'Property Details', emoji: '📋', tickets: 35 },
-    { id: 'cat4', name: 'Booking Issue', emoji: '🎫', tickets: 12 },
-    { id: 'cat5', name: 'General Query', emoji: '💬', tickets: 56 },
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Accordion Expand/Collapse States
+  const [openBasic, setOpenBasic] = useState(true);
+  const [openCategories, setOpenCategories] = useState(true);
+  const [openFlowFields, setOpenFlowFields] = useState(true);
+  const [openAdvanced, setOpenAdvanced] = useState(true);
+
+  // 1. Basic Configuration
+  const [formTitle, setFormTitle] = useState('Get Support');
+  const [formDescription, setFormDescription] = useState("Need help? Submit your request and we'll get back to you soon.");
+  const [whatsappIntro, setWhatsappIntro] = useState('Welcome to our Support channel! Please provide a few details so we can assist you better.');
+  const [successMessage, setSuccessMessage] = useState("Thank you for contacting support! We've received your request and will get back to you shortly.");
+  const [phoneRequired, setPhoneRequired] = useState(false);
+  const [categoryRequired, setCategoryRequired] = useState(false);
+  const [enabled, setEnabled] = useState(true);
+
+  // 2. Support Categories
+  const [categories, setCategories] = useState<string[]>([
+    'Project Query', 'Revision Request', 'Delivery Query', 'Pricing'
   ]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [newCatInput, setNewCatInput] = useState('');
+
+  // 3. WhatsApp Flow Fields
+  const [flowFields, setFlowFields] = useState<FlowFieldItem[]>([
+    { key: 'NAME', fieldType: 'TEXT', label: 'What is your name?', enabled: true, required: true, order: 0 },
+    { key: 'EMAIL', fieldType: 'EMAIL', label: 'Please provide your email address so our support team can reach you:', enabled: true, required: true, order: 1 },
+    { key: 'CATEGORY', fieldType: 'SELECT', label: 'Select a support category:', enabled: true, required: true, order: 2 },
+    { key: 'MESSAGE', fieldType: 'TEXTAREA', label: 'Please describe your query or issue:', enabled: true, required: true, order: 3 },
+  ]);
+
+  // 4. Advanced Settings
+  const [primaryColor, setPrimaryColor] = useState('#667eea');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [rateLimitEnabled, setRateLimitEnabled] = useState(true);
+  const [duplicateDetectionEnabled, setDuplicateDetectionEnabled] = useState(true);
+  const [defaultPriority, setDefaultPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM');
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const toast = (msg: string, isErr = false) => {
+    if (isErr) { setError(msg); setToastMessage(null); }
+    else { setToastMessage(msg); setError(null); }
+    setTimeout(() => { setToastMessage(null); setError(null); }, 3500);
+  };
+
+  const loadData = async () => {
+    setLoading(true);
+    // Fetch Support Form Config
+    const configRes = await apiFetch('/api/v1/support-form-config');
+    if (configRes.data) {
+      const d = configRes.data;
+      if (d.formTitle) setFormTitle(d.formTitle);
+      if (d.formDescription) setFormDescription(d.formDescription);
+      if (d.successMessage) setSuccessMessage(d.successMessage);
+      setPhoneRequired(!!d.phoneRequired);
+      setCategoryRequired(!!d.categoryRequired);
+      setEnabled(d.enabled !== false);
+      if (Array.isArray(d.categories)) setCategories(d.categories);
+      else if (typeof d.categories === 'string' && d.categories.trim()) {
+        setCategories(d.categories.split(',').map((s: string) => s.trim()));
+      }
+      if (d.primaryColor) setPrimaryColor(d.primaryColor);
+      if (d.logoUrl) setLogoUrl(d.logoUrl);
+      if (d.rateLimitEnabled !== undefined) setRateLimitEnabled(!!d.rateLimitEnabled);
+      if (d.duplicateDetectionEnabled !== undefined) setDuplicateDetectionEnabled(!!d.duplicateDetectionEnabled);
+      if (d.defaultPriority) setDefaultPriority(d.defaultPriority);
+    }
+
+    // Fetch WhatsApp Greeting
+    const greetingRes = await apiFetch('/api/v1/flow-config/greeting?flowType=SUPPORT');
+    if (greetingRes.data?.greetingMessage) {
+      setWhatsappIntro(greetingRes.data.greetingMessage);
+    }
+
+    // Fetch Flow Fields
+    const fieldsRes = await apiFetch('/api/v1/flow-config/fields?flowType=SUPPORT');
+    if (fieldsRes.data && Array.isArray(fieldsRes.data) && fieldsRes.data.length > 0) {
+      setFlowFields(fieldsRes.data);
+    }
+
+    setLoading(false);
+  };
+
+  const handleSaveAll = async () => {
+    setSaving(true);
+    // 1. Save Support Form Config
+    const configPayload = {
+      formTitle,
+      formDescription,
+      successMessage,
+      phoneRequired,
+      categoryRequired,
+      enabled,
+      categories,
+      primaryColor,
+      logoUrl,
+      rateLimitEnabled,
+      duplicateDetectionEnabled,
+      defaultPriority,
+    };
+    const configRes = await apiFetch('/api/v1/support-form-config', {
+      method: 'PUT',
+      body: JSON.stringify(configPayload),
+    });
+
+    // 2. Save WhatsApp Greeting
+    await apiFetch('/api/v1/flow-config/greeting?flowType=SUPPORT', {
+      method: 'POST',
+      body: JSON.stringify({ greetingMessage: whatsappIntro }),
+    });
+
+    // 3. Save Flow Fields
+    await apiFetch('/api/v1/flow-config/fields?flowType=SUPPORT', {
+      method: 'POST',
+      body: JSON.stringify(flowFields),
+    });
+
+    setSaving(false);
+    if (!configRes.error) {
+      toast('Support Configuration saved successfully!');
+    } else {
+      toast(`Save failed: ${configRes.error}`, true);
+    }
+  };
+
+  const handleAddCategory = () => {
+    if (!newCatInput.trim()) return;
+    if (!categories.includes(newCatInput.trim())) {
+      setCategories([...categories, newCatInput.trim()]);
+    }
+    setNewCatInput('');
+  };
+
+  const handleDeleteCategory = (index: number) => {
+    setCategories(categories.filter((_, i) => i !== index));
+  };
+
+  const applyTemplate = (templateItems: string[]) => {
+    setCategories(templateItems);
+  };
+
+  const moveField = (index: number, direction: -1 | 1) => {
+    const newIdx = index + direction;
+    if (newIdx < 0 || newIdx >= flowFields.length) return;
+    const updated = [...flowFields];
+    const temp = updated[index];
+    updated[index] = updated[newIdx];
+    updated[newIdx] = temp;
+    setFlowFields(updated.map((f, i) => ({ ...f, order: i })));
+  };
+
+  const updateField = (index: number, field: keyof FlowFieldItem, val: any) => {
+    setFlowFields(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: val };
+      return copy;
+    });
+  };
+
+  if (loading) {
+    return (
+      <SectionCard>
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+          <span className="ml-2 text-sm text-slate-500">Loading Support Categories &amp; Form Config...</span>
+        </div>
+      </SectionCard>
+    );
+  }
 
   return (
-    <SectionCard>
-      <PanelHeader title="Support Categories" desc="Categories for WhatsApp support requests" icon={<HelpCircle className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
-
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-secondary-c">{cats.length} categories</p>
-        <button onClick={() => setShowAdd(true)} className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white hover:scale-105">
-          <Plus className="h-3.5 w-3.5" /> Add Category
-        </button>
-      </div>
-
-      <div className="grid gap-2 sm:grid-cols-2">
-        {cats.map((c) => (
-          <div key={c.id} className="flex items-center gap-3 rounded-xl2 border border-base-c p-3">
-            <span className="grid h-9 w-9 place-items-center rounded-lg bg-slate-100 text-lg dark:bg-ink-800">{c.emoji}</span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-primary-c">{c.name}</p>
-              <p className="text-xs text-muted-c">{c.tickets} tickets this month</p>
-            </div>
-            <button onClick={() => setCats((prev) => prev.filter((x) => x.id !== c.id))} className="grid h-7 w-7 place-items-center rounded-lg text-muted-c hover:bg-danger-500/10 hover:text-danger-600">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={() => setShowAdd(false)}>
-          <div className="w-full max-w-sm rounded-xl2 border border-base-c bg-card-c p-5 shadow-soft-lg animate-slide-up" onClick={(e) => e.stopPropagation()}>
-            <h4 className="mb-4 text-sm font-bold text-primary-c">Add Support Category</h4>
-            <div className="space-y-3">
-              <input className="form-input" placeholder="Category name" />
-              <input className="form-input" placeholder="Emoji (e.g. 🏠)" />
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setShowAdd(false)} className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c">Cancel</button>
-              <button onClick={() => setShowAdd(false)} className="rounded-lg bg-gradient-accent px-4 py-2 text-xs font-semibold text-white">Add</button>
-            </div>
-          </div>
+    <div className="space-y-6 max-w-5xl mx-auto pb-12">
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> {toastMessage}
         </div>
       )}
-    </SectionCard>
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm font-medium text-rose-700 dark:text-rose-400">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+        </div>
+      )}
+
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 dark:text-white">Support Categories</h2>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Customize support categories for WhatsApp and web support forms.
+        </p>
+      </div>
+
+      {/* ─── 1. Basic Configuration ─── */}
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
+        <button
+          onClick={() => setOpenBasic(!openBasic)}
+          className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Settings className="h-5 w-5 text-emerald-600" />
+            <span className="text-base font-bold text-slate-900 dark:text-white">Basic Configuration</span>
+          </div>
+          {openBasic ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+        </button>
+
+        {openBasic && (
+          <div className="border-t border-slate-100 dark:border-slate-800 p-5 space-y-5">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Form Title</label>
+              <input
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                placeholder="Get Support"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Form Description</label>
+              <input
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                placeholder="Need help? Submit your request and we'll get back to you soon."
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">
+                WhatsApp Intro/Greeting Message (Optional)
+              </label>
+              <textarea
+                value={whatsappIntro}
+                onChange={(e) => setWhatsappIntro(e.target.value)}
+                rows={3}
+                placeholder="Welcome to our Support channel! Please provide a few details so we can assist you better."
+                className="w-full rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+              <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                This message will be sent to the user right before the first question of the WhatsApp support flow.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Success Message</label>
+              <div className="relative flex items-center">
+                <span className="absolute left-3 text-emerald-600 font-bold text-xs">
+                  <Check className="h-4 w-4 text-emerald-600" />
+                </span>
+                <input
+                  value={successMessage}
+                  onChange={(e) => setSuccessMessage(e.target.value)}
+                  placeholder="Thank you for contacting support! We've received your request and will get back to you shortly."
+                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-3 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Require Phone Number</span>
+                <Toggle checked={phoneRequired} onChange={setPhoneRequired} />
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Require Category Selection</span>
+                <Toggle checked={categoryRequired} onChange={setCategoryRequired} />
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Enable Support Form</span>
+                <Toggle checked={enabled} onChange={setEnabled} />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── 2. Support Categories ─── */}
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
+        <button
+          onClick={() => setOpenCategories(!openCategories)}
+          className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <TagIcon className="h-5 w-5 text-emerald-600" />
+            <span className="text-base font-bold text-slate-900 dark:text-white">Support Categories</span>
+          </div>
+          {openCategories ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+        </button>
+
+        {openCategories && (
+          <div className="border-t border-slate-100 dark:border-slate-800 p-5 space-y-6">
+            {/* Quick Templates */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">Quick Templates</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Apply category templates relevant to your business type:</p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <button
+                  onClick={() => applyTemplate(['Project Query', 'Revision Request', 'Delivery Query', 'Pricing'])}
+                  className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+                >
+                  💼 General Business
+                </button>
+                <button
+                  onClick={() => applyTemplate(['Technical Issue', 'Billing & Payment', 'Account Problem', 'General Query'])}
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+                >
+                  💻 Technology
+                </button>
+                <button
+                  onClick={() => applyTemplate(['Appointment Query', 'Treatment Details', 'Billing & Insurance', 'Emergency'])}
+                  className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-100 transition-colors"
+                >
+                  🏥 Healthcare
+                </button>
+              </div>
+            </div>
+
+            {/* Current Categories */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">Current Categories</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">These categories appear in WhatsApp and web support forms:</p>
+
+              <div className="mt-3 space-y-2.5">
+                {categories.map((cat, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      value={cat}
+                      onChange={(e) => {
+                        const updated = [...categories];
+                        updated[idx] = e.target.value;
+                        setCategories(updated);
+                      }}
+                      className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    />
+                    <button
+                      onClick={() => handleDeleteCategory(idx)}
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 dark:bg-rose-950/40 dark:text-rose-400 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Add category input */}
+              <div className="mt-4 flex items-center gap-2">
+                <input
+                  value={newCatInput}
+                  onChange={(e) => setNewCatInput(e.target.value)}
+                  placeholder="New Category Name (e.g. Refund Request)"
+                  className="flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory(); }}
+                />
+                <button
+                  onClick={handleAddCategory}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 transition-colors"
+                >
+                  <Plus className="h-4 w-4" /> Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── 3. WhatsApp Flow Fields ─── */}
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
+        <button
+          onClick={() => setOpenFlowFields(!openFlowFields)}
+          className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <MessageCircle className="h-5 w-5 text-emerald-600" />
+            <span className="text-base font-bold text-slate-900 dark:text-white">WhatsApp Flow Fields</span>
+          </div>
+          {openFlowFields ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+        </button>
+
+        {openFlowFields && (
+          <div className="border-t border-slate-100 dark:border-slate-800 p-5 space-y-5">
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white">Customize Support Chat Flow</h4>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Enable, reorder, and rename the questions asked during WhatsApp support conversation.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {flowFields.map((field, idx) => (
+                <div key={field.key || idx} className="rounded-xl border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-md bg-emerald-700 text-white px-2 py-0.5 text-[10px] font-bold">
+                        {field.key}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        {field.fieldType}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">ENABLED</span>
+                      <Toggle
+                        checked={field.enabled}
+                        onChange={(val) => updateField(idx, 'enabled', val)}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-[11px] font-semibold text-slate-500 dark:text-slate-400">Question / Label</label>
+                    <div className="relative flex items-center">
+                      <span className="absolute left-3 text-slate-400">
+                        {field.key === 'NAME' ? <User className="h-4 w-4" /> : field.key === 'EMAIL' ? <AtSign className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                      </span>
+                      <input
+                        value={field.label}
+                        onChange={(e) => updateField(idx, 'label', e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-3 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Required:</span>
+                      <Toggle
+                        checked={field.required}
+                        onChange={(val) => updateField(idx, 'required', val)}
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => moveField(idx, -1)}
+                        disabled={idx === 0}
+                        className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => moveField(idx, 1)}
+                        disabled={idx === flowFields.length - 1}
+                        className="grid h-7 w-7 place-items-center rounded border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── 4. Advanced Settings ─── */}
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
+        <button
+          onClick={() => setOpenAdvanced(!openAdvanced)}
+          className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        >
+          <div className="flex items-center gap-3">
+            <Sliders className="h-5 w-5 text-emerald-600" />
+            <span className="text-base font-bold text-slate-900 dark:text-white">Advanced Settings</span>
+          </div>
+          {openAdvanced ? <ChevronUp className="h-5 w-5 text-slate-400" /> : <ChevronDown className="h-5 w-5 text-slate-400" />}
+        </button>
+
+        {openAdvanced && (
+          <div className="border-t border-slate-100 dark:border-slate-800 p-5 space-y-5">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Primary Color (Hex)</label>
+              <input
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                placeholder="#667eea"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-slate-600 dark:text-slate-300">Logo URL (Optional)</label>
+              <input
+                value={logoUrl}
+                onChange={(e) => setLogoUrl(e.target.value)}
+                placeholder="Logo URL (Optional)"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-800 focus:border-emerald-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            </div>
+
+            <div className="space-y-3 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Enable Rate Limiting</span>
+                <Toggle checked={rateLimitEnabled} onChange={setRateLimitEnabled} />
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Enable Duplicate Detection</span>
+                <Toggle checked={duplicateDetectionEnabled} onChange={setDuplicateDetectionEnabled} />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-semibold text-slate-600 dark:text-slate-300">Default Priority</label>
+              <div className="flex items-center gap-2">
+                {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const).map((p) => {
+                  const active = defaultPriority === p;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setDefaultPriority(p)}
+                      className={cx(
+                        'flex items-center gap-1 rounded-full px-4 py-1.5 text-xs font-bold transition-all border',
+                        active
+                          ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                          : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                      )}
+                    >
+                      {active && <Check className="h-3.5 w-3.5" />}
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ─── Bottom Save / Reset Bar ─── */}
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          onClick={loadData}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-rose-500 bg-white py-3 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:bg-slate-900 dark:hover:bg-rose-950/30 transition-colors"
+        >
+          <RotateCcw className="h-3.5 w-3.5" /> Reset
+        </button>
+        <button
+          onClick={handleSaveAll}
+          disabled={saving}
+          className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-teal-700 hover:bg-teal-800 dark:bg-teal-600 dark:hover:bg-teal-700 py-3 text-xs font-bold text-white shadow-md transition-all disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save Configuration
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -225,98 +740,231 @@ function HealthStat({ icon: Icon, label, value }: { icon: typeof Server; label: 
   );
 }
 
-/* ─── Need Help ─── */
+/* ─── Need Help / Support Tickets ─── */
 export function NeedHelpPanel() {
+  const [tickets, setTickets] = useState<TicketDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Modal Form State
   const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
+  const [description, setDescription] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const channels = [
-    { icon: MessageSquare, label: 'Live Chat', value: 'Available 24/7', action: 'Start chat' },
-    { icon: Mail, label: 'Email Support', value: 'support@crmlite.io', action: 'Send email' },
-    { icon: Phone, label: 'Phone Support', value: '+91 80 4567 8900', action: 'Call now' },
-  ];
+  useEffect(() => {
+    loadTickets();
+  }, []);
 
-  const faqs = [
-    { q: 'How do I connect my WhatsApp number?', a: 'Go to Configuration → Meta Integration and enter your Phone Number ID and Access Token from Meta Business Suite.' },
-    { q: 'How do I train the AI bot?', a: 'Upload documents in the Knowledge Base section. The bot will use them to answer customer questions automatically.' },
-    { q: 'Can I customize the lead capture form?', a: 'Yes, go to Configuration → Form Fields to add, remove, or reorder fields in your WhatsApp lead form.' },
-    { q: 'How do I invite team members?', a: 'Navigate to Account → Staff Management and click "Invite Member" to send an email invitation.' },
-  ];
+  const toast = (msg: string, isErr = false) => {
+    if (isErr) { setError(msg); setToastMsg(null); }
+    else { setToastMsg(msg); setError(null); }
+    setTimeout(() => { setToastMsg(null); setError(null); }, 3500);
+  };
+
+  const loadTickets = async () => {
+    setLoading(true);
+    const res = await fetchTickets();
+    setLoading(false);
+    if (res.data) {
+      setTickets(res.data);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subject.trim() || !description.trim()) {
+      toast('Subject and Description are required', true);
+      return;
+    }
+
+    setSubmitting(true);
+    const res = await createTicket({
+      subject: subject.trim(),
+      description: description.trim(),
+    });
+    setSubmitting(false);
+
+    if (res.data) {
+      toast('Support ticket submitted successfully!');
+      setSubject('');
+      setDescription('');
+      setShowModal(false);
+      loadTickets();
+    } else {
+      toast(res.error || 'Failed to submit ticket', true);
+    }
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return new Date().toLocaleDateString('en-US');
+    try {
+      const d = new Date(dateStr);
+      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+    } catch {
+      return dateStr;
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <SectionCard>
-        <PanelHeader title="Need Help?" desc="Contact our support team for assistance" icon={<LifeBuoy className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          {channels.map((c) => {
-            const Icon = c.icon;
-            return (
-              <div key={c.label} className="rounded-xl2 border border-base-c p-4 text-center">
-                <div className="mx-auto grid h-10 w-10 place-items-center rounded-xl2 bg-primary-500/10">
-                  <Icon className="h-5 w-5 text-primary-600 dark:text-primary-400" />
-                </div>
-                <p className="mt-2 text-sm font-semibold text-primary-c">{c.label}</p>
-                <p className="text-xs text-muted-c">{c.value}</p>
-                <button className="mt-2 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">{c.action}</button>
-              </div>
-            );
-          })}
+      {/* Toast feedback */}
+      {toastMsg && (
+        <div className="flex items-center gap-2 rounded-xl2 border border-success-500/20 bg-success-500/10 px-4 py-3 text-sm font-medium text-success-700 dark:text-success-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> {toastMsg}
         </div>
-      </SectionCard>
+      )}
+      {error && (
+        <div className="flex items-center gap-2 rounded-xl2 border border-danger-500/20 bg-danger-500/10 px-4 py-3 text-sm font-medium text-danger-700 dark:text-danger-400">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+        </div>
+      )}
 
       <SectionCard>
-        <div className="flex items-center gap-2">
-          <BookOpen className="h-4 w-4 text-muted-c" />
-          <h4 className="text-sm font-semibold text-primary-c">Frequently Asked Questions</h4>
-        </div>
-        <div className="mt-3 space-y-2">
-          {faqs.map((f, i) => (
-            <FAQItem key={i} q={f.q} a={f.a} />
-          ))}
-        </div>
-        <a href="#" className="mt-3 flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400">
-          <ExternalLink className="h-3 w-3" /> Browse full documentation
-        </a>
-      </SectionCard>
-
-      <SectionCard>
-        <h4 className="text-sm font-semibold text-primary-c">Send a Support Ticket</h4>
-        <div className="mt-3 space-y-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-secondary-c">Subject</label>
-            <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Briefly describe the issue" className="form-input" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-secondary-c">Message</label>
-            <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} placeholder="Describe the issue in detail…" className="form-input resize-none" />
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
+        <div className="flex items-center justify-between">
+          <PanelHeader
+            title="Support Tickets"
+            desc="View your support request history or create a new ticket"
+            icon={<LifeBuoy className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
+          />
           <button
-            disabled={!subject.trim() || !message.trim()}
-            className={cx(
-              'flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all',
-              subject.trim() && message.trim() ? 'bg-gradient-accent text-white hover:scale-105' : 'bg-slate-300 text-slate-500 dark:bg-ink-700',
-            )}
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 shadow-soft"
           >
-            <Mail className="h-3.5 w-3.5" /> Submit Ticket
+            <Plus className="h-3.5 w-3.5" /> New Ticket
           </button>
         </div>
+
+        {/* Tickets List */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+            <span className="ml-2 text-sm text-secondary-c">Loading support tickets...</span>
+          </div>
+        ) : tickets.length === 0 ? (
+          <div className="rounded-xl2 border border-base-c p-8 text-center bg-slate-50/50 dark:bg-ink-850/50">
+            <div className="mx-auto grid h-10 w-10 place-items-center rounded-full bg-primary-500/10">
+              <LifeBuoy className="h-5 w-5 text-primary-600 dark:text-primary-400" />
+            </div>
+            <p className="mt-3 text-sm font-semibold text-primary-c">No Support Tickets Yet</p>
+            <p className="text-xs text-muted-c mt-1">
+              Need assistance? Click &quot;New Ticket&quot; to contact our platform support team.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3 mt-2">
+            {tickets.map((t) => {
+              const statusUpper = (t.status || 'OPEN').toUpperCase();
+              const commentsCount = t.comments?.length || 0;
+              const badgeVariant: 'warning' | 'success' | 'danger' | 'default' =
+                statusUpper === 'OPEN' || statusUpper === 'NEW'
+                  ? 'warning'
+                  : statusUpper === 'RESOLVED' || statusUpper === 'CLOSED'
+                  ? 'success'
+                  : 'danger';
+
+              return (
+                <div
+                  key={t.id}
+                  className="rounded-xl2 border border-base-c bg-card-c p-4 space-y-2 hover:border-primary-500/30 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <p className="text-sm font-semibold text-primary-c">{t.subject || 'Support Ticket'}</p>
+                    <Badge variant={badgeVariant}>{statusUpper}</Badge>
+                  </div>
+
+                  {t.description && (
+                    <p className="text-xs text-secondary-c line-clamp-2 leading-relaxed">
+                      {t.description}
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between border-t border-base-c pt-2.5 text-[11px] text-muted-c">
+                    <span>{formatDate(t.createdAt)}</span>
+                    <div className="flex items-center gap-1">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      {commentsCount > 0 && <span className="font-semibold text-secondary-c">{commentsCount}</span>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </SectionCard>
+
+      {/* New Ticket Modal */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-xl2 border border-base-c bg-card-c p-6 shadow-soft-lg space-y-4 animate-slide-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-base font-bold text-primary-c">Need Help?</h4>
+                <p className="text-xs text-muted-c mt-0.5">
+                  Describe your issue below and our platform support team will review it.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowModal(false)}
+                className="grid h-7 w-7 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-secondary-c">Subject</label>
+                <input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  placeholder="Subject"
+                  required
+                  className="form-input"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-secondary-c">Description</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Description"
+                  rows={4}
+                  required
+                  className="form-input resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c hover:text-primary-c transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  <span>Submit</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function FAQItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="rounded-xl2 border border-base-c">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-2 p-3 text-left">
-        <span className="text-sm font-medium text-primary-c">{q}</span>
-        <Plus className={cx('h-4 w-4 shrink-0 text-muted-c transition-transform', open && 'rotate-45')} />
-      </button>
-      {open && <p className="px-3 pb-3 text-xs leading-relaxed text-secondary-c">{a}</p>}
-    </div>
-  );
-}

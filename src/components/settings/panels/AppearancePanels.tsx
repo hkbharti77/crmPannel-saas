@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/primitives';
 import { Paintbrush, Moon, Bell, Sun, Check, Upload, Smartphone } from 'lucide-react';
-import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard } from './_shared';
+import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
+import { fetchSubscriptionStatus } from '@/lib/billingApi';
 
 /* ─── Custom Branding ─── */
 export function CustomBrandingPanel() {
@@ -11,12 +12,29 @@ export function CustomBrandingPanel() {
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
   const [accentColor, setAccentColor] = useState('#7C3AED');
   const [welcomeMsg, setWelcomeMsg] = useState('Hello! How can I help you find your dream property today?');
+  const [isLocked, setIsLocked] = useState(false);
+
+  useEffect(() => {
+    fetchSubscriptionStatus().then((res) => {
+      if (res.data) {
+        if (!res.data.limits.hasCustomWidget || res.data.planId === 'FREE') {
+          setIsLocked(true);
+        } else {
+          setIsLocked(false);
+        }
+      }
+    });
+  }, []);
 
   const PRESET_COLORS = ['#2563EB', '#0EA5E9', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
   return (
     <SectionCard>
       <PanelHeader title="Custom Branding" desc="Customize your bot logo, colors, and welcome message" icon={<Paintbrush className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
+
+      {isLocked && (
+        <PlanLockBanner featureName="Custom Bot Branding & White-Labeling" requiredPlan="PRO" />
+      )}
 
       {/* Logo upload */}
       <div className="flex items-center gap-4 rounded-xl2 border border-base-c p-4">

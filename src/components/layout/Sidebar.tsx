@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react';
 import { NAV_ITEMS, type ViewId } from '@/lib/navigation';
 import { cx } from '@/lib/types';
 import { Logo } from '@/components/ui/primitives';
-import { ChevronLeft, X, Shield } from 'lucide-react';
+import { ChevronLeft, X, Shield, User as UserIcon, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { fetchCurrentUserProfile, type UserProfileDto } from '@/lib/userApi';
 
 export function Sidebar({
   current,
@@ -20,6 +23,42 @@ export function Sidebar({
   onCloseMobile: () => void;
   onEnterAdmin: () => void;
 }) {
+  const { user, signOut } = useAuth();
+  const [profile, setProfile] = useState<UserProfileDto | null>(null);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+
+  const loadProfile = () => {
+    fetchCurrentUserProfile().then((res) => {
+      if (res.data) setProfile(res.data);
+    });
+  };
+
+  useEffect(() => {
+    loadProfile();
+
+    // Listen for real-time profile updates from settings toggle changes
+    window.addEventListener('profileUpdated', loadProfile);
+    return () => window.removeEventListener('profileUpdated', loadProfile);
+  }, []);
+
+  const displayName = profile?.displayName || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
+  const roleLabel = profile?.role === 'OWNER' ? 'Tenant Owner' : profile?.role === 'ADMIN' ? 'Tenant Admin' : 'Agent';
+
+  const initials = displayName
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase();
+
+  // Dynamically filter navigation items based on backend module toggles
+  const navItems = NAV_ITEMS.filter((item) => {
+    if (item.id === 'pipeline' && profile?.forceShowLeads === false) return false;
+    if (item.id === 'appointments' && profile?.forceShowAppointment === false) return false;
+    if (item.id === 'booking' && profile?.forceShowBooking === false) return false;
+    return true;
+  });
+
   return (
     <>
       {mobileOpen && (
@@ -48,7 +87,7 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2 scrollbar-thin">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const active = current === item.id;
             return (
@@ -90,20 +129,34 @@ export function Sidebar({
           })}
         </nav>
 
-        {/* Super Admin entry */}
-        <div className="border-t border-base-c p-3">
-          <button
-            onClick={onEnterAdmin}
-            className={cx(
-              'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
-              collapsed && 'justify-center',
-              'bg-gradient-to-br from-rose-500/10 to-orange-500/10 text-rose-600 hover:from-rose-500/20 hover:to-orange-500/20 dark:text-rose-400',
-            )}
-          >
-            <Shield className="h-[18px] w-[18px] shrink-0" />
-            {!collapsed && <span>Super Admin</span>}
-          </button>
-        </div>
+        {/* Super Admin entry — rendered only for Super Admin users */}
+        {(() => {
+          const roleUpper = (user?.role || '').toUpperCase();
+          const isSuperAdmin =
+            user?.isSuperAdmin === true ||
+            roleUpper === 'SUPER_ADMIN' ||
+            roleUpper === 'PLATFORM_ADMIN' ||
+            user?.email?.toLowerCase() === 'gyanvaniai@gmail.com' ||
+            user?.email?.toLowerCase().startsWith('superadmin');
+
+          if (!isSuperAdmin) return null;
+
+          return (
+            <div className="border-t border-base-c p-3">
+              <button
+                onClick={onEnterAdmin}
+                className={cx(
+                  'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
+                  collapsed && 'justify-center',
+                  'bg-gradient-to-br from-rose-500/10 to-orange-500/10 text-rose-600 hover:from-rose-500/20 hover:to-orange-500/20 dark:text-rose-400',
+                )}
+              >
+                <Shield className="h-[18px] w-[18px] shrink-0" />
+                {!collapsed && <span>Super Admin</span>}
+              </button>
+            </div>
+          );
+        })()}
 
         <div className="hidden border-t border-base-c p-3 lg:block">
           <button
@@ -123,18 +176,67 @@ export function Sidebar({
           </button>
         </div>
 
-        <div className="border-t border-base-c p-3">
-          <div className={cx('flex items-center gap-3', collapsed && 'justify-center')}>
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-accent text-sm font-semibold text-white">
-              AK
+        {/* Dynamic Authenticated User Profile */}
+        <div className="relative border-t border-base-c p-3">
+          <button
+            onClick={() => setShowProfileMenu((prev) => !prev)}
+            className={cx(
+              'flex w-full items-center gap-3 rounded-xl p-1.5 transition-colors hover:bg-slate-100 dark:hover:bg-ink-850',
+              collapsed && 'justify-center',
+            )}
+          >
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-accent text-sm font-bold text-white shadow-sm">
+              {initials}
             </div>
             {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-primary-c">Arjun Kapoor</p>
-                <p className="truncate text-xs text-muted-c">Tenant Admin</p>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-semibold text-primary-c">{displayName}</p>
+                <p className="truncate text-xs text-muted-c">{roleLabel}</p>
               </div>
             )}
-          </div>
+          </button>
+
+          {/* User Profile Popover */}
+          {showProfileMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)} />
+              <div className="absolute bottom-16 left-3 z-20 w-64 overflow-hidden rounded-xl2 border border-base-c bg-card-c p-3 shadow-2xl animate-slide-up">
+                <div className="flex items-center gap-3 border-b border-base-c pb-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-accent text-sm font-bold text-white">
+                    {initials}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold text-primary-c">{displayName}</p>
+                    <p className="truncate text-xs text-muted-c">{profile?.email || user?.email}</p>
+                    <span className="mt-1 inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                      {roleLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="py-2 space-y-1">
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      onNavigate('settings');
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-secondary-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-850"
+                  >
+                    <SettingsIcon className="h-4 w-4" /> Account Settings
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowProfileMenu(false);
+                      signOut();
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-danger-600 hover:bg-danger-500/10 dark:text-danger-400"
+                  >
+                    <LogOut className="h-4 w-4" /> Sign Out
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </aside>
     </>

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { LEAD_DETAIL, STAGE_ORDER } from './leadDetailData';
+import { STAGE_ORDER } from './leadDetailData';
 import type { LeadStage } from '@/lib/types';
+import type { LeadDTO } from '@/lib/leadsApi';
 import {
   ArrowLeft,
   Phone,
-  Video,
   Mail,
   MessageSquare,
   CalendarPlus,
@@ -26,8 +26,19 @@ const STAGE_COLORS: Record<LeadStage, string> = {
   LOST: 'bg-danger-500',
 };
 
-export function LeadDetailHeader({ onBack }: { onBack: () => void }) {
-  const lead = LEAD_DETAIL;
+export function LeadDetailHeader({
+  lead,
+  onBack,
+}: {
+  lead: LeadDTO | null;
+  onBack: () => void;
+}) {
+  const name = lead?.contact?.name || lead?.contact?.waId || lead?.leadNumber || 'Lead';
+  const company = lead?.dealLabel || lead?.contact?.source || 'Direct Lead';
+  const phone = lead?.contact?.phone || lead?.contact?.waId || 'N/A';
+  const email = lead?.contact?.email || 'Not provided';
+  const tags = lead?.contact?.tags || (lead?.score && lead.score >= 70 ? ['HOT'] : ['NEW']);
+  const stage = lead?.status || 'NEW';
 
   return (
     <GlassCard className="p-4 lg:p-5">
@@ -43,28 +54,28 @@ export function LeadDetailHeader({ onBack }: { onBack: () => void }) {
           </button>
 
           <div className="relative">
-            <Avatar name={lead.name} size={56} />
+            <Avatar name={name} size={56} />
             <span className="absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-success-500 ring-2 ring-card-c" />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-primary-c">{lead.name}</h2>
-              {lead.tags.includes('HOT') && (
+              <h2 className="text-lg font-bold text-primary-c">{name}</h2>
+              {tags.includes('HOT') && (
                 <span className="flex items-center gap-0.5 rounded-full bg-danger-500/15 px-2 py-0.5 text-[10px] font-bold text-danger-600 dark:text-danger-400">
                   <TrendingUp className="h-3 w-3" /> HOT
                 </span>
               )}
-              {lead.tags.includes('VIP') && (
+              {tags.includes('VIP') && (
                 <span className="flex items-center gap-0.5 rounded-full bg-gradient-accent px-2 py-0.5 text-[10px] font-bold text-white">
                   <Star className="h-3 w-3" /> VIP
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-sm text-secondary-c">{lead.company}</p>
+            <p className="mt-0.5 text-sm text-secondary-c">{company}</p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-c">
-              <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {lead.phone}</span>
-              <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {lead.email}</span>
+              <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {phone}</span>
+              <span className="flex items-center gap-1"><Mail className="h-3 w-3" /> {email}</span>
             </div>
           </div>
         </div>
@@ -83,7 +94,7 @@ export function LeadDetailHeader({ onBack }: { onBack: () => void }) {
 
       {/* Stage progression */}
       <div className="mt-5">
-        <StageProgression currentStage={lead.stage} />
+        <StageProgression currentStage={stage} />
       </div>
     </GlassCard>
   );
@@ -91,7 +102,6 @@ export function LeadDetailHeader({ onBack }: { onBack: () => void }) {
 
 function StageProgression({ currentStage }: { currentStage: LeadStage }) {
   const currentIdx = STAGE_ORDER.indexOf(currentStage);
-  const [hoveredStage, setHoveredStage] = useState<number | null>(null);
 
   return (
     <div className="flex items-center">
@@ -100,11 +110,7 @@ function StageProgression({ currentStage }: { currentStage: LeadStage }) {
         const isCurrent = i === currentIdx;
         return (
           <div key={stage} className="flex flex-1 items-center last:flex-none">
-            <div
-              className="flex flex-col items-center"
-              onMouseEnter={() => setHoveredStage(i)}
-              onMouseLeave={() => setHoveredStage(null)}
-            >
+            <div className="flex flex-col items-center">
               <div className="relative">
                 {isComplete ? (
                   <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft', STAGE_COLORS[stage])}>

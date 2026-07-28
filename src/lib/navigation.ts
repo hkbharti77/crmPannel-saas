@@ -3,6 +3,8 @@ import {
   MessageSquare,
   KanbanSquare,
   Megaphone,
+  Plug,
+  Brain,
   CalendarDays,
   CalendarCheck,
   Ticket,
@@ -20,6 +22,8 @@ export type ViewId =
   | 'chatroom'
   | 'pipeline'
   | 'broadcasts'
+  | 'meta-config'
+  | 'knowledge-base'
   | 'leaddetail'
   | 'appointments'
   | 'booking'
@@ -42,6 +46,8 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: 3 },
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone },
+  { id: 'meta-config', label: 'Meta Configuration', icon: Plug },
+  { id: 'knowledge-base', label: 'Knowledge Base', icon: Brain },
   { id: 'appointments', label: 'Appointments', icon: CalendarDays },
   { id: 'booking', label: 'Booking', icon: CalendarCheck },
   { id: 'tickets', label: 'Tickets', icon: Ticket, badge: 2 },

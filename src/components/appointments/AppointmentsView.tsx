@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { APPOINTMENTS, TYPE_CONFIG, type Appointment } from './appointmentData';
+import { TYPE_CONFIG, type Appointment } from './appointmentData';
 import { AppointmentStats } from './AppointmentStats';
 import { CalendarGrid } from './CalendarGrid';
 import { AppointmentList, BookingModal } from './AppointmentList';
-import { CalendarDays, Plus, List as ListIcon } from 'lucide-react';
+import {
+  fetchAppointments,
+  bookAppointment,
+  type AppointmentDto,
+} from '@/lib/appointmentsApi';
+import { Plus, RefreshCw } from 'lucide-react';
 
 export function AppointmentsView() {
-  const [appointments, setAppointments] = useState<Appointment[]>(APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(
     new Date().toISOString().split('T')[0],
@@ -17,6 +22,41 @@ export function AppointmentsView() {
   const [bookingDate, setBookingDate] = useState(
     new Date().toISOString().split('T')[0],
   );
+  const [loading, setLoading] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    const { data } = await fetchAppointments();
+    setLoading(false);
+
+    if (data && data.length > 0) {
+      const converted: Appointment[] = data.map((dto: AppointmentDto, idx: number) => {
+        const dt = dto.appointmentDateTime ? new Date(dto.appointmentDateTime) : new Date();
+        const dateStr = dt.toISOString().split('T')[0];
+        const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        return {
+          id: dto.id || `ap-${idx}`,
+          title: dto.title || 'Scheduled Appointment',
+          contactName: dto.contactName || dto.contactWaId || 'Contact',
+          company: dto.source || 'Direct Inquiry',
+          date: dateStr,
+          time: timeStr,
+          type: (dto.source?.toLowerCase().includes('call') ? 'call' : 'site_visit') as any,
+          status: dto.status === 'COMPLETED' ? 'completed' : dto.status === 'CANCELLED' ? 'cancelled' : 'scheduled',
+          assignedTo: dto.ownerName || 'Agent',
+          location: dto.meetingLink || 'Office / Online',
+        };
+      });
+      setAppointments(converted);
+    } else {
+      setAppointments([]);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const handleMonthChange = (delta: number) => {
     setCurrentMonth((prev) => {
@@ -35,11 +75,25 @@ export function AppointmentsView() {
     setShowBooking(true);
   };
 
-  const handleSaveBooking = (appt: Omit<Appointment, 'id'>) => {
-    setAppointments((prev) => [
-      ...prev,
-      { ...appt, id: `ap${prev.length + 1}` },
-    ]);
+  const handleSaveBooking = async (appt: Omit<Appointment, 'id'>) => {
+    const formattedTime = appt.time.includes(':') ? appt.time : '10:00';
+    const dateTimeIso = `${appt.date}T${formattedTime.padStart(5, '0')}:00`;
+
+    const res = await bookAppointment({
+      title: appt.title,
+      appointmentDateTime: dateTimeIso,
+      source: appt.company,
+    });
+
+    if (res.data) {
+      await loadData();
+    } else {
+      setAppointments((prev) => [
+        ...prev,
+        { ...appt, id: `ap${prev.length + 1}` },
+      ]);
+    }
+
     setShowBooking(false);
     setSelectedDate(appt.date);
   };
@@ -54,12 +108,23 @@ export function AppointmentsView() {
             Schedule and manage site visits, calls, demos, and meetings.
           </p>
         </div>
-        <button
-          onClick={() => handleBook(new Date().toISOString().split('T')[0])}
-          className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
-        >
-          <Plus className="h-3.5 w-3.5" /> New Appointment
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c"
+            title="Refresh Appointments"
+          >
+            <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} />
+            Refresh
+          </button>
+          <button
+            onClick={() => handleBook(new Date().toISOString().split('T')[0])}
+            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
+          >
+            <Plus className="h-3.5 w-3.5" /> New Appointment
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

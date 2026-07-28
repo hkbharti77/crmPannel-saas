@@ -1,31 +1,69 @@
+import { useState, useEffect } from 'react';
 import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import {
-  TENANTS, ADMIN_TICKETS, SUBSCRIPTIONS, REVENUE_DATA, SERVICE_HEALTH,
-  PLAN_META, STATUS_META,
-} from '@/components/admin/adminData';
+import { PLAN_META, STATUS_META, REVENUE_DATA } from '@/components/admin/adminData';
 import {
   Building2, Users, TrendingUp, AlertCircle, ArrowUpRight, ArrowDownRight,
-  CheckCircle2, Clock, Server, Activity, DollarSign, UserPlus,
+  CheckCircle2, Clock, Server, Activity, DollarSign, UserPlus, RefreshCw,
 } from 'lucide-react';
+import {
+  fetchAnalyticsOverview, fetchTenants, fetchPlatformHealth, fetchRecentActivity, normalizeHealthServices,
+  type ApiAnalyticsOverview, type ApiTenant, type ApiHealthService,
+} from '@/lib/platformApi';
 
 export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tickets' | 'subscriptions' | 'health') => void }) {
-  const activeTenants = TENANTS.filter((t) => t.status === 'active').length;
-  const trialTenants = TENANTS.filter((t) => t.status === 'trial').length;
-  const totalMRR = SUBSCRIPTIONS.filter((s) => s.status === 'active').reduce((s, sub) => s + sub.mrr, 0);
-  const totalUsers = TENANTS.reduce((s, t) => s + t.users, 0);
-  const totalLeads = TENANTS.reduce((s, t) => s + t.leads, 0);
-  const openTickets = ADMIN_TICKETS.filter((t) => t.status === 'OPEN').length;
-  const degradedServices = SERVICE_HEALTH.filter((s) => s.status !== 'operational').length;
+  const [overview, setOverview] = useState<ApiAnalyticsOverview | null>(null);
+  const [tenants, setTenants] = useState<ApiTenant[]>([]);
+  const [health, setHealth] = useState<ApiHealthService[]>([]);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    const [ovRes, tenRes, hlRes, actRes] = await Promise.all([
+      fetchAnalyticsOverview(),
+      fetchTenants({ size: 5 }),
+      fetchPlatformHealth(),
+      fetchRecentActivity(),
+    ]);
+    if (ovRes.error) setError(ovRes.error);
+    if (ovRes.data) setOverview(ovRes.data);
+    if (tenRes.data) {
+      const list = Array.isArray(tenRes.data) ? tenRes.data : tenRes.data.content ?? [];
+      setTenants(list.slice(0, 5));
+    }
+    if (hlRes.data?.services) setHealth(normalizeHealthServices(hlRes.data.services).slice(0, 5));
+    if (actRes.data) setActivity(Array.isArray(actRes.data) ? actRes.data.slice(0, 5) : []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const activeTenants = overview?.activeTenants ?? 0;
+  const totalTenants = overview?.totalTenants ?? 0;
+  const totalUsers = overview?.totalUsers ?? 0;
+  const totalLeads = overview?.totalLeads ?? 0;
+  const openTickets = overview?.openTickets ?? 0;
+  const degradedServices = overview?.degradedServices ?? 0;
 
   return (
     <div className="mx-auto max-w-7xl p-4 lg:p-6 space-y-4">
+      {/* Header actions */}
+      <div className="flex items-center justify-between">
+        {error && <p className="text-xs text-danger-500 bg-danger-50 dark:bg-danger-500/10 rounded-lg px-3 py-1.5">{error} — showing mock data</p>}
+        <button onClick={load} disabled={loading} className="ml-auto flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-1.5 text-xs font-medium text-secondary-c hover:text-primary-c transition-colors">
+          <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
+        </button>
+      </div>
+
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Building2} label="Active Tenants" value={String(activeTenants)} sub={`${trialTenants} on trial`} trend="up" trendVal="+2 this month" color="#2563EB" onClick={() => onNavigate('tenants')} />
-        <KpiCard icon={DollarSign} label="Monthly Recurring Revenue" value={`₹${(totalMRR / 1000).toFixed(1)}K`} sub="₹85.9K total" trend="up" trendVal="+12.4%" color="#10B981" onClick={() => onNavigate('subscriptions')} />
-        <KpiCard icon={Users} label="Total Users" value={String(totalUsers)} sub={`${totalLeads} leads`} trend="up" trendVal="+8 this month" color="#7C3AED" onClick={() => onNavigate('tenants')} />
-        <KpiCard icon={AlertCircle} label="Open Tickets" value={String(openTickets)} sub={degradedServices > 0 ? `${degradedServices} service degraded` : 'All systems up'} trend={degradedServices > 0 ? 'down' : 'up'} trendVal={degradedServices > 0 ? 'Attention needed' : 'Healthy'} color={degradedServices > 0 ? '#F43F5E' : '#10B981'} onClick={() => onNavigate('tickets')} />
+        <KpiCard icon={Building2} label="Active Tenants" value={loading ? '—' : String(activeTenants)} sub={`${totalTenants - activeTenants} trial/other`} trend="up" trendVal="+2 this month" color="#2563EB" onClick={() => onNavigate('tenants')} />
+        <KpiCard icon={DollarSign} label="Monthly Recurring Revenue" value={loading ? '—' : `₹${((overview?.mrr ?? 0) / 1000).toFixed(1)}K`} sub="MRR" trend="up" trendVal="+12.4%" color="#10B981" onClick={() => onNavigate('subscriptions')} />
+        <KpiCard icon={Users} label="Total Users" value={loading ? '—' : String(totalUsers)} sub={`${totalLeads} leads`} trend="up" trendVal="+8 this month" color="#7C3AED" onClick={() => onNavigate('tenants')} />
+        <KpiCard icon={AlertCircle} label="Open Tickets" value={loading ? '—' : String(openTickets)} sub={degradedServices > 0 ? `${degradedServices} service degraded` : 'All systems up'} trend={degradedServices > 0 ? 'down' : 'up'} trendVal={degradedServices > 0 ? 'Attention needed' : 'Healthy'} color={degradedServices > 0 ? '#F43F5E' : '#10B981'} onClick={() => onNavigate('tickets')} />
       </div>
 
       {/* Revenue chart + Recent tenants */}
@@ -46,25 +84,24 @@ export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tic
             <h3 className="text-sm font-semibold text-primary-c">Recent Tenants</h3>
             <button onClick={() => onNavigate('tenants')} className="text-[11px] font-medium text-rose-500 hover:underline">View all</button>
           </div>
-          <div className="space-y-2.5">
-            {TENANTS.slice(0, 5).map((t) => {
-              const sMeta = STATUS_META[t.status];
-              const pMeta = PLAN_META[t.plan];
-              return (
+          {loading ? (
+            <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-ink-800 animate-pulse" />)}</div>
+          ) : tenants.length === 0 ? (
+            <p className="text-xs text-muted-c">No tenants found</p>
+          ) : (
+            <div className="space-y-2.5">
+              {tenants.map((t) => (
                 <div key={t.id} className="flex items-center gap-3">
-                  <Avatar name={t.name} size={32} />
+                  <Avatar name={t.businessName} size={32} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-primary-c">{t.name}</p>
-                    <p className="truncate text-[10px] text-muted-c">{t.region} · {t.niche}</p>
+                    <p className="truncate text-sm font-semibold text-primary-c">{t.businessName}</p>
+                    <p className="truncate text-[10px] text-muted-c">{t.businessType ?? 'Business'}</p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <span className={cx('h-2 w-2 rounded-full', sMeta.dot)} />
-                    <span className={cx('rounded-full px-2 py-0.5 text-[9px] font-bold', pMeta.color)}>{pMeta.label}</span>
-                  </div>
+                  <span className="shrink-0 rounded-full bg-primary-500/10 px-2 py-0.5 text-[9px] font-bold text-primary-600 dark:text-primary-300">{t.planType}</span>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </GlassCard>
       </div>
 
@@ -75,35 +112,47 @@ export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tic
             <h3 className="flex items-center gap-2 text-sm font-semibold text-primary-c"><Server className="h-4 w-4 text-muted-c" /> System Health</h3>
             <button onClick={() => onNavigate('health')} className="text-[11px] font-medium text-rose-500 hover:underline">Details</button>
           </div>
-          <div className="space-y-2.5">
-            {SERVICE_HEALTH.slice(0, 5).map((s) => (
-              <div key={s.name} className="flex items-center justify-between rounded-lg border border-base-c p-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className={cx('h-2.5 w-2.5 rounded-full', s.status === 'operational' ? 'bg-success-500' : s.status === 'degraded' ? 'bg-warning-500' : 'bg-danger-500')} />
-                  <div>
-                    <p className="text-xs font-medium text-primary-c">{s.name}</p>
-                    <p className="text-[10px] text-muted-c">{s.uptime}% uptime · {s.latency}ms</p>
+          {loading ? (
+            <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-ink-800 animate-pulse" />)}</div>
+          ) : health.length === 0 ? (
+            <p className="text-xs text-muted-c">Health data unavailable</p>
+          ) : (
+            <div className="space-y-2.5">
+              {health.map((s) => (
+                <div key={s.name} className="flex items-center justify-between rounded-lg border border-base-c p-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className={cx('h-2.5 w-2.5 rounded-full', s.status === 'operational' || s.status === 'UP' ? 'bg-success-500' : s.status === 'degraded' ? 'bg-warning-500' : 'bg-danger-500')} />
+                    <div>
+                      <p className="text-xs font-medium text-primary-c">{s.name}</p>
+                      <p className="text-[10px] text-muted-c">{s.uptime ? `${s.uptime}% uptime` : ''}{s.latency ? ` · ${s.latency}ms` : ''}</p>
+                    </div>
                   </div>
+                  <span className={cx('text-[10px] font-bold', s.status === 'operational' || s.status === 'UP' ? 'text-success-600 dark:text-success-400' : 'text-warning-600 dark:text-warning-400')}>
+                    {(s.status || '').toUpperCase()}
+                  </span>
                 </div>
-                <span className={cx('text-[10px] font-bold', s.status === 'operational' ? 'text-success-600 dark:text-success-400' : 'text-warning-600 dark:text-warning-400')}>
-                  {s.status === 'operational' ? 'OPERATIONAL' : s.status.toUpperCase()}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </GlassCard>
 
         <GlassCard className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-primary-c"><Activity className="h-4 w-4 text-muted-c" /> Recent Activity</h3>
           </div>
-          <div className="space-y-3">
-            <ActivityRow icon={UserPlus} color="#10B981" text="New tenant Suburb Homes started trial" time="2 hr ago" />
-            <ActivityRow icon={AlertCircle} color="#F43F5E" text="Urban Nest suspended (payment overdue)" time="5 hr ago" />
-            <ActivityRow icon={CheckCircle2} color="#2563EB" text="Skyline Properties upgraded to Growth" time="1 day ago" />
-            <ActivityRow icon={Clock} color="#F59E0B" text="2 new support tickets from Apex Investors" time="1 day ago" />
-            <ActivityRow icon={Building2} color="#7C3AED" text="Apex Investors added 15 seats to Enterprise" time="2 days ago" />
-          </div>
+          {loading ? (
+            <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-ink-800 animate-pulse" />)}</div>
+          ) : activity.length === 0 ? (
+            <div className="space-y-3">
+              <ActivityRow icon={UserPlus} color="#10B981" text="Platform activity will appear here" time="Connect backend" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {activity.map((a: any, i: number) => (
+                <ActivityRow key={i} icon={CheckCircle2} color="#2563EB" text={a.action ?? a.message ?? JSON.stringify(a)} time={a.timestamp ?? a.time ?? ''} />
+              ))}
+            </div>
+          )}
         </GlassCard>
       </div>
     </div>

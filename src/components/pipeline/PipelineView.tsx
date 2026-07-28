@@ -1,10 +1,16 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { LEADS, STAGE_CONFIG, type Lead } from './pipelineData';
 import { PipelineStats } from './PipelineStats';
 import { KanbanColumn } from './KanbanBoard';
-import { Search, SlidersHorizontal, Plus, LayoutGrid, List } from 'lucide-react';
+import {
+  fetchLeadsPaged,
+  updateLeadStatus,
+  downloadLeadsExport,
+  type LeadDTO,
+} from '@/lib/leadsApi';
+import { Search, SlidersHorizontal, Plus, Download, RefreshCw } from 'lucide-react';
 
 type FilterId = 'all' | 'hot' | 'vip' | 'mine';
 
@@ -14,6 +20,45 @@ export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void 
   const [filter, setFilter] = useState<FilterId>('all');
   const [dragStage, setDragStage] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const loadLeads = async () => {
+    setLoading(true);
+    const { data } = await fetchLeadsPaged(0, 100);
+    setLoading(false);
+
+    if (data && data.content && data.content.length > 0) {
+      const converted: Lead[] = data.content.map((dto: LeadDTO) => {
+        const contactName = dto.contact?.name || dto.contact?.waId || dto.leadNumber || 'Lead';
+        const dealVal = dto.dealValue ? `₹${dto.dealValue}` : '₹50L';
+        const isHot = dto.score && dto.score >= 70;
+        const tags = dto.contact?.tags || (isHot ? ['HOT'] : ['NEW']);
+
+        return {
+          id: dto.id,
+          name: contactName,
+          company: dto.dealLabel || dto.contact?.source || 'Direct Lead',
+          phone: dto.contact?.phone || dto.contact?.waId || 'N/A',
+          stage: dto.status || 'NEW',
+          value: dealVal,
+          priority: isHot ? 'HIGH' : 'MEDIUM',
+          source: (dto.contact?.source as any) || 'WhatsApp',
+          tags,
+          assignedTo: dto.ownerName || 'Agent',
+          lastActivity: dto.createdAtHuman || 'Recently',
+          nextAction: 'Follow up',
+          nextActionDate: 'Today',
+          hasUnread: dto.isNew || false,
+        };
+      });
+      setLeads(converted);
+    }
+  };
+
+  useEffect(() => {
+    loadLeads();
+  }, []);
 
   const filtered = useMemo(() => {
     return leads.filter((l) => {
@@ -32,7 +77,7 @@ export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void 
     });
   }, [leads, filter, query]);
 
-  const handleDrop = (stage: string) => {
+  const handleDrop = async (stage: string) => {
     if (!dragStage) return;
     const lead = leads.find((l) => l.id === dragStage);
     if (!lead || lead.stage === stage) {
@@ -40,13 +85,27 @@ export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void 
       setDragOver(null);
       return;
     }
+
+    // Optimistic update
     setLeads((prev) =>
       prev.map((l) =>
         l.id === dragStage ? { ...l, stage: stage as Lead['stage'] } : l,
       ),
     );
+
     setDragStage(null);
     setDragOver(null);
+
+    // Backend sync
+    if (dragStage.includes('-')) {
+      await updateLeadStatus(dragStage, stage);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    await downloadLeadsExport('csv');
+    setExporting(false);
   };
 
   const counts = useMemo(() => {
@@ -76,9 +135,25 @@ export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void 
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c">
-            <SlidersHorizontal className="h-3.5 w-3.5" /> Filters
+          <button
+            onClick={loadLeads}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c"
+            title="Refresh Leads"
+          >
+            <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} />
+            Refresh
           </button>
+
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exporting ? 'Exporting...' : 'Export CSV'}
+          </button>
+
           <button className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
             <Plus className="h-3.5 w-3.5" /> New Lead
           </button>

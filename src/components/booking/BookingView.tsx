@@ -1,14 +1,15 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
-  SERVICES,
+  SERVICES as DEFAULT_SERVICES,
   AGENTS,
   generateTimeSlots,
   generateDateOptions,
   type BookingService,
   type BookingFormData,
 } from './bookingData';
+import { createBooking, fetchBusinessServices, type BusinessServiceDto } from '@/lib/bookingsApi';
 import {
   MapPin,
   MonitorPlay,
@@ -24,6 +25,7 @@ import {
   PartyPopper,
   Star,
   Video,
+  Loader2,
 } from 'lucide-react';
 
 const SERVICE_ICONS: Record<string, typeof MapPin> = {
@@ -39,6 +41,10 @@ const STEP_LABELS = ['Service', 'Date & Time', 'Details', 'Confirm'];
 
 export function BookingView() {
   const [step, setStep] = useState<Step>(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [services, setServices] = useState<BookingService[]>(DEFAULT_SERVICES);
+  const [loadingServices, setLoadingServices] = useState(false);
+
   const [form, setForm] = useState<BookingFormData>({
     serviceId: '',
     date: '',
@@ -50,9 +56,35 @@ export function BookingView() {
     notes: '',
   });
 
+  useEffect(() => {
+    const loadServices = async () => {
+      setLoadingServices(true);
+      const { data } = await fetchBusinessServices();
+      setLoadingServices(false);
+
+      if (data && data.length > 0) {
+        const colors = ['#10B981', '#7C3AED', '#2563EB', '#F59E0B'];
+        const mapped: BookingService[] = data.map((bs: BusinessServiceDto, idx: number) => ({
+          id: bs.id,
+          title: bs.name,
+          description: bs.description || 'Configured business service',
+          duration: '60 min',
+          durationMins: 60,
+          icon: idx % 2 === 0 ? 'MapPin' : 'MonitorPlay',
+          color: colors[idx % colors.length],
+          bgColor: `${colors[idx % colors.length]}18`,
+          price: 'Free',
+          popular: idx === 0,
+        }));
+        setServices(mapped);
+      }
+    };
+    loadServices();
+  }, []);
+
   const selectedService = useMemo(
-    () => SERVICES.find((s) => s.id === form.serviceId) ?? null,
-    [form.serviceId],
+    () => services.find((s) => s.id === form.serviceId) ?? null,
+    [services, form.serviceId],
   );
 
   const canProceed = () => {
@@ -62,9 +94,28 @@ export function BookingView() {
     return true;
   };
 
-  const next = () => {
-    if (canProceed() && step < 4) setStep((step + 1) as Step);
+  const next = async () => {
+    if (canProceed() && step < 4) {
+      if (step === 3) {
+        setSubmitting(true);
+        await createBooking({
+          service: selectedService?.title || 'Site Visit',
+          preferredSlot: `${form.date} ${form.time}`,
+          notes: form.notes,
+          collectedData: {
+            name: form.name,
+            phone: form.phone,
+            email: form.email,
+            company: form.company,
+          },
+          source: 'Web Booking Wizard',
+        });
+        setSubmitting(false);
+      }
+      setStep((step + 1) as Step);
+    }
   };
+
   const prev = () => {
     if (step > 1) setStep((step - 1) as Step);
   };
@@ -92,7 +143,14 @@ export function BookingView() {
 
       {/* Step content */}
       <GlassCard className="p-5 lg:p-6">
-        {step === 1 && <ServiceStep form={form} setForm={setForm} />}
+        {step === 1 && (
+          <ServiceStep
+            form={form}
+            setForm={setForm}
+            services={services}
+            loading={loadingServices}
+          />
+        )}
         {step === 2 && <DateTimeStep form={form} setForm={setForm} service={selectedService} />}
         {step === 3 && <DetailsStep form={form} setForm={setForm} />}
         {step === 4 && <ConfirmStep form={form} service={selectedService} onReset={reset} />}
@@ -103,10 +161,10 @@ export function BookingView() {
         <div className="flex items-center justify-between">
           <button
             onClick={prev}
-            disabled={step === 1}
+            disabled={step === 1 || submitting}
             className={cx(
               'flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-all',
-              step === 1
+              step === 1 || submitting
                 ? 'cursor-not-allowed text-muted-c/40'
                 : 'border border-base-c text-secondary-c hover:text-primary-c',
             )}
@@ -115,16 +173,24 @@ export function BookingView() {
           </button>
           <button
             onClick={next}
-            disabled={!canProceed()}
+            disabled={!canProceed() || submitting}
             className={cx(
               'flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all',
-              canProceed()
+              canProceed() && !submitting
                 ? 'bg-gradient-accent text-white hover:scale-105 shadow-soft'
                 : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
             )}
           >
-            {step === 3 ? 'Review Booking' : 'Continue'}
-            <ChevronRight className="h-4 w-4" />
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving Booking…
+              </>
+            ) : (
+              <>
+                {step === 3 ? 'Confirm & Book' : 'Continue'}
+                <ChevronRight className="h-4 w-4" />
+              </>
+            )}
           </button>
         </div>
       )}
@@ -180,9 +246,13 @@ function StepIndicator({ current }: { current: Step }) {
 function ServiceStep({
   form,
   setForm,
+  services,
+  loading,
 }: {
   form: BookingFormData;
   setForm: React.Dispatch<React.SetStateAction<BookingFormData>>;
+  services: BookingService[];
+  loading?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -190,56 +260,67 @@ function ServiceStep({
         <h3 className="text-base font-semibold text-primary-c">Choose a service</h3>
         <p className="mt-0.5 text-sm text-secondary-c">Select what you'd like to schedule.</p>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        {SERVICES.map((svc) => {
-          const Icon = SERVICE_ICONS[svc.icon] ?? MapPin;
-          const selected = form.serviceId === svc.id;
-          return (
-            <button
-              key={svc.id}
-              onClick={() => setForm((f) => ({ ...f, serviceId: svc.id }))}
-              className={cx(
-                'group relative flex flex-col items-start rounded-xl2 border-2 p-4 text-left transition-all',
-                selected
-                  ? 'border-primary-500 bg-primary-500/5 shadow-soft'
-                  : 'border-base-c hover:border-primary-500/30 hover:shadow-soft',
-              )}
-            >
-              {svc.popular && (
-                <span className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-gradient-accent px-2 py-0.5 text-[9px] font-bold text-white">
-                  <Star className="h-2.5 w-2.5" /> POPULAR
-                </span>
-              )}
-              <div
-                className="mb-3 grid h-11 w-11 place-items-center rounded-xl2"
-                style={{ backgroundColor: svc.bgColor }}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
+        </div>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {services.map((svc) => {
+            const Icon = SERVICE_ICONS[svc.icon] ?? MapPin;
+            const selected = form.serviceId === svc.id;
+            return (
+              <button
+                key={svc.id}
+                onClick={() => setForm((f) => ({ ...f, serviceId: svc.id }))}
+                className={cx(
+                  'group relative flex flex-col items-start rounded-xl2 border-2 p-4 text-left transition-all',
+                  selected
+                    ? 'border-primary-500 bg-primary-500/5 shadow-soft'
+                    : 'border-base-c hover:border-primary-500/30 hover:shadow-soft',
+                )}
               >
-                <Icon className="h-5.5 w-5.5" style={{ color: svc.color }} />
-              </div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-semibold text-primary-c">{svc.title}</h4>
-                {svc.price && (
-                  <span className={cx(
-                    'rounded px-1.5 py-0.5 text-[10px] font-bold',
-                    svc.price === 'Free' ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300' : 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300',
-                  )}>
-                    {svc.price}
+                {svc.popular && (
+                  <span className="absolute right-3 top-3 flex items-center gap-0.5 rounded-full bg-gradient-accent px-2 py-0.5 text-[9px] font-bold text-white">
+                    <Star className="h-2.5 w-2.5" /> POPULAR
                   </span>
                 )}
-              </div>
-              <p className="mt-1 text-xs leading-relaxed text-secondary-c">{svc.description}</p>
-              <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-c">
-                <Clock className="h-3.5 w-3.5" /> {svc.duration}
-              </div>
-              {selected && (
-                <div className="absolute right-3 bottom-3 grid h-5 w-5 place-items-center rounded-full bg-primary-500 text-white">
-                  <Check className="h-3 w-3" />
+                <div
+                  className="mb-3 grid h-11 w-11 place-items-center rounded-xl2"
+                  style={{ backgroundColor: svc.bgColor }}
+                >
+                  <Icon className="h-5.5 w-5.5" style={{ color: svc.color }} />
                 </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-semibold text-primary-c">{svc.title}</h4>
+                  {svc.price && (
+                    <span
+                      className={cx(
+                        'rounded px-1.5 py-0.5 text-[10px] font-bold',
+                        svc.price === 'Free'
+                          ? 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300'
+                          : 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300',
+                      )}
+                    >
+                      {svc.price}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-secondary-c">{svc.description}</p>
+                <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-c">
+                  <Clock className="h-3.5 w-3.5" /> {svc.duration}
+                </div>
+                {selected && (
+                  <div className="absolute bottom-3 right-3 grid h-5 w-5 place-items-center rounded-full bg-primary-500 text-white">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
