@@ -30,6 +30,9 @@ export function FormFieldsPanel() {
   const [newLabel, setNewLabel] = useState('');
   const [newKey, setNewKey] = useState('');
   const [newType, setNewType] = useState('TEXT');
+  const [newOptions, setNewOptions] = useState('');
+
+  const [rawOptionsMap, setRawOptionsMap] = useState<Record<string, string>>({});
 
   useEffect(() => {
     loadFlowData(activeFlow);
@@ -65,10 +68,8 @@ export function FormFieldsPanel() {
     // Update orders sequentially based on array index
     const orderedFields = fields.map((f, i) => ({ ...f, order: i + 1 }));
 
-    const [fieldsRes, greetingRes] = await Promise.all([
-      saveFlowFields(activeFlow, orderedFields),
-      saveFlowGreeting(activeFlow, greeting),
-    ]);
+    const fieldsRes = await saveFlowFields(activeFlow, orderedFields);
+    const greetingRes = await saveFlowGreeting(activeFlow, greeting);
     setSaving(false);
 
     if (!fieldsRes.error && !greetingRes.error) {
@@ -94,11 +95,14 @@ export function FormFieldsPanel() {
 
   const handleAddField = () => {
     if (!newLabel.trim()) return;
-    const generatedKey = newKey.trim() || newLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const baseKey = newKey.trim() || newLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const generatedKey = baseKey ? `${baseKey}_${Date.now().toString().slice(-4)}` : `field_${Date.now()}`;
+    const parsedOptions = newOptions.split(',').map((s) => s.trim()).filter(Boolean);
     const newField: FlowFieldConfig = {
       key: generatedKey,
       label: newLabel.trim(),
       fieldType: newType,
+      options: parsedOptions.length > 0 ? parsedOptions : undefined,
       enabled: true,
       required: false,
       order: fields.length + 1,
@@ -106,6 +110,7 @@ export function FormFieldsPanel() {
     setFields((prev) => [...prev, newField]);
     setNewLabel('');
     setNewKey('');
+    setNewOptions('');
     setShowAddModal(false);
   };
 
@@ -178,12 +183,12 @@ export function FormFieldsPanel() {
               <textarea
                 value={greeting}
                 onChange={(e) => setGreeting(e.target.value)}
-                rows={2}
-                placeholder={`Greeting message sent when ${activeFlowMeta.label} starts…`}
+                rows={3}
+                placeholder={`e.g. 👋 Hello {{contact.firstName}}! Thank you for reaching out. Let us gather a few details to assist you.`}
                 className="form-input resize-none"
               />
               <p className="text-[11px] text-muted-c">
-                Use variables like <code className="rounded bg-slate-100 px-1 dark:bg-ink-800">{'{{name}}'}</code> for customer name.
+                Use <code className="rounded bg-slate-100 px-1 dark:bg-ink-800">{'{{contact.firstName}}'}</code> for first name or <code className="rounded bg-slate-100 px-1 dark:bg-ink-800">{'{{contact.name}}'}</code> for full name. Greeting is sent first before any questions.
               </p>
             </div>
 
@@ -259,16 +264,78 @@ export function FormFieldsPanel() {
                         </div>
                       </div>
 
-                      {/* Label Input */}
-                      <div>
-                        <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Question Label</label>
-                        <input
-                          value={field.label}
-                          onChange={(e) => updateField(idx, { label: e.target.value })}
-                          placeholder="Field Question Label"
-                          className="form-input"
-                        />
+                      {/* Label Input & Field Type */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="sm:col-span-2">
+                          <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Question Label</label>
+                          <input
+                            value={field.label}
+                            onChange={(e) => updateField(idx, { label: e.target.value })}
+                            placeholder="Field Question Label"
+                            className="form-input"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Field Type</label>
+                          <select
+                            value={field.fieldType || 'TEXT'}
+                            onChange={(e) => updateField(idx, { fieldType: e.target.value })}
+                            className="form-input"
+                          >
+                            <option value="TEXT">Short Text</option>
+                            <option value="DROPDOWN">Dropdown Menu</option>
+                            <option value="SELECT">Multiple Choice</option>
+                            <option value="PHONE">Phone Number</option>
+                            <option value="EMAIL">Email Address</option>
+                            <option value="DATE">Date Picker</option>
+                            <option value="TIME">Time Slot</option>
+                            <option value="TEXTAREA">Long Paragraph</option>
+                          </select>
+                        </div>
                       </div>
+
+                      {/* Options Input for Dropdown / Select / Choice fields */}
+                      {['DROPDOWN', 'SELECT', 'RADIO', 'MULTIPLE_CHOICE'].includes((field.fieldType || '').toUpperCase()) && (
+                        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                              <Sliders className="h-3.5 w-3.5" /> Dropdown Options (comma-separated)
+                            </label>
+                            <span className="text-[10px] text-muted-c">Type choices separated by commas</span>
+                          </div>
+                          <input
+                            value={
+                              rawOptionsMap[field.key || idx] !== undefined
+                                ? rawOptionsMap[field.key || idx]
+                                : (field.options || []).join(', ')
+                            }
+                            onChange={(e) => {
+                              const rawVal = e.target.value;
+                              const fieldId = field.key || String(idx);
+                              setRawOptionsMap((prev) => ({ ...prev, [fieldId]: rawVal }));
+                              const parsed = rawVal.split(',').map((s) => s.trim()).filter(Boolean);
+                              updateField(idx, { options: parsed });
+                            }}
+                            onBlur={() => {
+                              const fieldId = field.key || String(idx);
+                              if (field.options) {
+                                setRawOptionsMap((prev) => ({ ...prev, [fieldId]: field.options!.join(', ') }));
+                              }
+                            }}
+                            placeholder="e.g. Online, Offline  OR  High, Medium, Low"
+                            className="form-input bg-white dark:bg-ink-900 border-emerald-500/30 focus:border-emerald-500"
+                          />
+                          {field.options && field.options.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {field.options.map((opt, i) => (
+                                <span key={i} className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                                  Choice {i + 1}: {opt}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -301,7 +368,7 @@ export function FormFieldsPanel() {
               <input
                 value={newLabel}
                 onChange={(e) => setNewLabel(e.target.value)}
-                placeholder="e.g. What is your budget range?"
+                placeholder="e.g. What is your requirement urgency?"
                 className="form-input"
               />
             </div>
@@ -311,7 +378,7 @@ export function FormFieldsPanel() {
               <input
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value)}
-                placeholder="e.g. budget_range"
+                placeholder="e.g. urgency"
                 className="form-input"
               />
             </div>
@@ -320,14 +387,29 @@ export function FormFieldsPanel() {
               <label className="mb-1 block text-xs font-semibold text-secondary-c">Field Type</label>
               <select value={newType} onChange={(e) => setNewType(e.target.value)} className="form-input">
                 <option value="TEXT">Short Text</option>
+                <option value="DROPDOWN">Dropdown Menu</option>
+                <option value="SELECT">Multiple Choice</option>
                 <option value="PHONE">Phone Number</option>
                 <option value="EMAIL">Email Address</option>
                 <option value="DATE">Date Picker</option>
                 <option value="TIME">Time Slot</option>
-                <option value="SELECT">Multiple Choice</option>
                 <option value="TEXTAREA">Long Paragraph</option>
               </select>
             </div>
+
+            {['DROPDOWN', 'SELECT', 'RADIO', 'MULTIPLE_CHOICE'].includes(newType.toUpperCase()) && (
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                  Dropdown Options (comma-separated) *
+                </label>
+                <input
+                  value={newOptions}
+                  onChange={(e) => setNewOptions(e.target.value)}
+                  placeholder="e.g. High, Medium, Low, Urgent"
+                  className="form-input border-emerald-500/30"
+                />
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2">
               <button

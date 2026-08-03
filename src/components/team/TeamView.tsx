@@ -16,6 +16,7 @@ import {
   type UserTeamMemberDTO,
   type AgentPerformanceDTO,
 } from '@/lib/teamApi';
+import { fetchCurrentUserProfile } from '@/lib/userApi';
 import {
   Search,
   Plus,
@@ -363,12 +364,14 @@ function InviteModal({
   const [phone, setPhone] = useState('');
   const [selectedRole, setSelectedRole] = useState<'AGENT' | 'ADMIN'>('AGENT');
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const canSubmit = name.trim() && email.trim() && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
+    setFormError(null);
 
     const res = await inviteStaffUser({
       email: email.trim(),
@@ -380,7 +383,12 @@ function InviteModal({
     setSubmitting(false);
 
     if (res.error) {
-      alert(`Failed to invite staff user: ${res.error}`);
+      const errStr = res.error.toString().toLowerCase();
+      const isForbidden = errStr.includes('forbidden') || errStr.includes('access denied') || errStr.includes('403');
+      const msg = isForbidden
+        ? 'Access Denied: Only Tenant Owners and Admins are permitted to invite new staff members.'
+        : `Failed to invite staff user: ${res.error}`;
+      setFormError(msg);
       return;
     }
 
@@ -411,6 +419,13 @@ function InviteModal({
             <X className="h-4 w-4" />
           </button>
         </div>
+
+        {formError && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{formError}</span>
+          </div>
+        )}
 
         <div className="space-y-3.5">
           <div>

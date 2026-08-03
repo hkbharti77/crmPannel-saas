@@ -12,15 +12,17 @@ import {
 } from '@/lib/appointmentsApi';
 import { Plus, RefreshCw } from 'lucide-react';
 
+import { formatLocalDateStr, getTodayDateStr, parseDateStr } from '@/lib/dateUtils';
+
 export function AppointmentsView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(
-    new Date().toISOString().split('T')[0],
+    getTodayDateStr(),
   );
   const [showBooking, setShowBooking] = useState(false);
   const [bookingDate, setBookingDate] = useState(
-    new Date().toISOString().split('T')[0],
+    getTodayDateStr(),
   );
   const [loading, setLoading] = useState(false);
 
@@ -31,21 +33,23 @@ export function AppointmentsView() {
 
     if (data && data.length > 0) {
       const converted: Appointment[] = data.map((dto: AppointmentDto, idx: number) => {
+        const dateStr = parseDateStr(dto.appointmentDateTime);
         const dt = dto.appointmentDateTime ? new Date(dto.appointmentDateTime) : new Date();
-        const dateStr = dt.toISOString().split('T')[0];
         const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         return {
           id: dto.id || `ap-${idx}`,
           title: dto.title || 'Scheduled Appointment',
           contactName: dto.contactName || dto.contactWaId || 'Contact',
+          contactWaId: dto.contactWaId,
           company: dto.source || 'Direct Inquiry',
           date: dateStr,
           time: timeStr,
           type: (dto.source?.toLowerCase().includes('call') ? 'call' : 'site_visit') as any,
-          status: dto.status === 'COMPLETED' ? 'completed' : dto.status === 'CANCELLED' ? 'cancelled' : 'scheduled',
+          status: (dto.status === 'COMPLETED' ? 'COMPLETED' : dto.status === 'CANCELLED' ? 'CANCELLED' : 'SCHEDULED') as any,
           assignedTo: dto.ownerName || 'Agent',
           location: dto.meetingLink || 'Office / Online',
+          collectedData: dto.collectedData,
         };
       });
       setAppointments(converted);
@@ -76,7 +80,8 @@ export function AppointmentsView() {
   };
 
   const handleSaveBooking = async (appt: Omit<Appointment, 'id'>) => {
-    const formattedTime = appt.time.includes(':') ? appt.time : '10:00';
+    const timeVal = appt.time || appt.startTime || '10:00';
+    const formattedTime = timeVal.includes(':') ? timeVal : '10:00';
     const dateTimeIso = `${appt.date}T${formattedTime.padStart(5, '0')}:00`;
 
     const res = await bookAppointment({
@@ -119,7 +124,7 @@ export function AppointmentsView() {
             Refresh
           </button>
           <button
-            onClick={() => handleBook(new Date().toISOString().split('T')[0])}
+            onClick={() => handleBook(getTodayDateStr())}
             className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
           >
             <Plus className="h-3.5 w-3.5" /> New Appointment

@@ -4,6 +4,7 @@ import {
   CheckCircle, AlertCircle, Search, Image as ImageIcon, X, Upload,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
   fetchBusinessServices, createBusinessService, updateBusinessService, deleteBusinessService,
   type BusinessServiceItem,
@@ -16,6 +17,12 @@ export function ProductsServicesPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [deleteModalState, setDeleteModalState] = useState<{
+    isOpen: boolean;
+    id: string;
+    name: string;
+  }>({ isOpen: false, id: '', name: '' });
 
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -96,13 +103,20 @@ export function ProductsServicesPanel() {
     }
   };
 
-  const handleDelete = async (id: string, itemName: string) => {
-    if (!confirm(`Are you sure you want to delete "${itemName}"?`)) return;
+  const handleDelete = (id: string, itemName: string) => {
+    setDeleteModalState({ isOpen: true, id, name: itemName });
+  };
+
+  const confirmDelete = async () => {
+    const { id, name } = deleteModalState;
+    setDeleteModalState({ isOpen: false, id: '', name: '' });
+    if (!id) return;
+
     setMessage(null);
     setError(null);
     const res = await deleteBusinessService(id);
     if (!res.error) {
-      setMessage(`"${itemName}" deleted.`);
+      setMessage(`"${name}" deleted.`);
       loadServices();
       setTimeout(() => setMessage(null), 3000);
     } else {
@@ -312,6 +326,17 @@ export function ProductsServicesPanel() {
           </div>
         </div>
       )}
+
+      {/* Delete Item Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        title="Delete Product / Service"
+        message={`Are you sure you want to delete "${deleteModalState.name}"? This action cannot be undone.`}
+        confirmText="Delete Item"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteModalState({ isOpen: false, id: '', name: '' })}
+      />
     </div>
   );
 }

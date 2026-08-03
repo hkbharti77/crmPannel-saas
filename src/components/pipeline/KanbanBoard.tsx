@@ -10,14 +10,26 @@ import {
   CalendarPlus,
   GripVertical,
   CircleDot,
+  Globe,
+  Users,
+  Mail,
+  Laptop,
+  Bot,
+  Sparkles,
 } from 'lucide-react';
 
 const SOURCE_ICONS: Record<string, typeof Phone> = {
   WhatsApp: MessageSquare,
+  WHATSAPP: MessageSquare,
+  'Web Widget': Laptop,
+  WEB_WIDGET: Laptop,
   Website: Globe,
+  WEBSITE: Globe,
   Referral: Users,
   'Cold Call': Phone,
   Email: Mail,
+  EMAIL: Mail,
+  Bot: Bot,
 };
 
 const TAG_STYLES: Record<string, string> = {
@@ -67,10 +79,13 @@ export function LeadCard({
         <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted-c opacity-0 transition-opacity group-hover:opacity-60 active:cursor-grabbing" />
       </div>
 
-      {/* Tags + priority */}
+      {/* Tags + priority + AI Lead Score */}
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className={cx('rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide', PRIORITY_STYLES[lead.priority])}>
           {lead.priority}
+        </span>
+        <span className="flex items-center gap-0.5 rounded bg-primary-500/15 px-1.5 py-0.5 text-[9px] font-bold text-primary-600 dark:text-primary-400">
+          <Sparkles className="h-2.5 w-2.5" /> Score {lead.score ?? 50}
         </span>
         {lead.tags.map((t) => (
           <span key={t} className={cx('rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide', TAG_STYLES[t] ?? 'bg-slate-100 text-slate-600 dark:bg-ink-800')}>
@@ -102,8 +117,6 @@ export function LeadCard({
   );
 }
 
-import { Globe, Users, Mail } from 'lucide-react';
-
 export function KanbanColumn({
   stage,
   title,
@@ -130,10 +143,11 @@ export function KanbanColumn({
   onDragLeave: () => void;
 }) {
   const totalValue = leads.reduce((s, l) => {
-    const v = l.value;
-    if (v.includes('Cr')) return s + parseFloat(v.replace(/[₹Cr]/g, '').trim()) * 100;
-    if (v.includes('L')) return s + parseFloat(v.replace(/[₹L]/g, '').trim());
-    return s;
+    const v = l.value || '';
+    if (v.includes('Cr')) return s + parseFloat(v.replace(/[₹,Cr]/g, '').trim()) * 10000000;
+    if (v.includes('L')) return s + parseFloat(v.replace(/[₹,L]/g, '').trim()) * 100000;
+    const num = parseFloat(v.replace(/[^0-9.]/g, ''));
+    return s + (isNaN(num) ? 0 : num);
   }, 0);
 
   return (
@@ -160,7 +174,11 @@ export function KanbanColumn({
           {leads.length}
         </span>
         <span className="ml-auto text-[10px] font-medium text-muted-c tabular-nums">
-          {totalValue >= 100 ? `₹${(totalValue / 100).toFixed(1)}Cr` : `₹${totalValue}L`}
+          {totalValue >= 10000000
+            ? `₹${(totalValue / 10000000).toFixed(1)}Cr`
+            : totalValue >= 100000
+            ? `₹${(totalValue / 100000).toFixed(1)}L`
+            : `₹${totalValue.toLocaleString('en-IN')}`}
         </span>
       </div>
 

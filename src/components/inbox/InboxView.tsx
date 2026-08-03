@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { CONVERSATIONS } from './mockData';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { InboxToolbar, type FilterId, type ChannelId } from './InboxToolbar';
 import { ConversationItem } from './ConversationItem';
 import type { Conversation } from './inboxTypes';
@@ -30,14 +30,17 @@ import {
   Check,
 } from 'lucide-react';
 
-export function InboxView({ onOpenChat }: { onOpenChat: (contactId?: string) => void }) {
+import { useNavigate } from 'react-router-dom';
+
+export function InboxView() {
+  const navigate = useNavigate();
   const [channel, setChannel] = useState<ChannelId>('whatsapp');
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterId>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // WhatsApp states
-  const [conversations, setConversations] = useState<Conversation[]>(CONVERSATIONS);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -138,8 +141,17 @@ export function InboxView({ onOpenChat }: { onOpenChat: (contactId?: string) => 
   const selectedWa = conversations.find((c) => c.id === selectedId) ?? (conversations.length > 0 ? conversations[0] : null);
   const selectedWeb = webSessions.find((s) => s.id === selectedId) ?? (webSessions.length > 0 ? webSessions[0] : null);
 
-  const handleDeleteWebSession = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this WebChat session and message thread?')) return;
+  const [deleteSessionState, setDeleteSessionState] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: '' });
+
+  const handleDeleteWebSession = (id: string) => {
+    setDeleteSessionState({ isOpen: true, id });
+  };
+
+  const confirmDeleteWebSession = async () => {
+    const id = deleteSessionState.id;
+    setDeleteSessionState({ isOpen: false, id: '' });
+    if (!id) return;
+
     const { success } = await deleteWebChatSession(id);
     if (success) {
       setWebSessions((prev) => prev.filter((s) => s.id !== id));
@@ -257,7 +269,7 @@ export function InboxView({ onOpenChat }: { onOpenChat: (contactId?: string) => 
         <div className="hidden h-full overflow-hidden lg:block">
           {channel === 'whatsapp' ? (
             selectedWa ? (
-              <ChatPreview conv={selectedWa} onOpenChat={() => onOpenChat(selectedWa.id)} />
+              <ChatPreview conv={selectedWa} onOpenChat={() => navigate(`/chatroom/${selectedWa.id}`)} />
             ) : (
               <EmptyState />
             )
@@ -271,6 +283,17 @@ export function InboxView({ onOpenChat }: { onOpenChat: (contactId?: string) => 
           )}
         </div>
       </div>
+
+      {/* Delete WebChat Session Modal */}
+      <ConfirmModal
+        isOpen={deleteSessionState.isOpen}
+        title="Delete WebChat Thread"
+        message="Are you sure you want to delete this WebChat session and message thread? This action cannot be undone."
+        confirmText="Delete Thread"
+        variant="danger"
+        onConfirm={confirmDeleteWebSession}
+        onCancel={() => setDeleteSessionState({ isOpen: false, id: '' })}
+      />
     </div>
   );
 }

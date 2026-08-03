@@ -1,31 +1,30 @@
 import { useState, useEffect } from 'react';
-import { NAV_ITEMS, type ViewId } from '@/lib/navigation';
+import { NAV_ITEMS } from '@/lib/navigation';
 import { cx } from '@/lib/types';
 import { Logo } from '@/components/ui/primitives';
-import { ChevronLeft, X, Shield, User as UserIcon, LogOut, Settings as SettingsIcon } from 'lucide-react';
+import { ChevronLeft, X, Shield, LogOut, Settings as SettingsIcon } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchCurrentUserProfile, type UserProfileDto } from '@/lib/userApi';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export function Sidebar({
-  current,
-  onNavigate,
   collapsed,
   onToggleCollapse,
   mobileOpen,
   onCloseMobile,
-  onEnterAdmin,
 }: {
-  current: ViewId;
-  onNavigate: (id: ViewId) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
-  onEnterAdmin: () => void;
 }) {
   const { user, signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPath = location.pathname.split('/')[1] || 'dashboard';
 
   const loadProfile = () => {
     fetchCurrentUserProfile().then((res) => {
@@ -89,12 +88,12 @@ export function Sidebar({
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2 scrollbar-thin">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = current === item.id;
+            const active = currentPath === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => {
-                  onNavigate(item.id);
+                  navigate(`/${item.id}`);
                   onCloseMobile();
                 }}
                 title={collapsed ? item.label : undefined}
@@ -144,7 +143,9 @@ export function Sidebar({
           return (
             <div className="border-t border-base-c p-3">
               <button
-                onClick={onEnterAdmin}
+                onClick={() => {
+                  navigate('/admin');
+                }}
                 className={cx(
                   'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
                   collapsed && 'justify-center',
@@ -218,7 +219,7 @@ export function Sidebar({
                   <button
                     onClick={() => {
                       setShowProfileMenu(false);
-                      onNavigate('settings');
+                      navigate('/settings');
                     }}
                     className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-secondary-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-850"
                   >

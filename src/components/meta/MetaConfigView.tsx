@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { apiFetch } from '@/lib/api';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 interface WhatsAppConfigDto {
   id?: string;
@@ -144,6 +145,27 @@ export function MetaConfigView() {
     }
   };
 
+  const simulateEmbeddedSignupCallback = async () => {
+    setSaving(true);
+    const res = await apiFetch('/api/v1/whatsapp-config/embedded-signup/callback', {
+      method: 'POST',
+      body: JSON.stringify({
+        code: 'SIMULATED_OAUTH_CODE',
+        wabaId: wabaId || '987654321098765',
+        phoneNumberId: phoneNumberId || '123456789012345',
+      }),
+    });
+
+    setSaving(false);
+    if (!res.error) {
+      setMessage('Simulated Embedded Sign Up successful!');
+      fetchConfig();
+      setTimeout(() => setMessage(null), 4000);
+    } else {
+      setError(`Simulation Error: ${res.error}`);
+    }
+  };
+
   // Triggers Meta Terms Modal first according to Meta Rules
   const handleOpenEmbeddedSignupFlow = () => {
     setAgreedTerms(false);
@@ -192,39 +214,19 @@ export function MetaConfigView() {
         },
       );
     } else {
-      simulateEmbeddedSignupCallback();
+      setSaving(false);
+      setError('Facebook SDK is not loaded. Please ensure your browser allows Facebook scripts or use manual WABA configuration.');
     }
   };
 
-  const simulateEmbeddedSignupCallback = async () => {
-    const mockCode = `EAAG_EMBEDDED_OAUTH_CODE_${Date.now()}`;
-    const mockWabaId = wabaId || '987654321098765';
-    const mockPhoneId = phoneNumberId || '123456789012345';
+  const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
 
-    const res = await apiFetch('/api/v1/whatsapp-config/embedded-signup/callback', {
-      method: 'POST',
-      body: JSON.stringify({
-        code: mockCode,
-        wabaId: mockWabaId,
-        phoneNumberId: mockPhoneId,
-      }),
-    });
-
-    setSaving(false);
-    if (!res.error) {
-      setMessage('Meta Tech Provider Embedded Sign Up Coexistence connected successfully!');
-      fetchConfig();
-      setTimeout(() => setMessage(null), 4000);
-    } else {
-      setError(`Embedded Sign Up failed: ${res.error}`);
-    }
+  const handleDisconnect = () => {
+    setDisconnectModalOpen(true);
   };
 
-  const handleDisconnect = async () => {
-    if (!confirm('Are you sure you want to disconnect your Meta WhatsApp configuration? WhatsApp auto-reply services will be stopped.')) {
-      return;
-    }
-
+  const confirmDisconnect = async () => {
+    setDisconnectModalOpen(false);
     setDisconnecting(true);
     setError(null);
 
@@ -297,23 +299,6 @@ export function MetaConfigView() {
         )}
       </div>
 
-      {/* Meta App Config IDs Sub-Header Pill */}
-      <div className="rounded-xl border border-base-c bg-slate-50/70 dark:bg-ink-850/60 p-3 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-        <div className="flex items-center gap-4">
-          <div>
-            <span className="text-[10px] text-muted-c font-bold uppercase tracking-wider block">META APP ID</span>
-            <span className="text-primary-c font-bold">{META_APP_ID}</span>
-          </div>
-          <div className="h-6 w-px bg-base-c" />
-          <div>
-            <span className="text-[10px] text-muted-c font-bold uppercase tracking-wider block">META CONFIG ID</span>
-            <span className="text-primary-c font-bold">{META_CONFIG_ID}</span>
-          </div>
-        </div>
-        <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400 font-sans">
-          Meta Tech Provider Partner Verified
-        </span>
-      </div>
 
       {planLocked && (
         <div className="rounded-xl2 border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3">
@@ -576,16 +561,10 @@ export function MetaConfigView() {
 
             {/* Terms Body */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-secondary-c leading-relaxed scrollbar-thin">
-              <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 flex items-start gap-2.5 text-blue-700 dark:text-blue-300">
-                <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5 text-blue-500" />
-                <p>
-                  By linking your Meta WhatsApp Business Account via App ID <code className="font-mono font-bold">{META_APP_ID}</code> and Configuration ID <code className="font-mono font-bold">{META_CONFIG_ID}</code>, you authorize CRMLite to access your WhatsApp messages for automated customer support.
-                </p>
-              </div>
 
               <div className="space-y-2">
                 <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">1. Data Access & Permissions</h4>
-                <p>CRMLite will receive read and write access to your WhatsApp Business Account (WABA ID), Phone Number ID, template directory, and incoming customer inquiry messages.</p>
+                <p>GyanVaniAi Connect will receive read and write access to your WhatsApp Business Account (WABA ID), Phone Number ID, template directory, and incoming customer inquiry messages.</p>
               </div>
 
               <div className="space-y-2">
@@ -595,7 +574,7 @@ export function MetaConfigView() {
 
               <div className="space-y-2">
                 <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">3. WhatsApp Co-existence Agreement</h4>
-                <p>In Co-existence mode, your mobile WhatsApp Business App and CRMLite AI CRM share API message events seamlessly without disrupting existing customer histories.</p>
+                <p>In Co-existence mode, your mobile WhatsApp Business App and GyanVaniAi Connect share API message events seamlessly without disrupting existing customer histories.</p>
               </div>
 
               {/* Checkbox Agreement */}
@@ -634,6 +613,17 @@ export function MetaConfigView() {
           </div>
         </div>
       )}
+
+      {/* Disconnect Confirmation Modal */}
+      <ConfirmModal
+        isOpen={disconnectModalOpen}
+        title="Disconnect Meta WhatsApp API"
+        message="Are you sure you want to disconnect your Meta WhatsApp configuration? Automated WhatsApp AI auto-reply services will be stopped."
+        confirmText="Disconnect Meta API"
+        variant="danger"
+        onConfirm={confirmDisconnect}
+        onCancel={() => setDisconnectModalOpen(false)}
+      />
     </div>
   );
 }

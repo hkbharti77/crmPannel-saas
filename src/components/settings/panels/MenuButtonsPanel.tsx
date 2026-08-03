@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import {
   MessageSquare, LayoutList, CheckCircle, AlertCircle, PencilLine,
-  Save, Loader2, Lock, ShoppingBag, ListTree, X,
+  Save, Loader2, Lock, ShoppingBag, ListTree, X, Smartphone,
+  Send, MoreVertical, Phone, Video, ArrowLeft, CheckCheck, Sparkles,
+  Bot, ShieldCheck, Eye, RefreshCw, Layers, ChevronRight,
 } from 'lucide-react';
 import { PanelHeader, Toggle, SectionCard } from './_shared';
 import { apiFetch } from '@/lib/api';
@@ -41,6 +43,288 @@ interface MenuItem {
 }
 
 const SLOT_PLACEHOLDERS = ['View Services', 'Contact Us', 'Pricing', 'Location', 'Follow Up', 'Our Work', 'Reviews', 'Gallery'];
+
+// ─── Live WhatsApp Phone Preview Component ─────────────────────────────────
+
+function WhatsAppPhonePreview({
+  welcomeMessage,
+  returningMessage,
+  menuType,
+  activeFlows,
+  reservedFeatures,
+  menuItems,
+  maxManualSlots,
+  thirdButtonType,
+  featureLabels,
+}: {
+  welcomeMessage: string;
+  returningMessage: string;
+  menuType: 'list' | 'button';
+  activeFlows: string[];
+  reservedFeatures: string[];
+  menuItems: MenuItem[];
+  maxManualSlots: number;
+  thirdButtonType: 'ABOUT' | 'SOS' | 'SUPPORT_FORM';
+  featureLabels: FeatureLabels;
+}) {
+  const [previewMode, setPreviewMode] = useState<'new' | 'returning'>('new');
+  const [showDrawer, setShowDrawer] = useState(false);
+
+  const rawMsg = previewMode === 'new'
+    ? (welcomeMessage || 'Hello {{name}}! Welcome to {{business}}. How can we assist you today?')
+    : (returningMessage || 'Welcome back {{name}}! Great to see you again at {{business}}. Choose an option below:');
+
+  const formattedMsg = rawMsg
+    .replace(/\{\{\s*name\s*\}\}/gi, 'Alex')
+    .replace(/\{\{\s*business\s*\}\}/gi, 'GyanVani AI');
+
+  // Compute buttons for Quick Reply mode
+  const visibleCustom = menuItems.slice(0, maxManualSlots).filter((it) => it.title.trim());
+  const quickButtons: string[] = [];
+
+  if (activeFlows.length > 0) quickButtons.push(activeFlows[0]);
+  if (activeFlows.length > 1) {
+    quickButtons.push(activeFlows[1]);
+  } else if (visibleCustom.length > 0) {
+    quickButtons.push(visibleCustom[0].title);
+  }
+
+  const thirdLabel = featureLabels[thirdButtonType] || (thirdButtonType === 'ABOUT' ? '📂 About & Contact' : thirdButtonType === 'SOS' ? '🆘 Human Support' : '🎫 Get Support');
+  if (quickButtons.length < 3) quickButtons.push(thirdLabel);
+
+  return (
+    <div className="sticky top-6 flex flex-col items-center">
+      {/* Container header badge */}
+      <div className="mb-3 flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 shadow-sm">
+        <Bot className="h-3.5 w-3.5" />
+        <span>Official WhatsApp Business Live Preview</span>
+      </div>
+
+      {/* Phone Shell */}
+      <div className="relative w-full max-w-[340px] rounded-[36px] border-[8px] border-slate-900 bg-slate-900 shadow-2xl overflow-hidden ring-1 ring-slate-800/50">
+        {/* Phone Speaker Notch */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 h-4 w-28 rounded-b-xl bg-slate-900 z-30 flex items-center justify-center">
+          <div className="h-1.5 w-10 rounded-full bg-slate-800" />
+        </div>
+
+        {/* WhatsApp App Screen */}
+        <div className="flex flex-col h-[580px] bg-[#efeae2] dark:bg-[#0b141a] font-sans pt-3 text-xs select-none">
+
+          {/* 1. WhatsApp Top Bar */}
+          <div className="bg-[#075e54] dark:bg-[#1f2c34] text-white px-3 py-2 flex items-center justify-between z-20 shadow-md">
+            <div className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4 opacity-80" />
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-emerald-700 text-white font-bold text-xs ring-2 ring-white/20">
+                <span>GV</span>
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-[#075e54]" />
+              </div>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1">
+                  <p className="font-bold text-xs truncate max-w-[130px]">GyanVani AI</p>
+                  <ShieldCheck className="h-3 w-3 text-emerald-300 fill-emerald-300/20" />
+                </div>
+                <p className="text-[10px] text-emerald-200/80">Official Business Account</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-white/80">
+              <Video className="h-4 w-4" />
+              <Phone className="h-4 w-4" />
+              <MoreVertical className="h-4 w-4" />
+            </div>
+          </div>
+
+          {/* Toggle Banner inside Preview */}
+          <div className="bg-slate-800/90 text-slate-200 px-3 py-1.5 flex items-center justify-between text-[10px]">
+            <span className="font-semibold text-slate-300">Simulate Lead Type:</span>
+            <div className="flex rounded-md bg-slate-900/80 p-0.5 border border-slate-700">
+              <button
+                type="button"
+                onClick={() => setPreviewMode('new')}
+                className={cx('px-2 py-0.5 rounded text-[9px] font-bold transition-all', previewMode === 'new' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400 hover:text-white')}
+              >
+                New Lead
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewMode('returning')}
+                className={cx('px-2 py-0.5 rounded text-[9px] font-bold transition-all', previewMode === 'returning' ? 'bg-emerald-500 text-white shadow-sm' : 'text-slate-400 hover:text-white')}
+              >
+                Returning
+              </button>
+            </div>
+          </div>
+
+          {/* 2. Chat Conversation Area */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 relative bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] dark:bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:12px_12px]">
+
+            {/* Date pill */}
+            <div className="flex justify-center">
+              <span className="rounded-md bg-white/80 dark:bg-slate-800/80 px-2 py-0.5 text-[9px] font-semibold text-slate-500 dark:text-slate-400 shadow-sm uppercase tracking-wider">
+                TODAY
+              </span>
+            </div>
+
+            {/* User Message (Trigger) */}
+            <div className="flex justify-end">
+              <div className="max-w-[75%] rounded-lg bg-[#dcf8c6] dark:bg-[#005c4b] p-2 text-[11px] text-slate-800 dark:text-slate-100 shadow-sm relative rounded-tr-none">
+                <p>Hi, I want to explore services 👋</p>
+                <div className="flex items-center justify-end gap-1 mt-1 text-[9px] text-slate-500 dark:text-emerald-200/70">
+                  <span>10:42 AM</span>
+                  <CheckCheck className="h-3 w-3 text-blue-500 dark:text-emerald-300" />
+                </div>
+              </div>
+            </div>
+
+            {/* WhatsApp Bot Message Bubble */}
+            <div className="flex flex-col items-start max-w-[88%] space-y-1">
+              <div className="w-full rounded-lg bg-white dark:bg-[#202c33] p-2.5 text-[11px] text-slate-900 dark:text-slate-100 shadow-sm rounded-tl-none border border-slate-200/50 dark:border-slate-700/50">
+                <p className="font-bold text-[10px] text-emerald-700 dark:text-emerald-400 mb-1">
+                  🏢 GyanVani AI Connect
+                </p>
+                <p className="whitespace-pre-wrap leading-relaxed text-[11px]">
+                  {formattedMsg}
+                </p>
+                <div className="flex items-center justify-end gap-1 mt-1.5 text-[9px] text-slate-400">
+                  <span>10:42 AM</span>
+                </div>
+              </div>
+
+              {/* ─── Render Quick Reply Buttons Mode ─── */}
+              {menuType === 'button' && (
+                <div className="w-full space-y-1 pt-0.5">
+                  {quickButtons.map((btnTitle, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      className="flex w-full items-center justify-center rounded-lg border border-emerald-500/30 bg-white dark:bg-[#202c33] py-2 px-3 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all active:scale-[0.98]"
+                    >
+                      <span>{btnTitle}</span>
+                    </button>
+                  ))}
+                  <p className="text-[9px] text-center text-slate-400 italic pt-0.5">
+                    WhatsApp Quick Reply Buttons (Max 3)
+                  </p>
+                </div>
+              )}
+
+              {/* ─── Render Interactive List Menu Mode ─── */}
+              {menuType === 'list' && (
+                <div className="w-full pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawer(prev => !prev)}
+                    className="flex w-full items-center justify-between rounded-lg border border-emerald-500/40 bg-white dark:bg-[#202c33] py-2 px-3 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 shadow-sm hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all active:scale-[0.98]"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <ListTree className="h-3.5 w-3.5" />
+                      <span>View Options</span>
+                    </div>
+                    <ChevronRight className={cx("h-3.5 w-3.5 transition-transform", showDrawer && "rotate-90")} />
+                  </button>
+                  <p className="text-[9px] text-center text-slate-400 italic pt-1">
+                    Tap &quot;View Options&quot; above to preview interactive drawer
+                  </p>
+                </div>
+              )}
+            </div>
+
+          </div>
+
+          {/* 3. WhatsApp Interactive List Sheet Drawer Overlay */}
+          {menuType === 'list' && showDrawer && (
+            <div className="absolute inset-x-0 bottom-12 top-14 z-30 bg-slate-900/60 backdrop-blur-[2px] flex flex-col justify-end animate-in fade-in duration-150">
+              <div className="rounded-t-2xl bg-white dark:bg-[#111b21] shadow-2xl border-t border-slate-200 dark:border-slate-700 max-h-[80%] flex flex-col">
+                {/* Sheet Header */}
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 p-3 bg-slate-50 dark:bg-[#1f2c34]">
+                  <div className="flex items-center gap-1.5">
+                    <ListTree className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-100">Main Menu Options</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawer(false)}
+                    className="rounded-full p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Sheet Body Rows */}
+                <div className="overflow-y-auto p-2 space-y-3">
+                  {/* Fixed Flow Triggers Section */}
+                  <div>
+                    <p className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      Automated Flow Triggers
+                    </p>
+                    <div className="space-y-1">
+                      {activeFlows.map((flow, i) => (
+                        <div key={i} className="flex items-center justify-between rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                          <div>
+                            <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100">{flow}</p>
+                            <p className="text-[9px] text-slate-400">Instant Automated Flow</p>
+                          </div>
+                          <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 rounded">Fixed</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Items Section */}
+                  {visibleCustom.length > 0 && (
+                    <div>
+                      <p className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                        Custom Options ({visibleCustom.length})
+                      </p>
+                      <div className="space-y-1">
+                        {visibleCustom.map((item, i) => (
+                          <div key={i} className="flex items-center justify-between rounded-lg p-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
+                            <div>
+                              <p className="text-[11px] font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
+                              {item.desc && <p className="text-[9px] text-slate-400 truncate max-w-[180px]">{item.desc}</p>}
+                            </div>
+                            <ChevronRight className="h-3 w-3 text-slate-400" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Reserved Features Section */}
+                  {reservedFeatures.length > 0 && (
+                    <div>
+                      <p className="px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                        System Reserved Buttons
+                      </p>
+                      <div className="space-y-1">
+                        {reservedFeatures.map((feat, i) => (
+                          <div key={i} className="flex items-center justify-between rounded-lg p-2 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/30">
+                            <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">{feat}</p>
+                            <span className="text-[9px] text-amber-600 font-bold">Enabled</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. WhatsApp Footer Bar */}
+          <div className="bg-[#f0f2f5] dark:bg-[#1f2c34] p-2 flex items-center gap-2 border-t border-slate-200/50 dark:border-slate-800">
+            <div className="flex items-center justify-between flex-1 rounded-full bg-white dark:bg-[#2a3942] px-3 py-1.5 text-[11px] text-slate-400 shadow-inner">
+              <span>Message...</span>
+            </div>
+            <div className="h-7 w-7 rounded-full bg-[#00a884] flex items-center justify-center text-white shadow-sm">
+              <Send className="h-3.5 w-3.5" />
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function MenuButtonsPanel() {
   const [loading, setLoading] = useState(true);
@@ -242,12 +526,13 @@ export function MenuButtonsPanel() {
         </div>
       )}
 
-      {/* ─── Automated Greetings ─── */}
-      <SectionCard>
+      {/* Settings Sections — Full Width */}
+          {/* ─── Automated Greetings ─── */}
+          <SectionCard>
         <div className="mb-4 flex items-center justify-between">
           <PanelHeader
-            title="Automated Greetings"
-            desc="Messages sent right before your menu buttons appear"
+            title="WhatsApp Automated Greetings"
+            desc="Messages sent right before your WhatsApp menu buttons appear"
             icon={<MessageSquare className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
           />
           {!editingGreetings && (
@@ -311,7 +596,7 @@ export function MenuButtonsPanel() {
       <SectionCard>
         <div className="mb-4 flex items-center justify-between">
           <PanelHeader
-            title="Dynamic Feature Buttons"
+            title="WhatsApp Feature Buttons"
             desc="Manage special reserved buttons in the WhatsApp menu"
             icon={<LayoutList className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
           />
@@ -436,8 +721,8 @@ export function MenuButtonsPanel() {
       {/* ─── Interactive Button Layout ─── */}
       <SectionCard>
         <PanelHeader
-          title="Interactive Button Layout"
-          desc="Configure the quick buttons or list items that customers see"
+          title="WhatsApp Interactive Menu Layout"
+          desc="Configure the quick buttons or list items customers see in WhatsApp"
           icon={<LayoutList className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
         />
 
@@ -660,7 +945,7 @@ export function MenuButtonsPanel() {
             </button>
           )}
         </div>
-      </SectionCard>
+        </SectionCard>
     </div>
   );
 }

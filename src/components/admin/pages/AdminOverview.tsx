@@ -11,7 +11,10 @@ import {
   type ApiAnalyticsOverview, type ApiTenant, type ApiHealthService,
 } from '@/lib/platformApi';
 
-export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tickets' | 'subscriptions' | 'health') => void }) {
+import { useNavigate } from 'react-router-dom';
+
+export function AdminOverview() {
+  const navigate = useNavigate();
   const [overview, setOverview] = useState<ApiAnalyticsOverview | null>(null);
   const [tenants, setTenants] = useState<ApiTenant[]>([]);
   const [health, setHealth] = useState<ApiHealthService[]>([]);
@@ -52,7 +55,7 @@ export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tic
     <div className="mx-auto max-w-7xl p-4 lg:p-6 space-y-4">
       {/* Header actions */}
       <div className="flex items-center justify-between">
-        {error && <p className="text-xs text-danger-500 bg-danger-50 dark:bg-danger-500/10 rounded-lg px-3 py-1.5">{error} — showing mock data</p>}
+        {error && <p className="text-xs text-danger-500 bg-danger-50 dark:bg-danger-500/10 rounded-lg px-3 py-1.5">{error}</p>}
         <button onClick={load} disabled={loading} className="ml-auto flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-1.5 text-xs font-medium text-secondary-c hover:text-primary-c transition-colors">
           <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
         </button>
@@ -60,10 +63,10 @@ export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tic
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard icon={Building2} label="Active Tenants" value={loading ? '—' : String(activeTenants)} sub={`${totalTenants - activeTenants} trial/other`} trend="up" trendVal="+2 this month" color="#2563EB" onClick={() => onNavigate('tenants')} />
-        <KpiCard icon={DollarSign} label="Monthly Recurring Revenue" value={loading ? '—' : `₹${((overview?.mrr ?? 0) / 1000).toFixed(1)}K`} sub="MRR" trend="up" trendVal="+12.4%" color="#10B981" onClick={() => onNavigate('subscriptions')} />
-        <KpiCard icon={Users} label="Total Users" value={loading ? '—' : String(totalUsers)} sub={`${totalLeads} leads`} trend="up" trendVal="+8 this month" color="#7C3AED" onClick={() => onNavigate('tenants')} />
-        <KpiCard icon={AlertCircle} label="Open Tickets" value={loading ? '—' : String(openTickets)} sub={degradedServices > 0 ? `${degradedServices} service degraded` : 'All systems up'} trend={degradedServices > 0 ? 'down' : 'up'} trendVal={degradedServices > 0 ? 'Attention needed' : 'Healthy'} color={degradedServices > 0 ? '#F43F5E' : '#10B981'} onClick={() => onNavigate('tickets')} />
+        <KpiCard icon={Building2} label="Active Tenants" value={loading ? '—' : String(activeTenants)} sub={`${totalTenants - activeTenants} trial/other`} trend="up" trendVal="+2 this month" color="#2563EB" onClick={() => navigate('/admin/tenants')} />
+        <KpiCard icon={DollarSign} label="Monthly Recurring Revenue" value={loading ? '—' : `₹${((overview?.mrr ?? 0) / 1000).toFixed(1)}K`} sub="MRR" trend="up" trendVal="+12.4%" color="#10B981" onClick={() => navigate('/admin/subscriptions')} />
+        <KpiCard icon={Users} label="Total Users" value={loading ? '—' : String(totalUsers)} sub={`${totalLeads} leads`} trend="up" trendVal="+8 this month" color="#7C3AED" onClick={() => navigate('/admin/tenants')} />
+        <KpiCard icon={AlertCircle} label="Open Tickets" value={loading ? '—' : String(openTickets)} sub={degradedServices > 0 ? `${degradedServices} service degraded` : 'All systems up'} trend={degradedServices > 0 ? 'down' : 'up'} trendVal={degradedServices > 0 ? 'Attention needed' : 'Healthy'} color={degradedServices > 0 ? '#F43F5E' : '#10B981'} onClick={() => navigate('/admin/tickets')} />
       </div>
 
       {/* Revenue chart + Recent tenants */}
@@ -82,7 +85,7 @@ export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tic
         <GlassCard className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-primary-c">Recent Tenants</h3>
-            <button onClick={() => onNavigate('tenants')} className="text-[11px] font-medium text-rose-500 hover:underline">View all</button>
+            <button onClick={() => navigate('/admin/tenants')} className="text-[11px] font-medium text-rose-500 hover:underline">View all</button>
           </div>
           {loading ? (
             <div className="space-y-3">{[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-ink-800 animate-pulse" />)}</div>
@@ -110,7 +113,7 @@ export function AdminOverview({ onNavigate }: { onNavigate: (v: 'tenants' | 'tic
         <GlassCard className="p-5">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-primary-c"><Server className="h-4 w-4 text-muted-c" /> System Health</h3>
-            <button onClick={() => onNavigate('health')} className="text-[11px] font-medium text-rose-500 hover:underline">Details</button>
+            <button onClick={() => navigate('/admin/health')} className="text-[11px] font-medium text-rose-500 hover:underline">Details</button>
           </div>
           {loading ? (
             <div className="space-y-2">{[...Array(5)].map((_, i) => <div key={i} className="h-10 rounded-lg bg-slate-100 dark:bg-ink-800 animate-pulse" />)}</div>

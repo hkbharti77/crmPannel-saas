@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
   Plus, Home, Building2, Crown, KeyRound, Map, Palmtree, TrendingUp,
   Globe, Search, Copy, Trash2, Eye, RefreshCw, X, Loader2,
@@ -100,8 +101,17 @@ export function AdminTemplates() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
+  const [deleteModalState, setDeleteModalState] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: '' });
+
+  const handleDelete = (id: string) => {
+    setDeleteModalState({ isOpen: true, id });
+  };
+
+  const confirmDelete = async () => {
+    const id = deleteModalState.id;
+    setDeleteModalState({ isOpen: false, id: '' });
+    if (!id) return;
+
     await deleteNicheTemplate(id);
     load();
   };
@@ -245,6 +255,17 @@ export function AdminTemplates() {
           </div>
         </div>
       )}
+
+      {/* Delete Template Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteModalState.isOpen}
+        title="Delete Niche Template"
+        message="Are you sure you want to delete this pipeline template? This action cannot be undone."
+        confirmText="Delete Template"
+        variant="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteModalState({ isOpen: false, id: '' })}
+      />
     </div>
   );
 }

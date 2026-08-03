@@ -1,37 +1,24 @@
 import { useState, type ReactNode } from 'react';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { TopBar } from '@/components/layout/TopBar';
-import type { ViewId } from '@/lib/navigation';
+import { Outlet } from 'react-router-dom';
 
-export function AppShell({
-  current,
-  onNavigate,
-  onEnterAdmin,
-  children,
-}: {
-  current: ViewId;
-  onNavigate: (id: ViewId) => void;
-  onEnterAdmin: () => void;
-  children: ReactNode;
-}) {
+export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-base-c">
       <Sidebar
-        current={current}
-        onNavigate={onNavigate}
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed((c) => !c)}
         mobileOpen={mobileOpen}
         onCloseMobile={() => setMobileOpen(false)}
-        onEnterAdmin={onEnterAdmin}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar current={current} onOpenMobile={() => setMobileOpen(true)} />
+        <TopBar onOpenMobile={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto scrollbar-thin">
-          {children}
+          <Outlet />
         </main>
       </div>
     </div>

@@ -33,9 +33,9 @@ type AuthContextValue = {
   user: AuthUser | null;
   loading: boolean;
   requestOtp: (email: string) => Promise<{ error: string | null; message: string | null }>;
-  verifyOtp: (email: string, otp: string) => Promise<{ error: string | null }>;
+  verifyOtp: (email: string, otp: string, displayName?: string, businessName?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, otpOrPassword?: string) => Promise<{ error: string | null; message?: string | null }>;
-  signUp: (email: string, passwordOrOtp?: string, name?: string) => Promise<{ error: string | null; message?: string | null }>;
+  signUp: (email: string, passwordOrOtp?: string, name?: string, businessName?: string) => Promise<{ error: string | null; message?: string | null }>;
   signOut: () => Promise<void>;
 };
 
@@ -81,6 +81,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  // Global event listeners for auto-logout
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'crmlite_token' && !e.newValue) {
+        // Token was cleared in another tab, log out here
+        setToken(null);
+        setTenantId(null);
+        setUser(null);
+      }
+    };
+
+    const handleSessionExpired = () => {
+      clearAuthSession();
+      setToken(null);
+      setTenantId(null);
+      setUser(null);
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('session-expired', handleSessionExpired);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('session-expired', handleSessionExpired);
+    };
+  }, []);
+
   const requestOtp = async (email: string) => {
     const res = await apiFetch('/api/v1/auth/login', {
       method: 'POST',
@@ -93,10 +120,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: null, message: res.data?.message || 'Verification code sent to your email.' };
   };
 
-  const verifyOtp = async (email: string, otp: string) => {
+  const verifyOtp = async (email: string, otp: string, displayName?: string, businessName?: string) => {
     const res = await apiFetch('/api/v1/auth/verify', {
       method: 'POST',
-      body: JSON.stringify({ email: email.trim(), otp: otp.trim() }),
+      body: JSON.stringify({
+        email: email.trim(),
+        otp: otp.trim(),
+        displayName: displayName?.trim() || undefined,
+        businessName: businessName?.trim() || undefined,
+      }),
     });
 
     if (res.error) {
@@ -111,12 +143,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       id: data.userId || 'user-' + Date.now(),
       email: data.email || email,
       tenantId: data.tenantId,
-      businessName: data.businessName || 'My Business',
+      businessName: data.businessName || businessName || 'My Business',
       role: isSuper ? 'SUPER_ADMIN' : role,
       isSuperAdmin: isSuper,
       onboardingCompleted: data.onboardingCompleted ?? false,
       user_metadata: {
-        name: data.businessName || email.split('@')[0],
+        name: data.displayName || displayName || data.businessName || email.split('@')[0],
       },
     };
 
@@ -142,9 +174,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: res.error, message: res.message };
   };
 
-  const signUp: AuthContextValue['signUp'] = async (email, passwordOrOtp) => {
+  const signUp: AuthContextValue['signUp'] = async (email, passwordOrOtp, name, businessName) => {
     if (passwordOrOtp && /^\d{6}$/.test(passwordOrOtp.trim())) {
-      return verifyOtp(email, passwordOrOtp);
+      return verifyOtp(email, passwordOrOtp, name, businessName);
     }
     const res = await requestOtp(email);
     return { error: res.error, message: res.message };

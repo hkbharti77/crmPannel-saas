@@ -3,6 +3,7 @@ import { cx } from '@/lib/types';
 import type { Appointment } from './appointmentData';
 import { TYPE_CONFIG } from './appointmentData';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { getTodayDateStr, formatYearMonthDay } from '@/lib/dateUtils';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
@@ -27,7 +28,7 @@ export function CalendarGrid({
 }) {
   const year = currentMonth.getFullYear();
   const month = currentMonth.getMonth();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getTodayDateStr();
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -38,18 +39,18 @@ export function CalendarGrid({
   // Previous month trailing days
   for (let i = firstDay - 1; i >= 0; i--) {
     const d = daysInPrevMonth - i;
-    const date = new Date(year, month - 1, d).toISOString().split('T')[0];
+    const date = formatYearMonthDay(year, month - 1, d);
     cells.push({ date, day: d, isCurrent: false });
   }
   // Current month days
   for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d).toISOString().split('T')[0];
+    const date = formatYearMonthDay(year, month, d);
     cells.push({ date, day: d, isCurrent: true });
   }
   // Next month leading days
   const remaining = 42 - cells.length;
   for (let d = 1; d <= remaining; d++) {
-    const date = new Date(year, month + 1, d).toISOString().split('T')[0];
+    const date = formatYearMonthDay(year, month + 1, d);
     cells.push({ date, day: d, isCurrent: false });
   }
 

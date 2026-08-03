@@ -400,7 +400,7 @@ export function BillingPanel() {
                   </button>
                 ) : plan.isContactUs || plan.id.toUpperCase() === 'ENTERPRISE' ? (
                   <a
-                    href="mailto:sales@chatcrmlite.com?subject=Enterprise%20Subscription%20Custom%20Quote"
+                    href="mailto:sales@gyanvaniaiconnect.com?subject=Enterprise%20Subscription%20Custom%20Quote"
                     target="_blank"
                     rel="noreferrer"
                     className="w-full text-center rounded-xl border border-amber-500/40 bg-amber-500/10 py-2.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all block"

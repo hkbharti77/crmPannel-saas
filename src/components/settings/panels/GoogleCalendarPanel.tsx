@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Globe, Loader2, CheckCircle2, AlertCircle, LogOut, ExternalLink, Calendar, Video } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import { fetchGoogleIntegrationStatus, fetchGoogleAuthUrl, disconnectGoogleAccount } from '@/lib/integrationsApi';
@@ -10,6 +11,7 @@ export function GoogleCalendarPanel() {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [disconnectModalOpen, setDisconnectModalOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,11 +54,12 @@ export function GoogleCalendarPanel() {
     }
   };
 
-  const handleDisconnect = async () => {
-    if (!confirm('Are you sure you want to disconnect your Google account? Automatic Google Meet generation for new appointments will be paused.')) {
-      return;
-    }
+  const handleDisconnect = () => {
+    setDisconnectModalOpen(true);
+  };
 
+  const confirmDisconnect = async () => {
+    setDisconnectModalOpen(false);
     setDisconnecting(true);
     setError(null);
     const res = await disconnectGoogleAccount();
@@ -168,6 +171,17 @@ export function GoogleCalendarPanel() {
           </div>
         </div>
       </SectionCard>
+
+      {/* Disconnect Google Account Modal */}
+      <ConfirmModal
+        isOpen={disconnectModalOpen}
+        title="Disconnect Google Calendar"
+        message="Are you sure you want to disconnect your Google account? Automatic Google Meet link generation for new appointments will be paused."
+        confirmText="Disconnect Google Account"
+        variant="danger"
+        onConfirm={confirmDisconnect}
+        onCancel={() => setDisconnectModalOpen(false)}
+      />
     </div>
   );
 }

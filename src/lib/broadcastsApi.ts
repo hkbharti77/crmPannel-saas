@@ -208,3 +208,135 @@ export async function deleteWhatsAppTemplate(
   }
   return { success: true, error: null };
 }
+
+// ─── CSV Broadcast Upload Types & APIs ────────────────────────────────────
+
+export type InvalidRowDto = {
+  rowNumber: number;
+  phone: string;
+  reason: string;
+};
+
+export type BroadcastCsvUploadResult = {
+  totalRows: number;
+  detectedColumns: string[];
+  phoneColumnName: string;
+  validPhoneCount: number;
+  invalidPhoneCount: number;
+  duplicatePhoneCount: number;
+  sampleRows: Record<string, string | null>[];
+  invalidRows: InvalidRowDto[];
+  validRows: Record<string, string | null>[];
+};
+
+export type FilterRuleDto = {
+  column: string;
+  operator: string; // EQUALS, CONTAINS, STARTS_WITH, IN, NOT_EQUALS
+  label: string;
+};
+
+export type BroadcastFilterConfig = {
+  filterColumns: string[];
+  filterRules: FilterRuleDto[];
+};
+
+/**
+ * Uploads and parses a CSV/XLSX file for WhatsApp broadcast audience targeting.
+ * Returns detected columns, phone validation stats, and sample rows.
+ */
+export async function uploadCsvForBroadcast(
+  file: File
+): Promise<{ data: BroadcastCsvUploadResult | null; error: string | null }> {
+  const token = localStorage.getItem('crmlite_token');
+  const tenantId = localStorage.getItem('crmlite_tenant_id');
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+    const res = await fetch(`${baseUrl}/api/v1/whatsapp/campaigns/upload-csv`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ message: `Upload failed (${res.status})` }));
+      return { data: null, error: body?.message || body?.error || `Upload failed (${res.status})` };
+    }
+
+    const data: BroadcastCsvUploadResult = await res.json();
+    return { data, error: null };
+  } catch (err: any) {
+    return { data: null, error: err?.message || 'Network error during file upload' };
+  }
+}
+
+/**
+ * Fetches the admin-defined broadcast upload filter configuration for the current tenant.
+ */
+export async function fetchBroadcastFilterConfig(): Promise<{
+  data: BroadcastFilterConfig | null;
+  error: string | null;
+}> {
+  const res = await apiFetch<BroadcastFilterConfig>('/api/v1/whatsapp/campaigns/filter-config');
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
+/**
+ * Updates the broadcast upload filter configuration (OWNER/ADMIN only).
+ */
+export async function updateBroadcastFilterConfig(
+  config: BroadcastFilterConfig
+): Promise<{ data: BroadcastFilterConfig | null; error: string | null }> {
+  const res = await apiFetch<BroadcastFilterConfig>('/api/v1/whatsapp/campaigns/filter-config', {
+    method: 'PUT',
+    body: JSON.stringify(config),
+  });
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
+export type WhatsAppCampaignRecipientDto = {
+  id: string;
+  phoneNumber: string;
+  status: 'PENDING' | 'QUEUED' | 'SENT' | 'DELIVERED' | 'READ' | 'FAILED' | 'SKIPPED';
+  errorMessage?: string;
+  skipReason?: string;
+  waMessageId?: string;
+  resolvedVariablesJson?: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  readAt?: string;
+  retryCount?: number;
+};
+
+export type PagedRecipientResponse = {
+  content: WhatsAppCampaignRecipientDto[];
+  totalElements: number;
+  totalPages: number;
+  page: number;
+  size: number;
+};
+
+export async function fetchCampaignRecipients(
+  campaignId: string,
+  page = 0,
+  size = 50
+): Promise<{ data: PagedRecipientResponse | null; error: string | null }> {
+  const res = await apiFetch<PagedRecipientResponse>(`/api/v1/whatsapp/campaigns/${campaignId}/recipients?page=${page}&size=${size}`);
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}

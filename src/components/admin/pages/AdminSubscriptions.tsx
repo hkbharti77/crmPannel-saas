@@ -579,6 +579,8 @@ export function AdminSubscriptions() {
             </form>
           </div>
         </div>
+      )}
+
       {/* CUSTOM DELETE CONFIRMATION MODAL */}
       {deletingPlanId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">

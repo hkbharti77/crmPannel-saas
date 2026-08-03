@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
+import { FaqManagementView } from './FaqManagementView';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 interface RagDocumentDto {
   documentId: string;
@@ -16,6 +18,7 @@ interface RagDocumentDto {
 }
 
 export function KnowledgeBaseView() {
+  const [activeTab, setActiveTab] = useState<'rag' | 'faq'>('rag');
   const [documents, setDocuments] = useState<RagDocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -129,10 +132,20 @@ export function KnowledgeBaseView() {
     }
   };
 
-  const handleDeleteDocument = async (docId: string, docName: string) => {
-    if (!confirm(`Are you sure you want to delete "${docName}" from AI Knowledge Base?`)) {
-      return;
-    }
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    docId: string;
+    docName: string;
+  }>({ isOpen: false, docId: '', docName: '' });
+
+  const handleDeleteDocument = (docId: string, docName: string) => {
+    setDeleteModal({ isOpen: true, docId, docName });
+  };
+
+  const confirmDeleteDocument = async () => {
+    const { docId, docName } = deleteModal;
+    setDeleteModal({ isOpen: false, docId: '', docName: '' });
+    if (!docId) return;
 
     const res = await apiFetch(`/api/v1/rag/documents/${docId}`, {
       method: 'DELETE',
@@ -176,6 +189,39 @@ export function KnowledgeBaseView() {
           <span>Refresh Vectors</span>
         </button>
       </div>
+
+      {/* Sub-Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-base-c pb-3">
+        <button
+          onClick={() => setActiveTab('rag')}
+          className={cx(
+            'flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all',
+            activeTab === 'rag'
+              ? 'bg-primary-500 text-white shadow-sm'
+              : 'border border-base-c bg-card-c text-muted-c hover:text-primary-c'
+          )}
+        >
+          <Brain className="h-4 w-4" />
+          <span>RAG Knowledge Documents</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('faq')}
+          className={cx(
+            'flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all',
+            activeTab === 'faq'
+              ? 'bg-primary-500 text-white shadow-sm'
+              : 'border border-base-c bg-card-c text-muted-c hover:text-primary-c'
+          )}
+        >
+          <Sparkles className="h-4 w-4 text-amber-400" />
+          <span>High-Confidence FAQ Engine (85% Match)</span>
+        </button>
+      </div>
+
+      {activeTab === 'faq' ? (
+        <FaqManagementView />
+      ) : (
+        <>
 
       {planLocked && (
         <div className="rounded-xl2 border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3">
@@ -393,6 +439,19 @@ export function KnowledgeBaseView() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="Delete RAG Document"
+        message={`Are you sure you want to delete "${deleteModal.docName}" from AI Knowledge Base? Vectors will be unindexed.`}
+        confirmText="Delete Document"
+        variant="danger"
+        onConfirm={confirmDeleteDocument}
+        onCancel={() => setDeleteModal({ isOpen: false, docId: '', docName: '' })}
+      />
     </div>
   );
 }

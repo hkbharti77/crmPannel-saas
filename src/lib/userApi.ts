@@ -11,6 +11,10 @@ export interface UserProfileDto {
   address?: string;
   aboutUs?: string;
   logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  emailHeaderText?: string;
+  emailFooterText?: string;
   latitude?: number;
   longitude?: number;
   country?: string;

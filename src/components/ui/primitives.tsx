@@ -4,29 +4,16 @@ import { cx } from '@/lib/types';
 export function Logo({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div className="flex items-center gap-2.5 select-none">
-      <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl2 bg-gradient-accent shadow-glow-blue">
-        <div className="absolute inset-0 rounded-xl2 bg-gradient-accent opacity-60 blur-md" />
-        <svg
-          viewBox="0 0 24 24"
-          className="relative h-5 w-5 text-white"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 2a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6a4 4 0 0 1 4-4Z" />
-          <path d="M5 12a7 7 0 0 0 14 0" />
-          <path d="M12 19v3" />
-        </svg>
+      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center">
+        <img src="https://www.gyanvaniai.online/logo.webp" alt="Logo" className="h-full w-full object-contain" />
       </div>
       {!collapsed && (
-        <div className="flex flex-col leading-none">
-          <span className="text-[15px] font-bold tracking-tight text-primary-c">
-            CRMLite
+        <div className="flex flex-col justify-center">
+          <span className="text-[15px] font-extrabold tracking-tight text-primary-c leading-tight">
+            GyanVaniAi
           </span>
-          <span className="text-[11px] font-medium text-muted-c">
-            GyanVaniAi Connect
+          <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary-500/80 leading-none mt-[2px]">
+            Connect
           </span>
         </div>
       )}

@@ -203,8 +203,10 @@ export function AccountProfilePanel() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const snippetCode = `<link rel="stylesheet" href="http://localhost:8080/styles.css">
-<script src="http://localhost:8080/chat-widget.js"
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+  const snippetCode = `<link rel="stylesheet" href="${apiBase}/styles.css">
+<script src="${apiBase}/chat-widget.js"
   data-business-id="${businessId}">
 </script>`;
 
@@ -529,10 +531,10 @@ export function AccountProfilePanel() {
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               type="button"
-              onClick={() => alert(`Widget Preview URL: http://localhost:8080/chat-widget.js?id=${businessId}`)}
-              className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 px-4 text-xs font-semibold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20"
+              onClick={() => window.open(`${apiBase}/test.html?businessId=${encodeURIComponent(businessId || '')}`, '_blank')}
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 px-4 text-xs font-semibold text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
             >
-              <Eye className="h-4 w-4" /> Preview Widget
+              <Eye className="h-4 w-4" /> Open Live Widget Test Page (test.html)
             </button>
             <button
               type="button"
@@ -608,8 +610,10 @@ function WidgetDocModal({ businessId, onClose }: { businessId: string; onClose: 
   const [activeTab, setActiveTab] = useState<'html' | 'react' | 'cms' | 'attributes'>('html');
   const [copiedDocSnippet, setCopiedDocSnippet] = useState(false);
 
-  const htmlSnippet = `<link rel="stylesheet" href="http://localhost:8080/styles.css">
-<script src="http://localhost:8080/chat-widget.js"
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+  const htmlSnippet = `<link rel="stylesheet" href="${apiBase}/styles.css">
+<script src="${apiBase}/chat-widget.js"
   data-business-id="${businessId}">
 </script>`;
 
@@ -620,9 +624,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {children}
-        <link rel="stylesheet" href="http://localhost:8080/styles.css" />
+        <link rel="stylesheet" href="${apiBase}/styles.css" />
         <Script
-          src="http://localhost:8080/chat-widget.js"
+          src="${apiBase}/chat-widget.js"
           data-business-id="${businessId}"
           strategy="lazyOnload"
         />

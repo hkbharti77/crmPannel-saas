@@ -8,7 +8,10 @@ import { CalendarClock, ArrowRight, Loader2, RefreshCw, Wallet, CheckCircle2, Cl
 import { useAuth } from '@/context/AuthContext';
 import { fetchDashboardAggregate, type DashboardAggregateDTO } from '@/lib/dashboardApi';
 
-export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void }) {
+import { useNavigate } from 'react-router-dom';
+
+export function DashboardView() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [data, setData] = useState<DashboardAggregateDTO | null>(null);
   const [loading, setLoading] = useState(true);
@@ -66,7 +69,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
       {/* Main two-column layout */}
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2 space-y-6">
-          <SalesChart />
+          <SalesChart revenueReport={data?.revenueReport} />
 
           {/* Quick stats strip using real revenue summary */}
           <div className="grid gap-4 sm:grid-cols-3">
@@ -109,7 +112,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
         </div>
 
         <div className="space-y-6">
-          <LeadSummary pipeline={data?.pipeline} onOpenPipeline={() => onNavigate('pipeline')} />
+          <LeadSummary pipeline={data?.pipeline} onOpenPipeline={() => navigate('/pipeline')} />
 
           {/* Account Overview */}
           <GlassCard className="p-6 space-y-4">
@@ -151,7 +154,7 @@ export function DashboardView({ onNavigate }: { onNavigate: (v: string) => void 
                 <h3 className="text-sm font-semibold text-primary-c">Upcoming Appointments</h3>
               </div>
               <button
-                onClick={() => onNavigate('appointments')}
+                onClick={() => navigate('/appointments')}
                 className="flex items-center gap-1 text-xs font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400"
               >
                 All <ArrowRight className="h-3 w-3" />

@@ -3,16 +3,21 @@ import type { AppointmentStatus } from '@/lib/types';
 export type Appointment = {
   id: string;
   title: string;
-  leadName: string;
-  leadCompany: string;
+  contactName?: string;
+  contactWaId?: string;
+  company?: string;
+  leadName?: string;
+  leadCompany?: string;
   date: string; // ISO format YYYY-MM-DD
-  startTime: string;
-  endTime: string;
+  time?: string;
+  startTime?: string;
+  endTime?: string;
   type: 'site_visit' | 'call' | 'demo' | 'meeting';
   status: AppointmentStatus;
   location: string;
   assignedTo: string;
   notes?: string;
+  collectedData?: Record<string, any>;
 };
 
 export const APPOINTMENTS: Appointment[] = [];

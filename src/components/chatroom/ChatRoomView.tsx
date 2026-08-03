@@ -24,13 +24,12 @@ import {
   MessageSquare,
 } from 'lucide-react';
 
-export function ChatRoomView({
-  contactId,
-  onBack,
-}: {
-  contactId?: string | null;
-  onBack: () => void;
-}) {
+import { useParams, useNavigate } from 'react-router-dom';
+
+export function ChatRoomView() {
+  const { contactId } = useParams<{ contactId: string }>();
+  const navigate = useNavigate();
+  const onBack = () => navigate('/inbox');
   const [messages, setMessages] = useState<Message[]>([]);
   const [contactDetails, setContactDetails] = useState<ContactDTO | null>(null);
   const [draft, setDraft] = useState('');

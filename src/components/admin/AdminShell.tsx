@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { ADMIN_NAV_ITEMS, ADMIN_TITLES, type AdminViewId } from '@/lib/adminNavigation';
+import { useState } from 'react';
+import { ADMIN_NAV_ITEMS, ADMIN_TITLES } from '@/lib/adminNavigation';
 import { cx } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
 import { IconButton, Avatar } from '@/components/ui/primitives';
@@ -13,21 +13,16 @@ import {
   ArrowLeft,
   Shield,
 } from 'lucide-react';
+import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 
-export function AdminShell({
-  current,
-  onNavigate,
-  onExitAdmin,
-  children,
-}: {
-  current: AdminViewId;
-  onNavigate: (id: AdminViewId) => void;
-  onExitAdmin: () => void;
-  children: ReactNode;
-}) {
+export function AdminShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const currentPath = location.pathname.split('/')[2] || 'overview';
 
   return (
     <div className="flex h-screen overflow-hidden bg-base-c">
@@ -47,15 +42,25 @@ export function AdminShell({
         {/* Logo / Brand */}
         <div className="flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-2.5 select-none">
-            <div className="relative grid h-9 w-9 shrink-0 place-items-center rounded-xl2 bg-gradient-to-br from-rose-500 to-orange-500 shadow-lg">
-              <Shield className="relative h-5 w-5 text-white" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center">
+              <img src="https://www.gyanvaniai.online/logo.webp" alt="Logo" className="h-full w-full object-contain" />
             </div>
-            {!collapsed && (
-              <div className="flex flex-col leading-none">
-                <span className="text-[15px] font-bold tracking-tight text-primary-c">CRMLite</span>
-                <span className="text-[11px] font-medium text-rose-500">Super Admin</span>
-              </div>
-            )}
+              {!collapsed && (
+                <div className="flex flex-col justify-center">
+                  <span className="text-[15px] font-extrabold tracking-tight text-primary-c leading-tight">
+                    GyanVaniAi
+                  </span>
+                  <div className="flex items-center gap-1.5 mt-[2px]">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-primary-500/80 leading-none">
+                      Connect
+                    </span>
+                    <span className="h-1 w-1 rounded-full bg-base-c" />
+                    <span className="text-[9px] font-bold uppercase tracking-widest text-rose-500 leading-none">
+                      Admin
+                    </span>
+                  </div>
+                </div>
+              )}
           </div>
           <button onClick={() => setMobileOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:text-primary-c lg:hidden">
             <X className="h-5 w-5" />
@@ -66,11 +71,11 @@ export function AdminShell({
         <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2 scrollbar-thin">
           {ADMIN_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const active = current === item.id;
+            const active = currentPath === item.id;
             return (
               <button
                 key={item.id}
-                onClick={() => { onNavigate(item.id); setMobileOpen(false); }}
+                onClick={() => { navigate(`/admin/${item.id}`); setMobileOpen(false); }}
                 title={collapsed ? item.label : undefined}
                 className={cx(
                   'group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all',
@@ -108,7 +113,7 @@ export function AdminShell({
         {/* Exit to CRM */}
         <div className="border-t border-base-c p-3">
           <button
-            onClick={onExitAdmin}
+            onClick={() => navigate('/')}
             className={cx('flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-secondary-c transition-colors hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-ink-850', collapsed && 'justify-center')}
           >
             <ArrowLeft className="h-[18px] w-[18px] shrink-0" />
@@ -124,7 +129,7 @@ export function AdminShell({
           <button onClick={() => setMobileOpen(true)} className="grid h-9 w-9 place-items-center rounded-lg text-secondary-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800 dark:hover:text-white lg:hidden">
             <Menu className="h-5 w-5" />
           </button>
-          <h1 className="text-base font-semibold text-primary-c lg:text-lg">{ADMIN_TITLES[current]}</h1>
+          <h1 className="text-base font-semibold text-primary-c lg:text-lg">{ADMIN_TITLES[currentPath as keyof typeof ADMIN_TITLES] ?? 'Admin'}</h1>
           <span className="hidden rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold text-rose-500 sm:block">SUPER ADMIN</span>
 
           <div className="ml-auto flex items-center gap-1.5">
@@ -143,7 +148,7 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto scrollbar-thin">{children}</main>
+        <main className="flex-1 overflow-y-auto scrollbar-thin"><Outlet /></main>
       </div>
     </div>
   );

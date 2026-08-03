@@ -98,67 +98,11 @@ export const STATUS_META: Record<TenantStatus, { label: string; color: string; d
 };
 
 /* ─── Mock Data ─── */
-export const TENANTS: Tenant[] = [
-  { id: 'T-001', name: 'Metro Realty', domain: 'metro.crlite.io', plan: 'growth', status: 'active', users: 5, maxUsers: 10, leads: 291, mrr: 4999, createdAt: 'Jan 2025', lastActive: '2 min ago', region: 'Mumbai', niche: 'Residential' },
-  { id: 'T-002', name: 'Prime Commercial', domain: 'prime.crlite.io', plan: 'scale', status: 'active', users: 12, maxUsers: 25, leads: 845, mrr: 9999, createdAt: 'Mar 2025', lastActive: '15 min ago', region: 'Delhi', niche: 'Commercial' },
-  { id: 'T-003', name: 'Luxe Estates', domain: 'luxe.crlite.io', plan: 'enterprise', status: 'active', users: 28, maxUsers: 50, leads: 1240, mrr: 24999, createdAt: 'Nov 2024', lastActive: '1 hr ago', region: 'Bangalore', niche: 'Luxury' },
-  { id: 'T-004', name: 'Suburb Homes', domain: 'suburb.crlite.io', plan: 'starter', status: 'trial', users: 2, maxUsers: 5, leads: 34, mrr: 0, createdAt: 'Jul 2026', lastActive: '3 hr ago', region: 'Pune', niche: 'Residential' },
-  { id: 'T-005', name: 'Skyline Properties', domain: 'skyline.crlite.io', plan: 'growth', status: 'active', users: 8, maxUsers: 10, leads: 412, mrr: 4999, createdAt: 'Feb 2025', lastActive: '5 hr ago', region: 'Mumbai', niche: 'Residential' },
-  { id: 'T-006', name: 'Greenfield Land Co', domain: 'greenfield.crlite.io', plan: 'starter', status: 'active', users: 3, maxUsers: 5, leads: 87, mrr: 1999, createdAt: 'May 2025', lastActive: '1 day ago', region: 'Chennai', niche: 'Land/Plots' },
-  { id: 'T-007', name: 'Urban Nest', domain: 'urban.crlite.io', plan: 'growth', status: 'suspended', users: 6, maxUsers: 10, leads: 198, mrr: 0, createdAt: 'Apr 2025', lastActive: '5 days ago', region: 'Hyderabad', niche: 'Residential' },
-  { id: 'T-008', name: 'Elite Rentals', domain: 'elite.crlite.io', plan: 'scale', status: 'active', users: 15, maxUsers: 25, leads: 623, mrr: 9999, createdAt: 'Dec 2024', lastActive: '20 min ago', region: 'Delhi', niche: 'Rental' },
-  { id: 'T-009', name: 'Coastal Realty', domain: 'coastal.crlite.io', plan: 'growth', status: 'active', users: 7, maxUsers: 10, leads: 356, mrr: 4999, createdAt: 'Jun 2025', lastActive: '2 hr ago', region: 'Goa', niche: 'Vacation' },
-  { id: 'T-010', name: 'Apex Investors', domain: 'apex.crlite.io', plan: 'enterprise', status: 'active', users: 35, maxUsers: 50, leads: 2100, mrr: 24999, createdAt: 'Oct 2024', lastActive: '8 min ago', region: 'Mumbai', niche: 'Investment' },
-];
-
-export const ADMIN_USERS: AdminUser[] = [
-  { id: 'U-001', name: 'Arjun Kapoor', email: 'arjun@metrorealty.com', tenant: 'Metro Realty', role: 'Tenant Admin', status: 'active', lastLogin: '2 min ago', twoFactor: true },
-  { id: 'U-002', name: 'Priya Sharma', email: 'priya@metrorealty.com', tenant: 'Metro Realty', role: 'Sales Agent', status: 'active', lastLogin: '1 hr ago', twoFactor: false },
-  { id: 'U-003', name: 'Rajesh Kumar', email: 'rajesh@prime.com', tenant: 'Prime Commercial', role: 'Tenant Admin', status: 'active', lastLogin: '15 min ago', twoFactor: true },
-  { id: 'U-004', name: 'Sneha Patel', email: 'sneha@metrorealty.com', tenant: 'Metro Realty', role: 'Property Advisor', status: 'active', lastLogin: '3 hr ago', twoFactor: false },
-  { id: 'U-005', name: 'Vikram Singh', email: 'vikram@luxe.in', tenant: 'Luxe Estates', role: 'Tenant Admin', status: 'active', lastLogin: '1 hr ago', twoFactor: true },
-  { id: 'U-006', name: 'Anita Rao', email: 'anita@urban.co', tenant: 'Urban Nest', role: 'Manager', status: 'suspended', lastLogin: '5 days ago', twoFactor: false },
-  { id: 'U-007', name: 'Karan Mehta', email: 'karan@elite.co', tenant: 'Elite Rentals', role: 'Sales Agent', status: 'active', lastLogin: '20 min ago', twoFactor: true },
-  { id: 'U-008', name: 'Deepak Joshi', email: 'deepak@apex.io', tenant: 'Apex Investors', role: 'Tenant Admin', status: 'active', lastLogin: '8 min ago', twoFactor: true },
-  { id: 'U-009', name: 'Meera Nair', email: 'meera@coastal.go', tenant: 'Coastal Realty', role: 'Sales Agent', status: 'invited', lastLogin: 'Never', twoFactor: false },
-  { id: 'U-010', name: 'Sanjay Gupta', email: 'sanjay@greenfield.in', tenant: 'Greenfield Land Co', role: 'Tenant Admin', status: 'active', lastLogin: '1 day ago', twoFactor: false },
-];
-
-export const ADMIN_TICKETS: AdminTicket[] = [
-  { id: 'TK-301', subject: 'WhatsApp integration not sending messages', tenant: 'Metro Realty', priority: 'URGENT', status: 'OPEN', createdAt: '2 hr ago', requester: 'Arjun Kapoor', category: 'Integration' },
-  { id: 'TK-302', subject: 'Need additional seats on Growth plan', tenant: 'Skyline Properties', priority: 'MEDIUM', status: 'OPEN', createdAt: '5 hr ago', requester: 'Neha Reddy', category: 'Billing' },
-  { id: 'TK-303', subject: 'Pipeline board not loading on Safari', tenant: 'Prime Commercial', priority: 'HIGH', status: 'IN_PROGRESS', createdAt: '8 hr ago', requester: 'Rajesh Kumar', category: 'Bug' },
-  { id: 'TK-304', subject: 'Custom field for property type', tenant: 'Luxe Estates', priority: 'LOW', status: 'OPEN', createdAt: '1 day ago', requester: 'Vikram Singh', category: 'Feature' },
-  { id: 'TK-305', subject: 'Cannot export lead data to CSV', tenant: 'Apex Investors', priority: 'HIGH', status: 'IN_PROGRESS', createdAt: '1 day ago', requester: 'Deepak Joshi', category: 'Bug' },
-  { id: 'TK-306', subject: 'Upgrade from Starter to Growth', tenant: 'Greenfield Land Co', priority: 'MEDIUM', status: 'OPEN', createdAt: '2 days ago', requester: 'Sanjay Gupta', category: 'Billing' },
-  { id: 'TK-307', subject: 'Two-factor auth setup help', tenant: 'Elite Rentals', priority: 'LOW', status: 'RESOLVED', createdAt: '3 days ago', requester: 'Karan Mehta', category: 'Support' },
-];
-
-export const SUBSCRIPTIONS: Subscription[] = [
-  { id: 'SUB-001', tenant: 'Metro Realty', plan: 'growth', status: 'active', mrr: 4999, seats: 10, seatsUsed: 5, renewalDate: 'Aug 22, 2026', paymentMethod: '•••• 4242' },
-  { id: 'SUB-002', tenant: 'Prime Commercial', plan: 'scale', status: 'active', mrr: 9999, seats: 25, seatsUsed: 12, renewalDate: 'Sep 15, 2026', paymentMethod: '•••• 1881' },
-  { id: 'SUB-003', tenant: 'Luxe Estates', plan: 'enterprise', status: 'active', mrr: 24999, seats: 50, seatsUsed: 28, renewalDate: 'Dec 1, 2026', paymentMethod: '•••• 5567' },
-  { id: 'SUB-004', tenant: 'Suburb Homes', plan: 'starter', status: 'trialing', mrr: 0, seats: 5, seatsUsed: 2, renewalDate: 'Trial ends Aug 5', paymentMethod: 'None' },
-  { id: 'SUB-005', tenant: 'Skyline Properties', plan: 'growth', status: 'active', mrr: 4999, seats: 10, seatsUsed: 8, renewalDate: 'Aug 10, 2026', paymentMethod: '•••• 7733' },
-  { id: 'SUB-006', tenant: 'Greenfield Land Co', plan: 'starter', status: 'active', mrr: 1999, seats: 5, seatsUsed: 3, renewalDate: 'Oct 3, 2026', paymentMethod: '•••• 9982' },
-  { id: 'SUB-007', tenant: 'Urban Nest', plan: 'growth', status: 'past_due', mrr: 4999, seats: 10, seatsUsed: 6, renewalDate: 'Overdue 5 days', paymentMethod: '•••• 2255' },
-  { id: 'SUB-008', tenant: 'Elite Rentals', plan: 'scale', status: 'active', mrr: 9999, seats: 25, seatsUsed: 15, renewalDate: 'Nov 20, 2026', paymentMethod: '•••• 6644' },
-  { id: 'SUB-009', tenant: 'Coastal Realty', plan: 'growth', status: 'active', mrr: 4999, seats: 10, seatsUsed: 7, renewalDate: 'Sep 28, 2026', paymentMethod: '•••• 3399' },
-  { id: 'SUB-010', tenant: 'Apex Investors', plan: 'enterprise', status: 'active', mrr: 24999, seats: 50, seatsUsed: 35, renewalDate: 'Jan 15, 2027', paymentMethod: '•••• 1100' },
-];
-
-export const AUDIT_ENTRIES: AuditEntry[] = [
-  { id: 'AU-001', actor: 'admin@crmlite.io', action: 'Suspended tenant', target: 'Urban Nest (T-007)', timestamp: 'Jul 23, 2026 2:15 PM', ip: '103.21.45.10', severity: 'critical' },
-  { id: 'AU-002', actor: 'admin@crmlite.io', action: 'Upgraded plan', target: 'Skyline Properties → Growth', timestamp: 'Jul 23, 2026 11:30 AM', ip: '103.21.45.10', severity: 'info' },
-  { id: 'AU-003', actor: 'support@crmlite.io', action: 'Resolved ticket', target: 'TK-307', timestamp: 'Jul 23, 2026 9:45 AM', ip: '103.21.45.12', severity: 'info' },
-  { id: 'AU-004', actor: 'admin@crmlite.io', action: 'Reset user password', target: 'anita@urban.co', timestamp: 'Jul 22, 2026 4:20 PM', ip: '103.21.45.10', severity: 'warning' },
-  { id: 'AU-005', actor: 'system', action: 'Auto-suspended tenant', target: 'Urban Nest (past due 5 days)', timestamp: 'Jul 22, 2026 12:00 AM', ip: 'system', severity: 'critical' },
-  { id: 'AU-006', actor: 'admin@crmlite.io', action: 'Added seats', target: 'Apex Investors +15 seats', timestamp: 'Jul 21, 2026 3:10 PM', ip: '103.21.45.10', severity: 'info' },
-  { id: 'AU-007', actor: 'admin@crmlite.io', action: 'Published template', target: 'Luxury Villa Template', timestamp: 'Jul 20, 2026 10:00 AM', ip: '103.21.45.10', severity: 'info' },
-  { id: 'AU-008', actor: 'support@crmlite.io', action: 'Created tenant', target: 'Suburb Homes (T-004)', timestamp: 'Jul 18, 2026 2:00 PM', ip: '103.21.45.12', severity: 'info' },
-  { id: 'AU-009', actor: 'admin@crmlite.io', action: 'Updated billing', target: 'Prime Commercial payment method', timestamp: 'Jul 17, 2026 5:30 PM', ip: '103.21.45.10', severity: 'warning' },
-  { id: 'AU-010', actor: 'system', action: 'Trial started', target: 'Suburb Homes (14-day trial)', timestamp: 'Jul 18, 2026 2:00 PM', ip: 'system', severity: 'info' },
-];
+export const TENANTS: Tenant[] = [];
+export const ADMIN_USERS: AdminUser[] = [];
+export const ADMIN_TICKETS: AdminTicket[] = [];
+export const SUBSCRIPTIONS: Subscription[] = [];
+export const AUDIT_ENTRIES: AuditEntry[] = [];
 
 export const SERVICE_HEALTH: ServiceHealth[] = [
   { name: 'API Gateway', status: 'operational', uptime: 99.98, latency: 42, lastIncident: 'Jul 15, 2026' },

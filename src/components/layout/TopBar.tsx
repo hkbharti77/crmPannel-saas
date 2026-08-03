@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { IconButton, Avatar } from '@/components/ui/primitives';
-import type { ViewId } from '@/lib/navigation';
 import { Menu, Search, Bell, Sun, Moon, Command, LogOut, ChevronDown } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import type { ViewId } from '@/lib/navigation';
 
-const TITLES: Record<ViewId, string> = {
+const TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
   inbox: 'Inbox',
   chatroom: 'Chat Room',
@@ -20,18 +21,21 @@ const TITLES: Record<ViewId, string> = {
   reports: 'Reports',
   team: 'Team',
   settings: 'Settings',
+  'meta-config': 'Meta Config',
+  'knowledge-base': 'Knowledge Base',
 };
 
 export function TopBar({
-  current,
   onOpenMobile,
 }: {
-  current: ViewId;
   onOpenMobile: () => void;
 }) {
   const { theme, toggleTheme } = useTheme();
   const { user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  const currentPath = location.pathname.split('/')[1] || 'dashboard';
 
   const displayName = user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? 'User';
 
@@ -46,7 +50,7 @@ export function TopBar({
       </button>
 
       <h1 className="text-base font-semibold text-primary-c lg:text-lg">
-        {TITLES[current] ?? 'Dashboard'}
+        {TITLES[currentPath] ?? 'Dashboard'}
       </h1>
 
       <div className="ml-auto flex items-center gap-1.5">

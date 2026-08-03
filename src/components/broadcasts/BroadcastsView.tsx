@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { cx } from '@/lib/types';
 import {
   STATUS_META,
@@ -19,9 +21,13 @@ import {
   fetchWhatsAppTemplates,
   createWhatsAppTemplate,
   deleteWhatsAppTemplate,
+  fetchCampaignRecipients,
   type WhatsAppTemplateDto,
   type TemplateButtonDto,
+  type WhatsAppCampaignRecipientDto,
 } from '@/lib/broadcastsApi';
+import { fetchLeadsPaged } from '@/lib/leadsApi';
+import { CsvBroadcastUploader } from './CsvBroadcastUploader';
 import {
   Plus,
   Search,
@@ -57,6 +63,12 @@ import {
   File,
   Globe,
   Phone,
+  FileSpreadsheet,
+  Upload,
+  LayoutTemplate,
+  Smartphone,
+  ChevronLeft,
+  MoreVertical,
 } from 'lucide-react';
 
 type FilterStatus = BroadcastStatus | 'ALL';
@@ -119,17 +131,22 @@ export function BroadcastsView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('ALL');
-  const [showCreate, setShowCreate] = useState(false);
-  const [showCreateTemplate, setShowCreateTemplate] = useState(false);
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplateDto[]>([]);
+  const [audienceCounts, setAudienceCounts] = useState<{ all: number; qualified: number; vip: number }>({
+    all: 0,
+    qualified: 0,
+    vip: 0,
+  });
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [campRes, tmplRes] = await Promise.all([
+    const [campRes, tmplRes, leadsRes] = await Promise.all([
       fetchCampaigns(0, 50),
       fetchWhatsAppTemplates(),
+      fetchLeadsPaged(0, 100),
     ]);
     setLoading(false);
 
@@ -137,21 +154,35 @@ export function BroadcastsView() {
       setTemplates(tmplRes.data);
     }
 
+    if (leadsRes.data) {
+      const allCount = leadsRes.data.totalElements || leadsRes.data.content?.length || 0;
+      const qualified = leadsRes.data.content?.filter((l) => l.status === 'QUALIFIED').length || 0;
+      const vip = leadsRes.data.content?.filter((l) => l.status === 'WON').length || 0;
+      setAudienceCounts({
+        all: allCount,
+        qualified: qualified,
+        vip: vip,
+      });
+    }
+
     if (campRes.data && campRes.data.content && campRes.data.content.length > 0) {
-      const converted: Broadcast[] = campRes.data.content.map((c) => ({
-        id: c.id,
-        title: c.name,
-        message: `Template ID: ${c.templateId || 'General Bulk'}`,
-        audience: c.targetType || 'All Leads',
-        recipients: c.totalRecipients || 100,
-        channel: 'whatsapp',
-        status: (c.status?.toLowerCase() as any) || 'sent',
-        sentAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Recently',
-        delivered: c.deliveredCount || 0,
-        read: c.readCount || 0,
-        responded: c.failedCount || 0,
-        template: c.templateId || 'Meta Approved',
-      }));
+      const converted: Broadcast[] = campRes.data.content.map((c) => {
+        const recipients = c.totalRecipients || 0;
+        return {
+          id: c.id,
+          title: c.name,
+          message: `Template ID: ${c.templateId || 'General Bulk'}`,
+          audience: c.targetType === 'QUALIFIED_LEADS' ? 'Qualified Leads' : c.targetType === 'VIP_CLIENTS' ? 'VIP Clients' : 'All Leads',
+          recipients: recipients,
+          channel: 'whatsapp',
+          status: (c.status?.toLowerCase() as any) || 'sent',
+          sentAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Recently',
+          delivered: c.deliveredCount || 0,
+          read: c.readCount || 0,
+          responded: c.failedCount || 0,
+          template: c.templateId || 'Meta Approved',
+        };
+      });
       setBroadcasts(converted);
       if (!selectedId && converted[0]) {
         setSelectedId(converted[0].id);
@@ -205,32 +236,7 @@ export function BroadcastsView() {
     };
   }, [broadcasts]);
 
-  const handleCreate = async (data: {
-    title: string;
-    message: string;
-    audienceLabel: string;
-    recipients: number;
-    channel: Broadcast['channel'];
-    schedule: string;
-    status: BroadcastStatus;
-    templateId?: string;
-  }) => {
-    const createRes = await createCampaign({
-      name: data.title,
-      templateId: data.templateId || 'UTILITY_GENERAL',
-      targetType: 'ALL',
-    });
 
-    if (createRes.data) {
-      const campId = createRes.data.id;
-      if (data.status === 'sent' || data.status === 'scheduled') {
-        await scheduleCampaign(campId);
-      }
-      await loadData();
-      setSelectedId(campId);
-    }
-    setShowCreate(false);
-  };
 
   const handleDelete = async (id: string) => {
     if (id.includes('-')) {
@@ -240,14 +246,22 @@ export function BroadcastsView() {
     if (selectedId === id) setSelectedId(null);
   };
 
-  const handleDeleteTemplate = async (templateName: string) => {
-    if (confirm(`Are you sure you want to delete template "${templateName}"?`)) {
-      const res = await deleteWhatsAppTemplate(templateName);
-      if (res.success) {
-        setTemplates((prev) => prev.filter((t) => t.name !== templateName));
-      } else {
-        alert(`Failed to delete template: ${res.error}`);
-      }
+  const [deleteConfirmState, setDeleteConfirmState] = useState<{
+    isOpen: boolean;
+    templateName: string;
+  }>({ isOpen: false, templateName: '' });
+
+  const handleDeleteTemplate = (templateName: string) => {
+    setDeleteConfirmState({ isOpen: true, templateName });
+  };
+
+  const confirmDeleteTemplate = async () => {
+    const templateName = deleteConfirmState.templateName;
+    setDeleteConfirmState({ isOpen: false, templateName: '' });
+    if (!templateName) return;
+    const res = await deleteWhatsAppTemplate(templateName);
+    if (res.success) {
+      setTemplates((prev) => prev.filter((t) => t.name !== templateName));
     }
   };
 
@@ -262,7 +276,7 @@ export function BroadcastsView() {
         <div className="flex items-center gap-2">
           {tab === 'broadcasts' ? (
             <button
-              onClick={() => setShowCreate(true)}
+              onClick={() => navigate('/broadcasts/create')}
               className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
             >
               <Plus className="h-3.5 w-3.5" /> New Broadcast
@@ -277,7 +291,7 @@ export function BroadcastsView() {
                 <RefreshCw className={cx('h-3.5 w-3.5', templatesLoading && 'animate-spin')} /> Sync with Meta
               </button>
               <button
-                onClick={() => setShowCreateTemplate(true)}
+                onClick={() => navigate('/broadcasts/create-template')}
                 className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
               >
                 <Plus className="h-3.5 w-3.5" /> Create Template
@@ -396,29 +410,24 @@ export function BroadcastsView() {
           templates={templates}
           loading={templatesLoading}
           onDelete={handleDeleteTemplate}
-          onCreateNew={() => setShowCreateTemplate(true)}
+          onCreateNew={() => navigate('/broadcasts/create-template')}
         />
       )}
 
-      {/* Broadcast Create Modal */}
-      {showCreate && (
-        <CreateModal
-          templates={templates}
-          onClose={() => setShowCreate(false)}
-          onCreate={handleCreate}
-        />
-      )}
 
-      {/* WhatsApp Template Creation Modal */}
-      {showCreateTemplate && (
-        <CreateWhatsAppTemplateModal
-          onClose={() => setShowCreateTemplate(false)}
-          onCreated={(newTpl) => {
-            setTemplates((prev) => [newTpl, ...prev]);
-            setShowCreateTemplate(false);
-          }}
-        />
-      )}
+
+
+
+      {/* Reusable Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteConfirmState.isOpen}
+        title="Delete WhatsApp Template"
+        message={`Are you sure you want to delete template "${deleteConfirmState.templateName}"? This action cannot be undone.`}
+        confirmText="Delete Template"
+        variant="danger"
+        onConfirm={confirmDeleteTemplate}
+        onCancel={() => setDeleteConfirmState({ isOpen: false, templateName: '' })}
+      />
     </div>
   );
 }
@@ -435,6 +444,8 @@ function TemplatesTab({
   onDelete: (name: string) => void;
   onCreateNew: () => void;
 }) {
+  const [selectedName, setSelectedName] = useState<string | null>(null);
+  const selected = useMemo(() => templates.find(t => t.name === selectedName), [templates, selectedName]);
   if (loading && templates.length === 0) {
     return (
       <GlassCard className="flex flex-col items-center justify-center py-16">
@@ -463,10 +474,76 @@ function TemplatesTab({
   }
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {templates.map((tpl) => (
-        <WhatsAppTemplateCard key={tpl.id || tpl.name} template={tpl} onDelete={() => onDelete(tpl.name)} />
-      ))}
+    <div className="grid flex-1 items-start gap-6 lg:gap-8 lg:grid-cols-[320px_1fr] xl:grid-cols-[380px_1fr]">
+      {/* Left: Premium List of templates */}
+      <div className="surface flex flex-col rounded-2xl shadow-sm border border-base-c bg-card-c overflow-hidden h-[450px] lg:h-[calc(100vh-220px)]">
+        <div className="bg-subtle-c border-b border-base-c px-5 py-3.5 flex items-center justify-between shrink-0">
+          <h3 className="text-sm font-bold text-primary-c">All Templates</h3>
+          <span className="rounded-full bg-slate-200/50 dark:bg-ink-800 px-2.5 py-0.5 text-xs font-semibold text-secondary-c">
+            {templates.length}
+          </span>
+        </div>
+        <div className="divide-y divide-base-c overflow-y-auto scrollbar-thin flex-1">
+          {templates.map((tpl) => {
+            const status = tpl.status?.toUpperCase() || 'APPROVED';
+            let statusColor = 'text-success-700 bg-success-50 ring-1 ring-success-200 dark:bg-success-500/10 dark:text-success-400 dark:ring-success-500/20';
+            if (status === 'PENDING') statusColor = 'text-warning-700 bg-warning-50 ring-1 ring-warning-200 dark:bg-warning-500/10 dark:text-warning-400 dark:ring-warning-500/20';
+            if (status === 'REJECTED') statusColor = 'text-danger-700 bg-danger-50 ring-1 ring-danger-200 dark:bg-danger-500/10 dark:text-danger-400 dark:ring-danger-500/20';
+
+            const isSelected = selectedName === tpl.name;
+            return (
+              <div
+                key={tpl.id || tpl.name}
+                onClick={() => setSelectedName(tpl.name)}
+                className={cx(
+                  "cursor-pointer p-4 transition-all hover:bg-slate-50 dark:hover:bg-ink-850 flex flex-col gap-2 relative",
+                  isSelected ? "bg-primary-50/50 dark:bg-primary-500/5" : ""
+                )}
+              >
+                {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500" />}
+                
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-bold text-primary-c truncate flex-1">{tpl.name}</span>
+                  <span className={cx("text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0", statusColor)}>{status}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-secondary-c font-medium">
+                  <span className="uppercase tracking-wider">{tpl.category || 'MARKETING'}</span>
+                  <span>{tpl.language || 'en_US'}</span>
+                </div>
+              </div>
+            );
+          })}
+          
+          {templates.length === 0 && (
+            <div className="p-8 text-center text-muted-c text-sm">
+              No templates found.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right: Template Preview Detail */}
+      <div className="h-[650px] lg:h-[calc(100vh-220px)] flex flex-col overflow-y-auto pr-2 scrollbar-thin">
+        {selected ? (
+          <WhatsAppTemplateCard 
+            template={selected} 
+            onDelete={() => {
+              onDelete(selected.name);
+              setSelectedName(null);
+            }} 
+          />
+        ) : (
+          <div className="flex-1 rounded-2xl border-2 border-dashed border-base-c bg-transparent flex flex-col items-center justify-center p-12 text-center min-h-[500px]">
+            <div className="h-16 w-16 rounded-full bg-slate-100 dark:bg-ink-800 flex items-center justify-center mb-4">
+              <LayoutTemplate className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            </div>
+            <h3 className="text-lg font-bold text-primary-c">No Template Selected</h3>
+            <p className="mt-2 text-sm text-secondary-c max-w-[260px]">
+              Select a template from the list to view its configuration and a live WhatsApp preview.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -474,564 +551,131 @@ function TemplatesTab({
 function WhatsAppTemplateCard({ template, onDelete }: { template: WhatsAppTemplateDto; onDelete: () => void }) {
   const status = template.status?.toUpperCase() || 'APPROVED';
 
-  let statusBg = 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300';
-  if (status === 'PENDING') statusBg = 'bg-warning-100 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300';
-  if (status === 'REJECTED') statusBg = 'bg-danger-100 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300';
+  let statusBg = 'bg-success-50 text-success-700 ring-1 ring-success-200 dark:bg-success-500/15 dark:text-success-300 dark:ring-success-500/20';
+  if (status === 'PENDING') statusBg = 'bg-warning-50 text-warning-700 ring-1 ring-warning-200 dark:bg-warning-500/15 dark:text-warning-300 dark:ring-warning-500/20';
+  if (status === 'REJECTED') statusBg = 'bg-danger-50 text-danger-700 ring-1 ring-danger-200 dark:bg-danger-500/15 dark:text-danger-300 dark:ring-danger-500/20';
 
   return (
-    <GlassCard hover className="flex flex-col justify-between p-4 space-y-3">
-      <div>
-        {/* Header strip */}
-        <div className="flex items-start justify-between gap-2">
-          <div>
-            <span className="font-mono text-xs font-bold text-primary-c">{template.name}</span>
-            <div className="mt-1 flex items-center gap-1.5">
-              <span className={cx('rounded-full px-2 py-0.5 text-[9px] font-bold', statusBg)}>
-                {status}
-              </span>
-              <span className="rounded-full bg-slate-100 dark:bg-ink-800 px-2 py-0.5 text-[9px] font-semibold text-secondary-c uppercase">
-                {template.category || 'MARKETING'}
-              </span>
-              <span className="text-[10px] text-muted-c">{template.language || 'en_US'}</span>
-            </div>
+    <div className="flex flex-col h-full bg-slate-50 dark:bg-ink-950 rounded-2xl border border-base-c overflow-hidden shadow-sm">
+      {/* Premium Header Strip */}
+      <div className="bg-card-c border-b border-base-c px-6 py-5 flex items-start justify-between gap-4 shrink-0">
+        <div className="space-y-2">
+          <h3 className="font-mono text-xl font-bold text-primary-c tracking-tight">{template.name}</h3>
+          <div className="flex items-center gap-3">
+            <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase', statusBg)}>
+              {status}
+            </span>
+            <span className="rounded-full bg-slate-200/50 dark:bg-ink-800 px-2.5 py-0.5 text-[10px] font-bold text-secondary-c uppercase tracking-wider">
+              {template.category || 'MARKETING'}
+            </span>
+            <span className="text-xs font-medium text-muted-c">{template.language || 'en_US'}</span>
           </div>
-          <button
-            onClick={onDelete}
-            className="text-muted-c hover:text-danger-500 p-1 transition-colors"
-            title="Delete Template"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
         </div>
-
-        {/* WhatsApp Preview Box */}
-        <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-50/40 p-3 dark:bg-ink-850/60 font-sans text-xs space-y-2">
-          {template.headerContent && (
-            <p className="font-bold text-emerald-800 dark:text-emerald-300">{template.headerContent}</p>
-          )}
-          <div className="whitespace-pre-wrap text-secondary-c leading-relaxed">
-            {renderWhatsAppFormattedText(template.bodyText || (template.components ? JSON.stringify(template.components) : ''))}
-          </div>
-          {template.footerText && (
-            <p className="text-[10px] text-muted-c border-t border-emerald-500/10 pt-1">{template.footerText}</p>
-          )}
-
-          {/* Buttons */}
-          {template.buttons && template.buttons.length > 0 && (
-            <div className="space-y-1 pt-1">
-              {template.buttons.map((btn, idx) => (
-                <div key={idx} className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/20 bg-white dark:bg-ink-900 py-1 px-2 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  {btn.type === 'URL' ? <ExternalLink className="h-3 w-3" /> : btn.type === 'PHONE_NUMBER' ? <PhoneCall className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-                  <span>{btn.text}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <button
+          onClick={onDelete}
+          className="rounded-lg hover:bg-danger-50 text-muted-c hover:text-danger-500 p-2.5 transition-colors border border-transparent hover:border-danger-100"
+          title="Delete Template"
+        >
+          <Trash2 className="h-5 w-5" />
+        </button>
       </div>
 
       {template.rejectedReason && (
-        <div className="flex items-center gap-1.5 rounded-lg bg-danger-500/10 p-2 text-[10px] text-danger-600 dark:text-danger-400">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>Rejected: {template.rejectedReason}</span>
+        <div className="bg-danger-50 border-b border-danger-100 p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 shrink-0 text-danger-600 mt-0.5" />
+          <div className="text-sm text-danger-800">
+            <strong className="font-bold block mb-1">Template Rejected</strong>
+            {template.rejectedReason}
+          </div>
         </div>
       )}
-    </GlassCard>
-  );
-}
 
-/* ─── Split-Screen Create WhatsApp Template Modal with 3 Action Buttons Limit ─── */
-function CreateWhatsAppTemplateModal({
-  onClose,
-  onCreated,
-}: {
-  onClose: () => void;
-  onCreated: (template: WhatsAppTemplateDto) => void;
-}) {
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<'MARKETING' | 'UTILITY' | 'AUTHENTICATION'>('MARKETING');
-  const [language, setLanguage] = useState('en_US');
-  const [mediaSample, setMediaSample] = useState<'NONE' | 'IMAGE' | 'VIDEO' | 'DOCUMENT'>('NONE');
-  const [headerType, setHeaderType] = useState<'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO'>('NONE');
-  const [headerContent, setHeaderContent] = useState('');
-  const [bodyText, setBodyText] = useState('');
-  const [footerText, setFooterText] = useState('');
-  
-  // Dynamic list of action buttons (Max limit: 3)
-  const [buttonsList, setButtonsList] = useState<TemplateButtonDto[]>([]);
-
-  const [submitting, setSubmitting] = useState(false);
-  const bodyRef = useRef<HTMLTextAreaElement>(null);
-
-  const canSubmit = name.trim().length > 0 && bodyText.trim().length > 0 && !submitting;
-
-  const insertFormatting = (prefix: string, suffix = prefix) => {
-    const input = bodyRef.current;
-    if (!input) return;
-
-    const start = input.selectionStart;
-    const end = input.selectionEnd;
-    const selected = bodyText.substring(start, end) || 'text';
-    const replacement = `${prefix}${selected}${suffix}`;
-
-    const newText = bodyText.substring(0, start) + replacement + bodyText.substring(end);
-    setBodyText(newText);
-
-    setTimeout(() => {
-      input.focus();
-      input.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
-    }, 50);
-  };
-
-  const insertVariable = () => {
-    const matches = bodyText.match(/\{\{\d+\}\}/g) || [];
-    const nextVarNum = matches.length + 1;
-    const varTag = `{{${nextVarNum}}}`;
-
-    const input = bodyRef.current;
-    if (input) {
-      const start = input.selectionStart;
-      const newText = bodyText.substring(0, start) + varTag + bodyText.substring(start);
-      setBodyText(newText);
-      setTimeout(() => {
-        input.focus();
-        input.setSelectionRange(start + varTag.length, start + varTag.length);
-      }, 50);
-    } else {
-      setBodyText((prev) => prev + varTag);
-    }
-  };
-
-  // Button management helpers (Max 3 buttons enforced)
-  const handleAddButton = (type: 'QUICK_REPLY' | 'URL' | 'PHONE_NUMBER') => {
-    if (buttonsList.length >= 3) return;
-    if (type === 'QUICK_REPLY') {
-      setButtonsList((prev) => [...prev, { type: 'QUICK_REPLY', text: '' }]);
-    } else if (type === 'URL') {
-      setButtonsList((prev) => [...prev, { type: 'URL', text: '', url: 'https://' }]);
-    } else if (type === 'PHONE_NUMBER') {
-      setButtonsList((prev) => [...prev, { type: 'PHONE_NUMBER', text: '', phoneNumber: '+91' }]);
-    }
-  };
-
-  const handleRemoveButton = (index: number) => {
-    setButtonsList((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleUpdateButton = (index: number, field: keyof TemplateButtonDto, value: string) => {
-    setButtonsList((prev) =>
-      prev.map((btn, i) => (i === index ? { ...btn, [field]: value } : btn)),
-    );
-  };
-
-  const handleSubmit = async () => {
-    if (!canSubmit) return;
-    setSubmitting(true);
-
-    const formattedName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-
-    // Filter valid non-empty buttons
-    const validButtons = buttonsList.filter((b) => b.text.trim().length > 0);
-
-    const dto: WhatsAppTemplateDto = {
-      name: formattedName,
-      category,
-      language,
-      headerType: mediaSample !== 'NONE' ? mediaSample : headerType,
-      headerContent: headerType === 'TEXT' ? headerContent.trim() : undefined,
-      bodyText: bodyText.trim(),
-      footerText: footerText.trim() || undefined,
-      buttons: validButtons.length > 0 ? validButtons : undefined,
-    };
-
-    const res = await createWhatsAppTemplate(dto);
-    setSubmitting(false);
-
-    if (res.error) {
-      alert(`Failed to create template: ${res.error}`);
-      return;
-    }
-
-    if (res.data) {
-      onCreated(res.data);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6" onClick={onClose}>
-      <div
-        className="flex max-h-[94vh] w-full max-w-5xl flex-col rounded-xl2 border border-base-c bg-card-c shadow-2xl animate-slide-up overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-base-c px-6 py-4">
-          <div>
-            <h3 className="text-base font-bold text-primary-c">Create WhatsApp Template</h3>
-            <p className="text-xs text-muted-c">Form & real-time Meta live preview</p>
-          </div>
-          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800">
-            <X className="h-4 w-4" />
-          </button>
+      {/* WhatsApp Live Preview Body */}
+      <div className="flex-1 p-8 flex flex-col items-center justify-start bg-slate-50/50 dark:bg-ink-950/50 relative overflow-y-auto scrollbar-thin">
+        <div className="flex items-center gap-2 mb-6 self-start max-w-[340px] mx-auto w-full">
+          <Smartphone className="h-5 w-5 text-emerald-600" />
+          <h4 className="text-sm font-bold text-primary-c">WhatsApp Preview</h4>
         </div>
 
-        {/* Modal Body: Split Screen (Left 65% Form, Right 35% Real-Time Preview) */}
-        <div className="grid flex-1 overflow-hidden lg:grid-cols-[1fr_360px]">
-          
-          {/* Left Column: Form Fields */}
-          <div className="overflow-y-auto p-6 space-y-6 scrollbar-thin border-r border-base-c">
-            
-            {/* Section 1: Template name & language */}
-            <div className="rounded-xl border border-base-c bg-slate-50/50 dark:bg-ink-850/40 p-4 space-y-3">
-              <h4 className="text-xs font-bold text-primary-c">Template name and language</h4>
+        {/* Premium Mock Phone */}
+        <div className="relative w-full max-w-[340px] rounded-[3rem] border-[8px] border-slate-900 bg-[#E5DDD5] shadow-2xl overflow-hidden min-h-[580px] flex flex-col shrink-0">
+          {/* Phone Notch */}
+          <div className="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-32 mx-auto z-20"></div>
+
+          {/* WhatsApp Header */}
+          <div className="bg-[#075E54] text-white pt-10 pb-3 px-4 flex items-center justify-between shadow-md z-10">
+            <div className="flex items-center gap-2">
+              <ChevronLeft className="h-6 w-6" />
+              <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                <div className="h-7 w-7 rounded-full bg-slate-200" />
+              </div>
+              <div>
+                <div className="font-bold text-sm leading-tight">Business Name</div>
+                <div className="text-[10px] text-white/80 opacity-90">Business Account</div>
+              </div>
+            </div>
+            <div className="flex gap-4">
+              <Video className="h-5 w-5 opacity-90" />
+              <Phone className="h-5 w-5 opacity-90" />
+              <MoreVertical className="h-5 w-5 opacity-90" />
+            </div>
+          </div>
+
+          {/* WhatsApp Chat Area */}
+          <div className="flex-1 p-4 relative overflow-y-auto scrollbar-thin" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundSize: 'cover' }}>
+            <div className="flex justify-center mb-4">
+              <span className="bg-[#E1F3FB] text-slate-600 text-[11px] px-3 py-1 rounded-lg shadow-sm font-medium">TODAY</span>
+            </div>
+
+            <div className="flex justify-start">
+              {/* Tail SVG */}
+              <svg viewBox="0 0 8 13" width="8" height="13" className="absolute left-[8px] mt-1 text-white">
+                <path opacity="1" fill="currentColor" d="M1.533,3.568L8,12.193V1H2.812 C1.042,1,0.474,2.156,1.533,3.568z"></path>
+              </svg>
               
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-semibold text-secondary-c">Name your template</label>
-                    <span className="text-[10px] text-muted-c">{name.length}/512 {name.length > 0 && <Check className="inline-block h-3 w-3 text-emerald-500" />}</span>
-                  </div>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '_'))}
-                    placeholder="e.g. site_visit_reminder"
-                    className="form-input text-xs font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Select language</label>
-                  <select value={language} onChange={(e) => setLanguage(e.target.value)} className="form-input text-xs">
-                    <option value="en_US">English (US)</option>
-                    <option value="hi">Hindi (hi)</option>
-                    <option value="es">Spanish (es)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 2: Content */}
-            <div className="rounded-xl border border-base-c bg-card-c p-4 space-y-4">
-              <div>
-                <h4 className="text-xs font-bold text-primary-c">Content</h4>
-                <p className="text-[11px] text-muted-c mt-0.5">
-                  Add a header, body, and footer for your template. Cloud API hosted by Meta will review template variables and content.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Category</label>
-                  <select value={category} onChange={(e) => setCategory(e.target.value as any)} className="form-input text-xs">
-                    <option value="MARKETING">Marketing</option>
-                    <option value="UTILITY">Utility</option>
-                    <option value="AUTHENTICATION">Authentication</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Media sample · Optional</label>
-                  <select value={mediaSample} onChange={(e) => setMediaSample(e.target.value as any)} className="form-input text-xs">
-                    <option value="NONE">None</option>
-                    <option value="IMAGE">Image Header</option>
-                    <option value="VIDEO">Video Header</option>
-                    <option value="DOCUMENT">Document Header</option>
-                  </select>
-                </div>
-              </div>
-
-              {mediaSample === 'NONE' && (
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-semibold text-secondary-c">Header · Optional</label>
-                    <span className="text-[10px] text-muted-c">{headerContent.length}/60</span>
-                  </div>
-                  <input
-                    value={headerContent}
-                    onChange={(e) => {
-                      setHeaderContent(e.target.value);
-                      if (e.target.value.trim() && headerType === 'NONE') setHeaderType('TEXT');
-                    }}
-                    placeholder="Add a short line of text to the header of your message"
-                    className="form-input text-xs"
-                  />
-                </div>
-              )}
-
-              {/* Body Textarea with WhatsApp Formatting Toolbar */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] font-semibold text-secondary-c">Body <span className="text-danger-500">*</span></label>
-                  <span className="text-[10px] text-muted-c">{bodyText.length}/1024</span>
-                </div>
-
-                {/* WhatsApp Formatting Bar */}
-                <div className="flex items-center justify-between rounded-t-xl border border-b-0 border-base-c bg-slate-100/80 dark:bg-ink-850 px-2 py-1.5">
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('*')}
-                      className="rounded p-1 text-secondary-c hover:bg-white hover:text-primary-c dark:hover:bg-ink-800"
-                      title="Bold (*text*)"
-                    >
-                      <Bold className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('_')}
-                      className="rounded p-1 text-secondary-c hover:bg-white hover:text-primary-c dark:hover:bg-ink-800"
-                      title="Italic (_text_)"
-                    >
-                      <Italic className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('~')}
-                      className="rounded p-1 text-secondary-c hover:bg-white hover:text-primary-c dark:hover:bg-ink-800"
-                      title="Strikethrough (~text~)"
-                    >
-                      <Strikethrough className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => insertFormatting('`')}
-                      className="rounded p-1 text-secondary-c hover:bg-white hover:text-primary-c dark:hover:bg-ink-800"
-                      title="Monospace (`text`)"
-                    >
-                      <Code className="h-3.5 w-3.5" />
-                    </button>
+              <div className="relative max-w-[275px] bg-white rounded-lg rounded-tl-none shadow-sm flex flex-col z-10 ml-2">
+                <div className="p-2.5 space-y-2">
+                  {template.headerContent && (
+                    <p className="font-bold text-slate-900 text-[15px] px-1 pt-1">{template.headerContent}</p>
+                  )}
+                  
+                  <div className="text-[14px] text-[#111b21] leading-relaxed px-1">
+                    {renderWhatsAppFormattedText(template.bodyText || (template.components ? JSON.stringify(template.components) : ''))}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={insertVariable}
-                    className="flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
-                  >
-                    <Plus className="h-3 w-3" /> Add variable
-                  </button>
+                  <div className="flex items-end justify-between gap-4 px-1 pt-1">
+                    <p className="text-[11px] text-slate-500 truncate flex-1">
+                      {template.footerText || ''}
+                    </p>
+                    <div className="flex items-center gap-1 text-[10px] text-slate-400 shrink-0">
+                      <span>13:08</span>
+                      <Check className="h-3.5 w-3.5 text-slate-400" />
+                    </div>
+                  </div>
                 </div>
 
-                <textarea
-                  ref={bodyRef}
-                  value={bodyText}
-                  onChange={(e) => setBodyText(e.target.value)}
-                  rows={5}
-                  placeholder="Enter the text for your message in the language you've selected. e.g. Hello {{1}}, your booking for {{2}} is confirmed!"
-                  className="w-full rounded-b-xl border border-base-c bg-card-c p-3 text-xs leading-relaxed text-primary-c focus:border-primary-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Footer Text */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-semibold text-secondary-c">Footer · Optional</label>
-                  <span className="text-[10px] text-muted-c">{footerText.length}/60</span>
-                </div>
-                <input
-                  value={footerText}
-                  onChange={(e) => setFooterText(e.target.value)}
-                  placeholder="Add a short line of text to the bottom of your message"
-                  className="form-input text-xs"
-                />
-              </div>
-            </div>
-
-            {/* Section 3: Quick Action Buttons (Optional - Limit Max 3 Buttons) */}
-            <div className="rounded-xl border border-base-c bg-card-c p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-primary-c">Quick Action Buttons (Optional)</h4>
-                  <p className="text-[10px] text-muted-c mt-0.5">Maximum 3 buttons allowed per Meta WhatsApp template</p>
-                </div>
-                <span className="text-[10px] font-mono font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                  {buttonsList.length}/3
-                </span>
-              </div>
-
-              {/* Button Add Controls */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleAddButton('QUICK_REPLY')}
-                  disabled={buttonsList.length >= 3}
-                  className={cx(
-                    'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all',
-                    buttonsList.length < 3
-                      ? 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 hover:scale-105'
-                      : 'border-slate-300 text-slate-400 dark:border-ink-800 cursor-not-allowed',
-                  )}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Quick Reply
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAddButton('URL')}
-                  disabled={buttonsList.length >= 3}
-                  className={cx(
-                    'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all',
-                    buttonsList.length < 3
-                      ? 'border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 hover:scale-105'
-                      : 'border-slate-300 text-slate-400 dark:border-ink-800 cursor-not-allowed',
-                  )}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Website Link
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleAddButton('PHONE_NUMBER')}
-                  disabled={buttonsList.length >= 3}
-                  className={cx(
-                    'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-all',
-                    buttonsList.length < 3
-                      ? 'border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 hover:scale-105'
-                      : 'border-slate-300 text-slate-400 dark:border-ink-800 cursor-not-allowed',
-                  )}
-                >
-                  <Plus className="h-3.5 w-3.5" /> Call Button
-                </button>
-              </div>
-
-              {/* Added Buttons Inputs List */}
-              {buttonsList.length > 0 && (
-                <div className="space-y-2.5 pt-2">
-                  {buttonsList.map((btn, idx) => (
-                    <div key={idx} className="flex items-center gap-2 rounded-xl border border-base-c bg-slate-50/70 dark:bg-ink-850/60 p-2.5">
-                      <span className="font-mono text-[10px] font-bold text-secondary-c shrink-0 w-24 uppercase">
-                        {btn.type}
-                      </span>
-
-                      <div className="flex-1 space-y-1">
-                        <input
-                          value={btn.text}
-                          onChange={(e) => handleUpdateButton(idx, 'text', e.target.value)}
-                          placeholder="Button Label Text (e.g. Interested)"
-                          className="form-input text-xs"
-                        />
-
-                        {btn.type === 'URL' && (
-                          <input
-                            value={btn.url || ''}
-                            onChange={(e) => handleUpdateButton(idx, 'url', e.target.value)}
-                            placeholder="Target Website URL (e.g. https://metrorealty.com)"
-                            className="form-input text-xs font-mono"
-                          />
-                        )}
-
-                        {btn.type === 'PHONE_NUMBER' && (
-                          <input
-                            value={btn.phoneNumber || ''}
-                            onChange={(e) => handleUpdateButton(idx, 'phoneNumber', e.target.value)}
-                            placeholder="Phone Number with Country Code (e.g. +91 9876543210)"
-                            className="form-input text-xs font-mono"
-                          />
-                        )}
+                {/* Buttons */}
+                {template.buttons && template.buttons.length > 0 && (
+                  <div className="border-t border-slate-100 bg-slate-50/50 rounded-b-lg overflow-hidden divide-y divide-slate-100">
+                    {template.buttons.map((btn, idx) => (
+                      <div key={idx} className="flex items-center justify-center gap-2 py-2.5 px-3 text-[14px] text-[#00A884] bg-white">
+                        {btn.type === 'URL' ? <ExternalLink className="h-4 w-4" /> : btn.type === 'PHONE_NUMBER' ? <PhoneCall className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
+                        <span className="font-medium truncate">{btn.text || 'Action Button'}</span>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveButton(idx)}
-                        className="text-rose-500 hover:text-rose-700 p-1.5 transition-colors"
-                        title="Remove Button"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column: Real-Time Meta Live WhatsApp Preview */}
-          <div className="bg-slate-100/70 dark:bg-ink-900/60 p-6 flex flex-col items-center justify-start border-l border-base-c overflow-y-auto">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-c self-start mb-4">Template preview</h4>
-
-            {/* Mock Phone Background */}
-            <div className="w-full max-w-[300px] rounded-2xl border border-slate-300 dark:border-ink-800 bg-[#E5DDD5] dark:bg-[#0B141A] p-3 shadow-lg min-h-[380px] flex flex-col justify-between">
-              
-              {/* Top WhatsApp Chat Bubble */}
-              <div className="self-start w-full max-w-[270px] rounded-xl bg-white dark:bg-[#005C4B] p-3 shadow-md text-xs space-y-2 text-slate-800 dark:text-slate-100 animate-fade-in">
-                
-                {/* Media Header Preview */}
-                {mediaSample === 'IMAGE' && (
-                  <div className="grid h-28 w-full place-items-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300">
-                    <ImageIcon className="h-8 w-8" />
-                    <span className="text-[10px] font-bold">Image Header Sample</span>
+                    ))}
                   </div>
                 )}
-                {mediaSample === 'VIDEO' && (
-                  <div className="grid h-28 w-full place-items-center rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300">
-                    <Video className="h-8 w-8" />
-                    <span className="text-[10px] font-bold">Video Header Sample</span>
-                  </div>
-                )}
-                {mediaSample === 'DOCUMENT' && (
-                  <div className="flex items-center gap-2 rounded-lg bg-emerald-500/10 p-2 text-emerald-700 dark:text-emerald-300">
-                    <File className="h-5 w-5" />
-                    <span className="text-[10px] font-bold">Document Header Sample</span>
-                  </div>
-                )}
-
-                {/* Text Header */}
-                {mediaSample === 'NONE' && headerContent.trim() && (
-                  <p className="font-bold text-slate-900 dark:text-white leading-tight">{headerContent}</p>
-                )}
-
-                {/* Rendered Formatted Body */}
-                <div className="leading-relaxed">
-                  {renderWhatsAppFormattedText(bodyText)}
-                </div>
-
-                {/* Footer */}
-                {footerText.trim() && (
-                  <p className="text-[10px] text-slate-400 dark:text-slate-300/60 border-t border-slate-200 dark:border-white/10 pt-1">
-                    {footerText}
-                  </p>
-                )}
-
-                {/* Timestamp & Double Checkmark */}
-                <div className="flex items-center justify-end gap-1 text-[9px] text-slate-400 dark:text-emerald-200/70 pt-0.5">
-                  <span>13:08</span>
-                  <span className="font-bold text-sky-500">✓✓</span>
-                </div>
               </div>
-
-              {/* Pinned Action Buttons underneath (Up to 3 buttons) */}
-              {buttonsList.length > 0 && (
-                <div className="w-full max-w-[270px] self-start mt-2 space-y-1">
-                  {buttonsList.map((btn, idx) => (
-                    <div key={idx} className="flex items-center justify-center gap-1.5 rounded-xl bg-white dark:bg-[#005C4B] py-2 px-3 text-xs font-semibold text-sky-600 dark:text-sky-300 shadow-md">
-                      {btn.type === 'URL' ? <Globe className="h-3.5 w-3.5 text-sky-500" /> : btn.type === 'PHONE_NUMBER' ? <Phone className="h-3.5 w-3.5 text-purple-500" /> : <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />}
-                      <span>{btn.text || 'Button Text'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-
-            <p className="mt-4 text-[10px] text-center text-muted-c max-w-[260px]">
-              This is an exact preview of how recipients will see your template on WhatsApp.
-            </p>
+          </div>
+          <div className="absolute bottom-2 inset-x-0 flex justify-center">
+            <div className="h-1 w-24 bg-slate-900/20 rounded-full" />
           </div>
         </div>
-
-        {/* Modal Actions Footer */}
-        <div className="flex items-center justify-between border-t border-base-c px-6 py-4 bg-slate-50/50 dark:bg-ink-850/40">
-          <button onClick={onClose} className="rounded-lg border border-base-c px-4 py-2 text-xs font-semibold text-secondary-c hover:text-primary-c">
-            Previous
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className={cx(
-              'flex items-center gap-1.5 rounded-lg px-6 py-2.5 text-xs font-bold transition-all shadow-md',
-              canSubmit ? 'bg-sky-600 hover:bg-sky-700 text-white hover:scale-105' : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
-            )}
-          >
-            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Submit for Review'}
-          </button>
-        </div>
+        
+        <p className="mt-6 text-xs text-muted-c text-center max-w-[280px]">
+          Preview illustrates how this message appears on iOS devices. Actual rendering may vary slightly on Android.
+        </p>
       </div>
     </div>
   );
@@ -1065,6 +709,12 @@ function StatCard({
   );
 }
 
+const DEFAULT_STATUS_META = {
+  label: 'Broadcast',
+  color: 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300',
+  dot: 'bg-slate-400',
+};
+
 function BroadcastListItem({
   broadcast,
   selected,
@@ -1074,7 +724,13 @@ function BroadcastListItem({
   selected: boolean;
   onClick: () => void;
 }) {
-  const statusMeta = STATUS_META[broadcast.status];
+  const statusMeta = (broadcast?.status && STATUS_META[broadcast.status])
+    || (broadcast?.status && STATUS_META[broadcast.status.toLowerCase()])
+    || DEFAULT_STATUS_META;
+  const dotClass = statusMeta?.dot || 'bg-slate-400';
+  const colorClass = statusMeta?.color || 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300';
+  const labelText = statusMeta?.label || broadcast?.status || 'Broadcast';
+
   return (
     <div
       onClick={onClick}
@@ -1088,9 +744,9 @@ function BroadcastListItem({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <span className={cx('h-2 w-2 rounded-full', statusMeta.dot)} />
-            <span className={cx('rounded-full px-2 py-0.5 text-[9px] font-bold', statusMeta.color)}>
-              {statusMeta.label}
+            <span className={cx('h-2 w-2 rounded-full', dotClass)} />
+            <span className={cx('rounded-full px-2 py-0.5 text-[9px] font-bold', colorClass)}>
+              {labelText}
             </span>
           </div>
           <h4 className="mt-1.5 truncate text-xs font-bold text-primary-c">{broadcast.title}</h4>
@@ -1113,14 +769,19 @@ function BroadcastDetail({
   broadcast: Broadcast;
   onDelete: () => void;
 }) {
-  const statusMeta = STATUS_META[broadcast.status];
+  const statusMeta = (broadcast?.status && STATUS_META[broadcast.status])
+    || (broadcast?.status && STATUS_META[broadcast.status.toLowerCase()])
+    || DEFAULT_STATUS_META;
+  const colorClass = statusMeta?.color || 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300';
+  const labelText = statusMeta?.label || broadcast?.status || 'Broadcast';
+
   return (
     <GlassCard className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 border-b border-base-c pb-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-bold', statusMeta.color)}>
-              {statusMeta.label}
+            <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-bold', colorClass)}>
+              {labelText}
             </span>
             <span className="text-xs text-muted-c">ID: {broadcast.id}</span>
           </div>
@@ -1155,61 +816,268 @@ function BroadcastDetail({
           <p className="mt-0.5 text-base font-bold text-warning-600 dark:text-warning-400 tabular-nums">{broadcast.responded}</p>
         </div>
       </div>
+
+      {/* Recipient Logs & Meta Reasons Table */}
+      <CampaignRecipientsTable campaignId={broadcast.id} />
     </GlassCard>
   );
 }
 
-function CreateModal({
-  templates,
-  onClose,
-  onCreate,
-}: {
-  templates: WhatsAppTemplateDto[];
-  onClose: () => void;
-  onCreate: (data: any) => void;
-}) {
-  const [title, setTitle] = useState('');
-  const [templateId, setTemplateId] = useState('');
+// ─── Classified Meta Failure Reason Helper ──────────────────────────────────
+
+function getMetaReasonInfo(errorMessage?: string, skipReason?: string) {
+  const text = ((errorMessage || '') + ' ' + (skipReason || '')).toLowerCase();
+
+  if (text.includes('payment') || text.includes('bill') || text.includes('credit') || text.includes('business_payment')) {
+    return {
+      label: 'Meta Payment Issue',
+      desc: 'Meta Business account bill unpaid or payment method declined.',
+      badge: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 border-red-300',
+    };
+  }
+  if (text.includes('quality') || text.includes('rating') || text.includes('number_quality')) {
+    return {
+      label: 'Number Quality Low',
+      desc: 'Phone number quality rating is too low according to Meta policies.',
+      badge: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300 border-amber-300',
+    };
+  }
+  if (text.includes('not on whatsapp') || text.includes('invalid_phone') || text.includes('not_on_whatsapp') || text.includes('invalid')) {
+    return {
+      label: 'Not on WhatsApp',
+      desc: 'Phone number is invalid or not registered on WhatsApp.',
+      badge: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-500/20 dark:text-yellow-300 border-yellow-300',
+    };
+  }
+  if (text.includes('opted_out') || text.includes('optout') || text.includes('unsub')) {
+    return {
+      label: 'User Opted Out',
+      desc: 'Recipient opted out / unsubscribed from WhatsApp messages.',
+      badge: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-300',
+    };
+  }
+  if (text.includes('rate') || text.includes('limit') || text.includes('tier')) {
+    return {
+      label: 'Rate Limit Exceeded',
+      desc: '24-hour Meta messaging tier limit reached for your account.',
+      badge: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300 border-purple-300',
+    };
+  }
+  if (text.includes('token') || text.includes('auth') || text.includes('unauthorized')) {
+    return {
+      label: 'Token Expired',
+      desc: 'WhatsApp API access token is expired or unauthorized.',
+      badge: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300 border-rose-300',
+    };
+  }
+
+  return {
+    label: errorMessage || skipReason || 'Delivery Failed',
+    desc: errorMessage || skipReason || 'Failed to deliver message via WhatsApp Meta API',
+    badge: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300 border-red-200',
+  };
+}
+
+// ─── Recipient Logs & CSV Rows Table Component ──────────────────────────────
+
+function CampaignRecipientsTable({ campaignId }: { campaignId: string }) {
+  const [recipients, setRecipients] = useState<WhatsAppCampaignRecipientDto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'FAILED_ONLY' | 'SENT' | 'DELIVERED' | 'READ'>('ALL');
+
+  useEffect(() => {
+    if (!campaignId) return;
+    setLoading(true);
+    fetchCampaignRecipients(campaignId, 0, 100).then((res) => {
+      setLoading(false);
+      if (res.data && res.data.content) {
+        setRecipients(res.data.content);
+      } else {
+        setRecipients([]);
+      }
+    });
+  }, [campaignId]);
+
+  const filteredRecipients = useMemo(() => {
+    return recipients.filter((r) => {
+      const matchSearch =
+        !search ||
+        r.phoneNumber.includes(search) ||
+        (r.resolvedVariablesJson || '').toLowerCase().includes(search.toLowerCase());
+      const st = (r.status || '').toUpperCase();
+      let matchStatus = true;
+      if (statusFilter === 'FAILED_ONLY') {
+        matchStatus = st === 'FAILED' || st === 'SKIPPED';
+      } else if (statusFilter !== 'ALL') {
+        matchStatus = st === statusFilter;
+      }
+      return matchSearch && matchStatus;
+    });
+  }, [recipients, search, statusFilter]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-6 text-xs text-muted-c">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading recipient data & Meta delivery status...
+      </div>
+    );
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-t-xl2 border border-base-c bg-card-c p-5 shadow-soft-lg animate-slide-up sm:rounded-xl2" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-bold text-primary-c">New WhatsApp Broadcast</h3>
-          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800">
-            <X className="h-4 w-4" />
-          </button>
+    <div className="space-y-3 mt-4 border-t border-base-c pt-4">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h4 className="text-xs font-bold text-primary-c flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5 text-primary-500" />
+            Uploaded Data & Meta Status Logs ({recipients.length})
+          </h4>
+          <p className="text-[10px] text-muted-c">Displays CSV/Excel row data, delivery status & Meta policy failure reasons</p>
         </div>
 
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-secondary-c">Broadcast Campaign Name</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Weekend Property Festival" className="form-input text-xs" />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2 top-2 h-3 w-3 text-muted-c" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search phone or data..."
+              className="h-7 w-36 rounded-lg border border-base-c bg-card-c pl-7 pr-2 text-[11px] text-primary-c placeholder:text-muted-c focus:border-primary-500 focus:outline-none"
+            />
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-secondary-c">Select Approved WhatsApp Template</label>
-            <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="form-input text-xs">
-              <option value="">Select a Meta Template…</option>
-              {templates.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.name} ({t.category} - {t.status})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        <div className="mt-5 flex items-center justify-end gap-2 border-t border-base-c pt-4">
-          <button onClick={onClose} className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c">Cancel</button>
-          <button
-            onClick={() => onCreate({ title, templateId, recipients: 100, channel: 'whatsapp', schedule: 'Now', status: 'sent' })}
-            disabled={!title || !templateId}
-            className={cx('rounded-lg px-4 py-2 text-xs font-semibold text-white', title && templateId ? 'bg-gradient-accent' : 'bg-slate-300 cursor-not-allowed')}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+            className="h-7 rounded-lg border border-base-c bg-card-c px-2 text-[11px] text-primary-c focus:border-primary-500 focus:outline-none"
           >
-            Launch Broadcast
-          </button>
+            <option value="ALL">All Statuses</option>
+            <option value="FAILED_ONLY">Failed / Skipped Only</option>
+            <option value="SENT">Sent</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="READ">Read</option>
+          </select>
         </div>
       </div>
+
+      {filteredRecipients.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-base-c p-6 text-center text-xs text-muted-c">
+          No recipient logs available for this campaign filter.
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-base-c bg-card-c max-h-72 overflow-y-auto">
+          <table className="w-full text-left text-[11px]">
+            <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-ink-800 text-[10px] uppercase tracking-wider text-muted-c border-b border-base-c">
+              <tr>
+                <th className="p-2.5">Phone Number</th>
+                <th className="p-2.5">Status</th>
+                <th className="p-2.5">Meta Reason / Delivery Status</th>
+                <th className="p-2.5">Uploaded CSV / Variable Data</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-base-c">
+              {filteredRecipients.map((r) => {
+                const isFail = r.status === 'FAILED' || r.status === 'SKIPPED';
+                const reasonMeta = isFail ? getMetaReasonInfo(r.errorMessage, r.skipReason) : null;
+                let parsedVars: string[] = [];
+                try {
+                  if (r.resolvedVariablesJson) {
+                    parsedVars = JSON.parse(r.resolvedVariablesJson);
+                  }
+                } catch (e) {}
+
+                return (
+                  <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-ink-850/50 transition-colors">
+                    <td className="p-2.5 font-semibold text-primary-c whitespace-nowrap">
+                      {r.phoneNumber}
+                    </td>
+                    <td className="p-2.5 whitespace-nowrap">
+                      <span
+                        className={cx(
+                          'rounded-full px-2 py-0.5 text-[9px] font-bold uppercase',
+                          r.status === 'READ'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300'
+                            : r.status === 'DELIVERED'
+                            ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300'
+                            : r.status === 'SENT'
+                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                            : isFail
+                            ? 'bg-danger-100 text-danger-700 dark:bg-danger-500/20 dark:text-danger-300'
+                            : 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300'
+                        )}
+                      >
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="p-2.5">
+                      {isFail && reasonMeta ? (
+                        <div className="space-y-0.5">
+                          <span className={cx('inline-block rounded border px-1.5 py-0.5 text-[9px] font-bold', reasonMeta.badge)}>
+                            {reasonMeta.label}
+                          </span>
+                          <p className="text-[10px] text-muted-c max-w-xs truncate" title={reasonMeta.desc}>
+                            {reasonMeta.desc}
+                          </p>
+                        </div>
+                      ) : r.status === 'READ' ? (
+                        <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">Read by recipient</span>
+                      ) : r.status === 'DELIVERED' ? (
+                        <span className="text-[10px] text-success-600 dark:text-success-400 font-medium">Delivered to handset</span>
+                      ) : (
+                        <span className="text-[10px] text-muted-c">Sent to Meta Cloud API</span>
+                      )}
+                    </td>
+                    <td className="p-2.5 text-muted-c max-w-xs truncate font-mono text-[10px]">
+                      {parsedVars.length > 0 ? parsedVars.join(', ') : r.resolvedVariablesJson || '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
+
+const DEFAULT_TEMPLATES: WhatsAppTemplateDto[] = [
+  {
+    name: '3p_direct_integration_test_template',
+    category: 'UTILITY',
+    language: 'en_US',
+    status: 'APPROVED',
+    bodyText: 'Hello {{1}}, thank you for contacting Metro CRM! Your inquiry regarding {{2}} has been successfully received.',
+    footerText: 'Reply STOP to unsubscribe',
+    buttons: [{ type: 'QUICK_REPLY', text: 'Talk to Representative' }],
+  },
+  {
+    name: 'utility_general_update',
+    category: 'UTILITY',
+    language: 'en_US',
+    status: 'APPROVED',
+    bodyText: 'Hi {{1}}, here is an automated update regarding your account request for {{2}}.',
+    footerText: 'Metro CRM Automated System',
+    buttons: [{ type: 'URL', text: 'View Dashboard', url: 'https://crm.example.com' }],
+  },
+  {
+    name: 'marketing_seasonal_offer',
+    category: 'MARKETING',
+    language: 'en_US',
+    status: 'APPROVED',
+    bodyText: 'Exclusive Offer for {{1}}! Get 25% special pricing on {{2}} when you book this week.',
+    footerText: 'Limited time property promotion',
+    buttons: [{ type: 'PHONE_NUMBER', text: 'Call Support Now', phoneNumber: '+18005550199' }],
+  },
+  {
+    name: 'hello_world',
+    category: 'UTILITY',
+    language: 'en_US',
+    status: 'APPROVED',
+    bodyText: 'Welcome to our WhatsApp service! We are happy to assist you with your inquiries.',
+    footerText: 'Official Meta WhatsApp Sample',
+  },
+];
+
+

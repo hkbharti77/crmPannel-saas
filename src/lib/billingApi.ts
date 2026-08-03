@@ -8,6 +8,7 @@ export interface BillingLimits {
   emailLimit: number;
   hasWhatsapp: boolean;
   hasCustomWidget: boolean;
+  hasRagLlm?: boolean;
 }
 
 export interface BillingUsage {

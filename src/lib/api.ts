@@ -72,6 +72,10 @@ export async function apiFetch<T = any>(
     }
 
     if (!res.ok) {
+      if (res.status === 401) {
+        // Dispatch global event for auth context to pick up
+        window.dispatchEvent(new CustomEvent('session-expired'));
+      }
       const errorMessage = body?.error || body?.message || `Request failed with status ${res.status}`;
       return { error: errorMessage, status };
     }

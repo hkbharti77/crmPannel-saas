@@ -108,9 +108,9 @@ function SaveButton({ onSave, saving, savedSuccess }: { onSave: () => void; savi
 }
 
 function PlatformTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
-  const [name, setName] = useState(settings.platform_name || 'CRMLite');
-  const [url, setUrl] = useState(settings.platform_url || 'https://app.crmlite.io');
-  const [supportEmail, setSupportEmail] = useState(settings.support_email || 'support@crmlite.io');
+  const [name, setName] = useState(settings.platform_name || 'GyanVaniAi Connect');
+  const [url, setUrl] = useState(settings.platform_url || 'https://app.gyanvaniaiconnect.com');
+  const [supportEmail, setSupportEmail] = useState(settings.support_email || 'support@gyanvaniaiconnect.com');
   const [defaultPlan, setDefaultPlan] = useState(settings.default_plan || 'starter');
   const [trialDays, setTrialDays] = useState(settings.trial_days || '14');
   const [maxLeadsStarter, setMaxLeadsStarter] = useState(settings.max_leads_starter || '500');

@@ -9,14 +9,15 @@ import {
 
 type Mode = 'login' | 'signup';
 
-export function AuthScreen() {
+export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   const { requestOtp, verifyOtp } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [mode, setMode] = useState<Mode>('login');
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState<1 | 2>(1); // 1 = Enter Email, 2 = Enter OTP
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [name, setName] = useState('');
+  const [businessName, setBusinessName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +59,7 @@ export function AuthScreen() {
     }
 
     setLoading(true);
-    const { error } = await verifyOtp(email, otp);
+    const { error } = await verifyOtp(email, otp, mode === 'signup' ? name : undefined, mode === 'signup' ? businessName : undefined);
     setLoading(false);
 
     if (error) {
@@ -98,16 +99,16 @@ export function AuthScreen() {
 
         {/* Logo */}
         <div className="relative flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 backdrop-blur-sm">
-            <svg viewBox="0 0 24 24" className="h-6 w-6 text-white" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6a4 4 0 0 1 4-4Z" />
-              <path d="M5 12a7 7 0 0 0 14 0" />
-              <path d="M12 19v3" />
-            </svg>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center">
+            <img src="https://www.gyanvaniai.online/logo.webp" alt="Logo" className="h-full w-full object-contain" />
           </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">CRMLite</h2>
-            <p className="text-xs text-white/70">GyanVaniAi Connect</p>
+          <div className="flex flex-col justify-center">
+            <h2 className="text-xl font-extrabold tracking-tight text-white leading-tight">
+              GyanVaniAi
+            </h2>
+            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70 leading-none mt-1">
+              Connect
+            </span>
           </div>
         </div>
 
@@ -143,7 +144,7 @@ export function AuthScreen() {
               <svg key={i} viewBox="0 0 20 20" className="h-4 w-4 fill-current"><path d="M10 1l2.7 5.5 6.1.9-4.4 4.3 1 6L10 15l-5.4 2.8 1-6L1.2 7.4l6.1-.9z" /></svg>
             ))}
           </div>
-          <p className="mt-3 text-sm text-white/90">"CRMLite transformed how our team manages leads. We closed 40% more deals in the first quarter."</p>
+          <p className="mt-3 text-sm text-white/90">"GyanVaniAi Connect transformed how our team manages leads. We closed 40% more deals in the first quarter."</p>
           <div className="mt-3 flex items-center gap-2.5">
             <div className="grid h-9 w-9 place-items-center rounded-full bg-white/20 text-sm font-semibold text-white">VT</div>
             <div>
@@ -161,14 +162,17 @@ export function AuthScreen() {
           <div className="mb-8 flex items-center justify-between">
             {/* Mobile logo */}
             <div className="flex items-center gap-2.5 lg:hidden">
-              <div className="grid h-10 w-10 place-items-center rounded-xl2 bg-gradient-accent">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2a4 4 0 0 1 4 4v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6a4 4 0 0 1 4-4Z" />
-                  <path d="M5 12a7 7 0 0 0 14 0" />
-                  <path d="M12 19v3" />
-                </svg>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center">
+                <img src="https://www.gyanvaniai.online/logo.webp" alt="Logo" className="h-full w-full object-contain" />
               </div>
-              <span className="text-base font-bold text-primary-c">CRMLite</span>
+              <div className="flex flex-col justify-center">
+                <span className="text-[15px] font-extrabold tracking-tight text-primary-c leading-tight">
+                  GyanVaniAi
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary-500/80 leading-none mt-[2px]">
+                  Connect
+                </span>
+              </div>
             </div>
             <div className="hidden lg:block" />
             <button
@@ -191,7 +195,7 @@ export function AuthScreen() {
               {step === 1
                 ? mode === 'login'
                   ? 'Sign in to access your CRM dashboard'
-                  : 'Start your 14-day free trial — no credit card required'
+                  : 'Get started with GyanVaniAi Connect CRM'
                 : `We sent a 6-digit code to ${email}`}
             </p>
           </div>
@@ -236,19 +240,30 @@ export function AuthScreen() {
             </div>
           )}
 
-          {/* STEP 1 FORM: Email / Name */}
+          {/* STEP 1 FORM: Email / Name / BusinessName */}
           {step === 1 && (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               {mode === 'signup' && (
-                <InputField
-                  icon={User}
-                  label="Full Name"
-                  type="text"
-                  value={name}
-                  onChange={setName}
-                  placeholder="Arjun Kapoor"
-                  autoComplete="name"
-                />
+                <>
+                  <InputField
+                    icon={User}
+                    label="Full Name"
+                    type="text"
+                    value={name}
+                    onChange={setName}
+                    placeholder="Arjun Kapoor"
+                    autoComplete="name"
+                  />
+                  <InputField
+                    icon={Building2}
+                    label="Business / Agency Name (Optional)"
+                    type="text"
+                    value={businessName}
+                    onChange={setBusinessName}
+                    placeholder="Luxe Estates"
+                    autoComplete="organization"
+                  />
+                </>
               )}
               <InputField
                 icon={Mail}
@@ -269,7 +284,7 @@ export function AuthScreen() {
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : (
                   <>
-                    Send Login Code
+                    {mode === 'signup' ? 'Get Verification Code' : 'Send Login Code'}
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -280,19 +295,26 @@ export function AuthScreen() {
           {/* STEP 2 FORM: OTP Code */}
           {step === 2 && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="flex items-center justify-between text-xs text-secondary-c mb-1">
-                <span className="font-medium text-primary-c">{email}</span>
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="flex items-center gap-1 font-medium text-primary-600 hover:underline dark:text-primary-400"
-                >
-                  <Edit2 className="h-3 w-3" /> Edit Email
-                </button>
+              <div className="flex flex-col gap-1 rounded-xl bg-card-c p-3 border border-base-c text-xs">
+                <div className="flex items-center justify-between text-secondary-c">
+                  <span className="font-semibold text-primary-c">{email}</span>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="flex items-center gap-1 font-medium text-primary-600 hover:underline dark:text-primary-400"
+                  >
+                    <Edit2 className="h-3 w-3" /> Edit Email
+                  </button>
+                </div>
+                {mode === 'signup' && name && (
+                  <span className="text-secondary-c font-medium mt-0.5">
+                    Registering as: <strong className="text-primary-c">{name}</strong> {businessName ? `(${businessName})` : ''}
+                  </span>
+                )}
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">6-Digit OTP Code</label>
+                <label className="mb-1.5 block text-xs font-medium text-secondary-c">6-Digit Verification Code</label>
                 <div className="relative">
                   <KeyRound className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-c" />
                   <input
@@ -356,7 +378,7 @@ export function AuthScreen() {
           {/* Trust badge */}
           <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-muted-c">
             <Shield className="h-3.5 w-3.5" />
-            Secured by CRMLite REST Auth
+            Secured by GyanVaniAi Connect REST Auth
           </div>
         </div>
       </div>

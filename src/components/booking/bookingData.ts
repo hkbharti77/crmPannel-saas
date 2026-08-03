@@ -27,60 +27,9 @@ export type BookingFormData = {
   notes: string;
 };
 
-export const SERVICES: BookingService[] = [
-  {
-    id: 'site_visit',
-    title: 'Site Visit',
-    description: 'In-person walkthrough of the property with a dedicated agent',
-    duration: '90 min',
-    durationMins: 90,
-    icon: 'MapPin',
-    color: '#10B981',
-    bgColor: 'rgba(16,185,129,0.10)',
-    price: 'Free',
-    popular: true,
-  },
-  {
-    id: 'demo',
-    title: 'Product Demo',
-    description: 'Live demo of the CRM platform tailored to your business',
-    duration: '60 min',
-    durationMins: 60,
-    icon: 'MonitorPlay',
-    color: '#7C3AED',
-    bgColor: 'rgba(124,58,237,0.10)',
-    price: 'Free',
-  },
-  {
-    id: 'call',
-    title: 'Discovery Call',
-    description: 'Quick call to understand your needs and discuss next steps',
-    duration: '30 min',
-    durationMins: 30,
-    icon: 'Phone',
-    color: '#2563EB',
-    bgColor: 'rgba(37,99,235,0.10)',
-    price: 'Free',
-  },
-  {
-    id: 'consultation',
-    title: 'Consultation',
-    description: 'In-depth strategy session with a senior advisor',
-    duration: '45 min',
-    durationMins: 45,
-    icon: 'Users',
-    color: '#F59E0B',
-    bgColor: 'rgba(245,158,11,0.10)',
-    price: '₹500',
-  },
-];
+export const SERVICES: BookingService[] = [];
 
-export const AGENTS = [
-  { id: 'a1', name: 'Priya Sharma', role: 'Senior Agent', rating: 4.9 },
-  { id: 'a2', name: 'Arjun Kapoor', role: 'Sales Lead', rating: 4.8 },
-  { id: 'a3', name: 'Sneha Patel', role: 'Property Advisor', rating: 4.7 },
-  { id: 'a4', name: 'Rahul Verma', role: 'Field Executive', rating: 4.6 },
-];
+export const AGENTS: { id: string; name: string; role: string; rating: number }[] = [];
 
 export function generateTimeSlots(date: string): TimeSlot[] {
   const slots: TimeSlot[] = [];

@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/primitives';
 import {
   Plug, FileText,
   Check, ExternalLink,
+  RefreshCw, Plus, Trash2, X,
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
@@ -109,7 +110,7 @@ export function MetaIntegrationPanel() {
         </div>
         <div className="mt-3 rounded-xl2 border border-base-c p-3">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Callback URL</p>
-          <p className="mt-1 break-all text-xs font-mono text-secondary-c">https://api.crmlite.io/webhooks/whatsapp/waba_987654</p>
+          <p className="mt-1 break-all text-xs font-mono text-secondary-c">https://api.gyanvaniaiconnect.com/webhooks/whatsapp/waba_987654</p>
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
           {['messages', 'message_status', 'message_template_status_update', 'phone_number_quality_update'].map((t) => (

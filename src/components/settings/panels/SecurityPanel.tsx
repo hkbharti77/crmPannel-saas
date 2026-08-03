@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { cx } from '@/lib/types';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
   Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, AlertTriangle, Laptop, History, User,
 } from 'lucide-react';
@@ -8,6 +9,7 @@ import { PanelHeader, FieldRow, Toggle, SectionCard } from './_shared';
 /* ─── Security & Privacy Panel ─── */
 export function SecurityPanel() {
   const [secTab, setSecTab] = useState<'overview' | 'sessions' | 'audit'>('overview');
+  const [killSwitchOpen, setKillSwitchOpen] = useState(false);
   const [biometricAuth, setBiometricAuth] = useState(true);
   const [twoFA, setTwoFA] = useState(true);
   const [loginAlerts, setLoginAlerts] = useState(true);
@@ -250,11 +252,7 @@ export function SecurityPanel() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (confirm('Are you sure you want to trigger the Emergency Kill Switch? This will revoke all active sessions immediately.')) {
-                      alert('Emergency Kill Switch activated! All sessions revoked.');
-                    }
-                  }}
+                  onClick={() => setKillSwitchOpen(true)}
                   className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20"
                 >
                   Activate
@@ -394,6 +392,20 @@ export function SecurityPanel() {
           </SectionCard>
         </div>
       )}
+
+      {/* Kill Switch Modal */}
+      <ConfirmModal
+        isOpen={killSwitchOpen}
+        title="Activate Emergency Kill Switch"
+        message="Are you sure you want to trigger the Emergency Kill Switch? This will lock your account and revoke all active sessions immediately."
+        confirmText="Activate Kill Switch"
+        variant="danger"
+        onConfirm={() => {
+          setKillSwitchOpen(false);
+          setPwdMsg('Emergency Kill Switch activated! All active sessions have been revoked.');
+        }}
+        onCancel={() => setKillSwitchOpen(false)}
+      />
     </div>
   );
 }

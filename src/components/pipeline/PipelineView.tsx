@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { LEADS, STAGE_CONFIG, type Lead } from './pipelineData';
+import { STAGE_CONFIG, type Lead } from './pipelineData';
 import { PipelineStats } from './PipelineStats';
 import { KanbanColumn } from './KanbanBoard';
 import {
@@ -14,8 +14,25 @@ import { Search, SlidersHorizontal, Plus, Download, RefreshCw } from 'lucide-rea
 
 type FilterId = 'all' | 'hot' | 'vip' | 'mine';
 
-export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void }) {
-  const [leads, setLeads] = useState<Lead[]>(LEADS);
+function normalizeStage(status?: string): Lead['stage'] {
+  if (!status) return 'NEW';
+  const s = status.toUpperCase();
+  if (s === 'NEW') return 'NEW';
+  if (s === 'INTERESTED' || s === 'FOLLOW_UP' || s === 'CONTACTED') return 'CONTACTED';
+  if (s === 'BOOKED' || s === 'QUALIFIED') return 'QUALIFIED';
+  if (s === 'CLOSED_WON' || s === 'WON') return 'WON';
+  if (s === 'CLOSED_LOST' || s === 'LOST') return 'LOST';
+  return 'NEW';
+}
+
+import { useNavigate } from 'react-router-dom';
+
+export function PipelineView() {
+  const navigate = useNavigate();
+  const onOpenLead = (lead: Lead) => {
+    navigate(`/leaddetail/${lead.id}`, { state: { leadObj: lead } });
+  };
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<FilterId>('all');
   const [dragStage, setDragStage] = useState<string | null>(null);
@@ -31,8 +48,9 @@ export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void 
     if (data && data.content && data.content.length > 0) {
       const converted: Lead[] = data.content.map((dto: LeadDTO) => {
         const contactName = dto.contact?.name || dto.contact?.waId || dto.leadNumber || 'Lead';
-        const dealVal = dto.dealValue ? `₹${dto.dealValue}` : '₹50L';
-        const isHot = dto.score && dto.score >= 70;
+        const dealVal = (dto.dealValue != null && dto.dealValue > 0) ? `₹${dto.dealValue.toLocaleString('en-IN')}` : '₹0';
+        const scoreVal = dto.score != null ? dto.score : 50;
+        const isHot = scoreVal >= 70;
         const tags = dto.contact?.tags || (isHot ? ['HOT'] : ['NEW']);
 
         return {
@@ -40,9 +58,10 @@ export function PipelineView({ onOpenLead }: { onOpenLead: (lead: Lead) => void 
           name: contactName,
           company: dto.dealLabel || dto.contact?.source || 'Direct Lead',
           phone: dto.contact?.phone || dto.contact?.waId || 'N/A',
-          stage: dto.status || 'NEW',
+          stage: normalizeStage(dto.status),
           value: dealVal,
           priority: isHot ? 'HIGH' : 'MEDIUM',
+          score: scoreVal,
           source: (dto.contact?.source as any) || 'WhatsApp',
           tags,
           assignedTo: dto.ownerName || 'Agent',

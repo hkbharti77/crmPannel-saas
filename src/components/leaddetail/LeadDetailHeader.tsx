@@ -1,7 +1,5 @@
-import { useState } from 'react';
-import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
+import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { STAGE_ORDER } from './leadDetailData';
 import type { LeadStage } from '@/lib/types';
 import type { LeadDTO } from '@/lib/leadsApi';
 import {
@@ -18,6 +16,8 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
+export const STAGES: LeadStage[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'WON', 'LOST'];
+
 const STAGE_COLORS: Record<LeadStage, string> = {
   NEW: 'bg-primary-500',
   CONTACTED: 'bg-secondary-500',
@@ -26,19 +26,40 @@ const STAGE_COLORS: Record<LeadStage, string> = {
   LOST: 'bg-danger-500',
 };
 
+function normalizeStage(raw?: string): LeadStage {
+  if (!raw) return 'NEW';
+  const u = raw.toUpperCase();
+  if (u === 'NEW') return 'NEW';
+  if (u === 'CONTACTED' || u === 'INTERESTED') return 'CONTACTED';
+  if (u === 'QUALIFIED' || u === 'FOLLOW_UP' || u === 'BOOKED') return 'QUALIFIED';
+  if (u === 'WON' || u === 'CLOSED_WON') return 'WON';
+  if (u === 'LOST' || u === 'CLOSED_LOST') return 'LOST';
+  return 'NEW';
+}
+
 export function LeadDetailHeader({
   lead,
   onBack,
+  onChat,
+  onCall,
+  onBook,
+  onAssign,
+  onStageChange,
 }: {
   lead: LeadDTO | null;
   onBack: () => void;
+  onChat?: () => void;
+  onCall?: () => void;
+  onBook?: () => void;
+  onAssign?: () => void;
+  onStageChange?: (newStage: LeadStage) => void;
 }) {
   const name = lead?.contact?.name || lead?.contact?.waId || lead?.leadNumber || 'Lead';
   const company = lead?.dealLabel || lead?.contact?.source || 'Direct Lead';
   const phone = lead?.contact?.phone || lead?.contact?.waId || 'N/A';
   const email = lead?.contact?.email || 'Not provided';
   const tags = lead?.contact?.tags || (lead?.score && lead.score >= 70 ? ['HOT'] : ['NEW']);
-  const stage = lead?.status || 'NEW';
+  const stage = normalizeStage(lead?.status);
 
   return (
     <GlassCard className="p-4 lg:p-5">
@@ -82,10 +103,10 @@ export function LeadDetailHeader({
 
         {/* Right: actions */}
         <div className="flex flex-wrap items-center gap-2">
-          <ActionBtn icon={MessageSquare} label="Chat" accent />
-          <ActionBtn icon={Phone} label="Call" />
-          <ActionBtn icon={CalendarPlus} label="Book" />
-          <ActionBtn icon={UserCheck} label="Assign" />
+          <ActionBtn icon={MessageSquare} label="Chat" accent onClick={onChat} />
+          <ActionBtn icon={Phone} label="Call" onClick={onCall} />
+          <ActionBtn icon={CalendarPlus} label="Book" onClick={onBook} />
+          <ActionBtn icon={UserCheck} label="Assign" onClick={onAssign} />
           <button className="grid h-9 w-9 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800">
             <MoreVertical className="h-4 w-4" />
           </button>
@@ -94,34 +115,45 @@ export function LeadDetailHeader({
 
       {/* Stage progression */}
       <div className="mt-5">
-        <StageProgression currentStage={stage} />
+        <StageProgression currentStage={stage} onStageChange={onStageChange} />
       </div>
     </GlassCard>
   );
 }
 
-function StageProgression({ currentStage }: { currentStage: LeadStage }) {
-  const currentIdx = STAGE_ORDER.indexOf(currentStage);
+function StageProgression({
+  currentStage,
+  onStageChange,
+}: {
+  currentStage: LeadStage;
+  onStageChange?: (newStage: LeadStage) => void;
+}) {
+  const currentIdx = STAGES.indexOf(currentStage);
 
   return (
     <div className="flex items-center">
-      {STAGE_ORDER.map((stage, i) => {
+      {STAGES.map((stageItem, i) => {
         const isComplete = i < currentIdx;
         const isCurrent = i === currentIdx;
+
         return (
-          <div key={stage} className="flex flex-1 items-center last:flex-none">
-            <div className="flex flex-col items-center">
+          <div key={stageItem} className="flex flex-1 items-center last:flex-none">
+            <div
+              onClick={() => onStageChange?.(stageItem)}
+              className="flex flex-col items-center cursor-pointer group"
+              title={`Click to set stage to ${stageItem}`}
+            >
               <div className="relative">
                 {isComplete ? (
-                  <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft', STAGE_COLORS[stage])}>
+                  <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft transition-transform group-hover:scale-110', STAGE_COLORS[stageItem])}>
                     <CheckCircle2 className="h-4 w-4" />
                   </div>
                 ) : isCurrent ? (
-                  <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft ring-4 ring-card-c', STAGE_COLORS[stage])}>
+                  <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft ring-4 ring-card-c transition-transform group-hover:scale-110', STAGE_COLORS[stageItem])}>
                     <Circle className="h-4 w-4 fill-current" />
                   </div>
                 ) : (
-                  <div className="grid h-8 w-8 place-items-center rounded-full border-2 border-base-c bg-card-c text-muted-c">
+                  <div className="grid h-8 w-8 place-items-center rounded-full border-2 border-base-c bg-card-c text-muted-c transition-all group-hover:border-primary-500 group-hover:text-primary-c group-hover:scale-110">
                     <Circle className="h-4 w-4" />
                   </div>
                 )}
@@ -130,17 +162,18 @@ function StageProgression({ currentStage }: { currentStage: LeadStage }) {
                 )}
               </div>
               <span className={cx(
-                'mt-1.5 text-[10px] font-semibold',
-                isCurrent ? 'text-primary-c' : isComplete ? 'text-secondary-c' : 'text-muted-c',
+                'mt-1.5 text-[10px] font-semibold transition-colors',
+                isCurrent ? 'text-primary-c font-bold' : isComplete ? 'text-secondary-c' : 'text-muted-c group-hover:text-primary-c',
               )}>
-                {stage}
+                {stageItem}
               </span>
             </div>
-            {i < STAGE_ORDER.length - 1 && (
+
+            {i < STAGES.length - 1 && (
               <div className="mx-1.5 h-0.5 flex-1 rounded-full">
                 <div className={cx(
                   'h-full rounded-full transition-colors',
-                  i < currentIdx ? STAGE_COLORS[STAGE_ORDER[i]] : 'bg-base-c',
+                  i < currentIdx ? STAGE_COLORS[STAGES[i]] : 'bg-base-c',
                 )} />
               </div>
             )}
@@ -155,13 +188,16 @@ function ActionBtn({
   icon: Icon,
   label,
   accent,
+  onClick,
 }: {
   icon: typeof Phone;
   label: string;
   accent?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
+      onClick={onClick}
       className={cx(
         'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all',
         accent
