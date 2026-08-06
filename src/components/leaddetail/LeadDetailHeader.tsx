@@ -59,7 +59,7 @@ export function LeadDetailHeader({
   const phone = lead?.contact?.phone || lead?.contact?.waId || 'N/A';
   const email = lead?.contact?.email || 'Not provided';
   const tags = lead?.contact?.tags || (lead?.score && lead.score >= 70 ? ['HOT'] : ['NEW']);
-  const stage = normalizeStage(lead?.status);
+  const stage = normalizeStage(lead?.status || (lead as any)?.stage);
 
   return (
     <GlassCard className="p-4 lg:p-5">

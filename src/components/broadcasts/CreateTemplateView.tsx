@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cx } from '@/lib/types';
-import { createWhatsAppTemplate, type WhatsAppTemplateDto, type TemplateButtonDto } from '@/lib/broadcastsApi';
+import { createWhatsAppTemplate, generateAiWhatsAppTemplate, type WhatsAppTemplateDto, type TemplateButtonDto } from '@/lib/broadcastsApi';
 import {
   Check, Bold, Italic, Strikethrough, Code, Plus, Trash2,
   Image as ImageIcon, Video, File, Globe, Phone, MessageSquare, Loader2, ArrowLeft,
-  LayoutTemplate, Settings, MousePointerClick, ChevronLeft, MoreVertical, Smartphone
+  LayoutTemplate, Settings, MousePointerClick, ChevronLeft, MoreVertical, Smartphone, Sparkles, Lock
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 /* ─── WhatsApp Text Formatter Helper ─── */
 function renderWhatsAppFormattedText(text: string) {
@@ -57,6 +58,8 @@ function renderWhatsAppFormattedText(text: string) {
 }
 
 export default function CreateTemplateView() {
+  const { user } = useAuth();
+  const isPremium = user?.planType?.toUpperCase() === 'PRO' || user?.planType?.toUpperCase() === 'ENTERPRISE';
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [category, setCategory] = useState<'MARKETING' | 'UTILITY' | 'AUTHENTICATION'>('MARKETING');
@@ -70,6 +73,8 @@ export default function CreateTemplateView() {
   // Dynamic list of action buttons (Max limit: 3)
   const [buttonsList, setButtonsList] = useState<TemplateButtonDto[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const canSubmit = name.trim().length > 0 && bodyText.trim().length > 0 && !submitting;
@@ -134,6 +139,24 @@ export default function CreateTemplateView() {
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+
+    // Validate variables {{1}}, {{2}}...
+    const matches = bodyText.match(/\{\{(\d+)\}\}/g) || [];
+    const varNumbers = matches.map(m => parseInt(m.replace(/[^0-9]/g, ''), 10));
+    if (varNumbers.length > 0) {
+      const uniqueVars = Array.from(new Set(varNumbers)).sort((a, b) => a - b);
+      if (uniqueVars[0] !== 1) {
+        alert("Variables must start at {{1}}.");
+        return;
+      }
+      for (let i = 0; i < uniqueVars.length; i++) {
+        if (uniqueVars[i] !== i + 1) {
+          alert(`Variable {{${i + 1}}} is missing. Variables must be sequential ({{1}}, {{2}}, {{3}}...).`);
+          return;
+        }
+      }
+    }
+
     setSubmitting(true);
 
     const formattedName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
@@ -159,6 +182,32 @@ export default function CreateTemplateView() {
     }
     if (res.data) {
       navigate('/broadcasts');
+    }
+  };
+
+  const handleGenerateAi = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiLoading(true);
+    const res = await generateAiWhatsAppTemplate(aiPrompt.trim());
+    setAiLoading(false);
+
+    if (res.error) {
+      alert(`AI Generation Failed: ${res.error}`);
+      return;
+    }
+
+    if (res.data) {
+      if (res.data.headerContent) {
+        setHeaderType('TEXT');
+        setHeaderContent(res.data.headerContent);
+      }
+      if (res.data.bodyText) setBodyText(res.data.bodyText);
+      if (res.data.footerText) setFooterText(res.data.footerText);
+      if (res.data.buttons && res.data.buttons.length > 0) {
+        setButtonsList(res.data.buttons.slice(0, 3));
+      } else {
+        setButtonsList([]);
+      }
     }
   };
 
@@ -207,6 +256,54 @@ export default function CreateTemplateView() {
         <div className="overflow-y-auto p-8 lg:p-12 space-y-10 scrollbar-thin">
           
           <div className="max-w-3xl mx-auto space-y-10">
+            {/* Section: AI Generator */}
+            {isPremium ? (
+              <section className="flex gap-6">
+                <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-500/10 dark:text-primary-400">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <h3 className="text-base font-bold text-primary-c">Generate with AI Builder</h3>
+                    <p className="text-sm text-secondary-c mt-1">Let AI craft a Meta-compliant template with perfect formatting.</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      placeholder="e.g. Write a promotional template for 20% off summer sale..."
+                      className="flex-1 rounded-xl border border-base-c bg-card-c px-4 py-2.5 text-sm text-primary-c focus:ring-2 focus:ring-primary-500/50 outline-none"
+                      disabled={aiLoading}
+                    />
+                    <button
+                      onClick={handleGenerateAi}
+                      disabled={!aiPrompt.trim() || aiLoading}
+                      className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    >
+                      {aiLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      {aiLoading ? 'Generating...' : 'Generate AI'}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <section className="flex gap-6">
+                <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400">
+                  <Lock className="h-5 w-5" />
+                </div>
+                <div className="flex-1 surface rounded-2xl p-6 border border-amber-200/50 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10">
+                  <h3 className="text-base font-bold text-amber-700 dark:text-amber-500">AI Builder Locked</h3>
+                  <p className="text-sm text-secondary-c mt-1 mb-4">Upgrade to the PRO plan to unlock AI-powered template generation and bypass Meta formatting hassles.</p>
+                  <button 
+                    onClick={() => navigate('/settings?tab=billing')}
+                    className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 transition-colors"
+                  >
+                    Upgrade to PRO
+                  </button>
+                </div>
+              </section>
+            )}
+
             {/* Section: Identity */}
             <section className="flex gap-6">
               <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">

@@ -13,6 +13,7 @@ import {
   Building2,
   BarChart3,
   Users,
+  Contact,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ export type ViewId =
   | 'properties'
   | 'reports'
   | 'team'
+  | 'contacts'
   | 'settings';
 
 export type NavItem = {
@@ -55,5 +57,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'properties', label: 'Properties', icon: Building2 },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'team', label: 'Team', icon: Users },
+  { id: 'contacts', label: 'Contacts', icon: Contact },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];

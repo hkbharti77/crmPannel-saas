@@ -86,6 +86,7 @@ export async function createCampaign(payload: {
   targetType: string;
   targetFilterJson?: string;
   variableMappingJson?: string;
+  saveImportedRecipients?: boolean;
 }): Promise<{ data: WhatsAppCampaignDto | null; error: string | null }> {
   const res = await apiFetch<WhatsAppCampaignDto>('/api/v1/whatsapp/campaigns', {
     method: 'POST',
@@ -207,6 +208,26 @@ export async function deleteWhatsAppTemplate(
     return { success: false, error: res.error };
   }
   return { success: true, error: null };
+}
+
+export type WhatsAppAiTemplateResponseDto = {
+  headerContent: string;
+  bodyText: string;
+  footerText: string;
+  buttons: TemplateButtonDto[];
+};
+
+export async function generateAiWhatsAppTemplate(
+  prompt: string
+): Promise<{ data: WhatsAppAiTemplateResponseDto | null; error: string | null }> {
+  const res = await apiFetch<WhatsAppAiTemplateResponseDto>('/api/v1/whatsapp/templates/ai/generate', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  });
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
 }
 
 // ─── CSV Broadcast Upload Types & APIs ────────────────────────────────────

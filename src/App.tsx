@@ -23,6 +23,8 @@ import { SettingsView } from '@/components/settings/SettingsView';
 import { PropertiesView } from '@/components/properties/PropertiesView';
 import { ReportsView } from '@/components/reports/ReportsView';
 import { TeamView } from '@/components/team/TeamView';
+import { ContactsView } from '@/components/contacts/ContactsView';
+import { ContactDetailView } from '@/components/contacts/ContactDetailView';
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -132,6 +134,10 @@ function AppContent() {
         <Route path="properties" element={<PropertiesView />} />
         <Route path="reports" element={<ReportsView />} />
         <Route path="team" element={<TeamView />} />
+        <Route path="contacts">
+          <Route index element={<ContactsView />} />
+          <Route path=":contactId" element={<ContactDetailView />} />
+        </Route>
         <Route path="settings/:tab?" element={<SettingsView />} />
       </Route>
       

@@ -31,6 +31,8 @@ import {
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 export function InboxView() {
   const navigate = useNavigate();
@@ -415,7 +417,9 @@ function ChatPreview({ conv, onOpenChat }: { conv: Conversation; onOpenChat: () 
                     : 'rounded-tl-sm bg-slate-100 text-primary-c dark:bg-ink-800'
                 )}
               >
-                {m.content}
+                <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-tight">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                </div>
                 <div className="mt-1 text-[10px] opacity-70 text-right">
                   {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </div>
@@ -543,7 +547,9 @@ function WebChatPreview({
                 <div className="mb-0.5 text-[10px] font-bold opacity-80">
                   {m.sender === 'USER' ? 'Website Visitor' : 'AI WebBot'}
                 </div>
-                {m.content}
+                <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-tight">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                </div>
                 <div className="mt-1 text-[10px] opacity-70 text-right">
                   {m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                 </div>

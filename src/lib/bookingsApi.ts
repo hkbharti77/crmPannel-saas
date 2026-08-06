@@ -60,6 +60,16 @@ export async function createBooking(
   return { data: res.data || null, error: null };
 }
 
+export async function fetchBookingsByContactId(
+  contactId: string
+): Promise<{ data: BookingDto[]; error: string | null }> {
+  const res = await apiFetch<BookingDto[]>(`/api/v1/bookings/contact/${contactId}`);
+  if (res.error) {
+    return { data: [], error: res.error };
+  }
+  return { data: res.data || [], error: null };
+}
+
 export async function completeBooking(
   id: string
 ): Promise<{ data: BookingDto | null; error: string | null }> {

@@ -23,6 +23,7 @@ const TITLES: Record<string, string> = {
   settings: 'Settings',
   'meta-config': 'Meta Config',
   'knowledge-base': 'Knowledge Base',
+  contacts: 'Contacts',
 };
 
 export function TopBar({

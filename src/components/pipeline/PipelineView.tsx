@@ -10,7 +10,8 @@ import {
   downloadLeadsExport,
   type LeadDTO,
 } from '@/lib/leadsApi';
-import { Search, SlidersHorizontal, Plus, Download, RefreshCw } from 'lucide-react';
+import { Search, SlidersHorizontal, Plus, Download, RefreshCw, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { PipelineTableView } from './PipelineTableView';
 
 type FilterId = 'all' | 'hot' | 'vip' | 'mine';
 
@@ -39,10 +40,24 @@ export function PipelineView() {
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
-  const loadLeads = async () => {
+  // Modal State for Won/Lost
+  const [showWonModal, setShowWonModal] = useState(false);
+  const [showLostModal, setShowLostModal] = useState(false);
+  const [pendingDropLead, setPendingDropLead] = useState<{ id: string; stage: string } | null>(null);
+  const [dealValueInput, setDealValueInput] = useState('');
+  const [lostReasonInput, setLostReasonInput] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState<'PAID' | 'PENDING'>('PAID');
+  const [sendPaymentLink, setSendPaymentLink] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'EMAIL' | 'WHATSAPP' | 'BOTH'>('WHATSAPP');
+  const [paymentLinkUrl, setPaymentLinkUrl] = useState('');
+
+  const loadLeads = async (pageToFetch = page, searchQuery = query) => {
     setLoading(true);
-    const { data } = await fetchLeadsPaged(0, 100);
+    const { data } = await fetchLeadsPaged(pageToFetch, 100, undefined, searchQuery || undefined);
     setLoading(false);
 
     if (data && data.content && data.content.length > 0) {
@@ -71,13 +86,25 @@ export function PipelineView() {
           hasUnread: dto.isNew || false,
         };
       });
+      setTotalPages(data.totalPages);
       setLeads(converted);
+    } else {
+      setLeads([]);
+      setTotalPages(1);
     }
   };
 
   useEffect(() => {
-    loadLeads();
-  }, []);
+    const handler = setTimeout(() => {
+      setPage(0);
+      loadLeads(0, query);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [query]);
+
+  useEffect(() => {
+    loadLeads(page, query);
+  }, [page]);
 
   const filtered = useMemo(() => {
     return leads.filter((l) => {
@@ -105,7 +132,23 @@ export function PipelineView() {
       return;
     }
 
-    // Optimistic update
+    if (stage === 'WON') {
+      setPendingDropLead({ id: dragStage, stage });
+      setShowWonModal(true);
+      setDragStage(null);
+      setDragOver(null);
+      return;
+    }
+
+    if (stage === 'LOST') {
+      setPendingDropLead({ id: dragStage, stage });
+      setShowLostModal(true);
+      setDragStage(null);
+      setDragOver(null);
+      return;
+    }
+
+    // Normal optimistic update for other stages
     setLeads((prev) =>
       prev.map((l) =>
         l.id === dragStage ? { ...l, stage: stage as Lead['stage'] } : l,
@@ -118,6 +161,51 @@ export function PipelineView() {
     // Backend sync
     if (dragStage.includes('-')) {
       await updateLeadStatus(dragStage, stage);
+    }
+  };
+
+  const submitWon = async () => {
+    if (!pendingDropLead) return;
+    const { id, stage } = pendingDropLead;
+    const dealVal = parseFloat(dealValueInput) || 0;
+    
+    // Optimistic update
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === id ? { ...l, stage: stage as Lead['stage'], value: `₹${dealVal.toLocaleString('en-IN')}` } : l,
+      ),
+    );
+    
+    setShowWonModal(false);
+    setDealValueInput('');
+    setPaymentStatus('PAID');
+    setSendPaymentLink(false);
+    setPaymentMethod('WHATSAPP');
+    setPaymentLinkUrl('');
+    setPendingDropLead(null);
+    
+    if (id.includes('-')) {
+      await updateLeadStatus(id, stage, dealVal, undefined, paymentStatus, sendPaymentLink, paymentMethod, paymentLinkUrl);
+    }
+  };
+
+  const submitLost = async () => {
+    if (!pendingDropLead) return;
+    const { id, stage } = pendingDropLead;
+    
+    // Optimistic update
+    setLeads((prev) =>
+      prev.map((l) =>
+        l.id === id ? { ...l, stage: stage as Lead['stage'] } : l,
+      ),
+    );
+    
+    setShowLostModal(false);
+    setLostReasonInput('');
+    setPendingDropLead(null);
+    
+    if (id.includes('-')) {
+      await updateLeadStatus(id, stage, undefined, lostReasonInput);
     }
   };
 
@@ -154,8 +242,25 @@ export function PipelineView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-lg border border-base-c bg-card-c p-0.5">
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={cx('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors', viewMode === 'kanban' ? 'bg-primary-500 text-white shadow-soft' : 'text-secondary-c hover:text-primary-c')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Kanban
+            </button>
+            <button
+              onClick={() => setViewMode('table')}
+              className={cx('flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors', viewMode === 'table' ? 'bg-primary-500 text-white shadow-soft' : 'text-secondary-c hover:text-primary-c')}
+            >
+              <ListIcon className="h-3.5 w-3.5" />
+              List
+            </button>
+          </div>
+
           <button
-            onClick={loadLeads}
+            onClick={() => loadLeads()}
             disabled={loading}
             className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c"
             title="Refresh Leads"
@@ -217,31 +322,172 @@ export function PipelineView() {
         </div>
       </div>
 
-      {/* Kanban board */}
-      <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
-        {STAGE_CONFIG.map((col) => {
-          const colLeads = filtered.filter((l) => l.stage === col.stage);
-          return (
-            <KanbanColumn
-              key={col.stage}
-              stage={col.stage}
-              title={col.title}
-              color={col.color}
-              barColor={col.barColor}
-              accent={col.accent}
-              leads={colLeads}
-              onOpenLead={onOpenLead}
-              onDrop={handleDrop}
-              isDragOver={dragOver === col.stage}
-              onDragOver={(e) => {
-                e.preventDefault();
-                setDragOver(col.stage);
-              }}
-              onDragLeave={() => setDragOver(null)}
+      {/* Main View */}
+      {viewMode === 'kanban' ? (
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
+          {STAGE_CONFIG.map((col) => {
+            const colLeads = filtered.filter((l) => l.stage === col.stage);
+            return (
+              <KanbanColumn
+                key={col.stage}
+                stage={col.stage}
+                title={col.title}
+                color={col.color}
+                barColor={col.barColor}
+                accent={col.accent}
+                leads={colLeads}
+                onOpenLead={onOpenLead}
+                onDrop={handleDrop}
+                isDragOver={dragOver === col.stage}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(col.stage);
+                }}
+                onDragLeave={() => setDragOver(null)}
+                draggedLeadId={dragStage}
+                onDragStart={(leadId) => setDragStage(leadId)}
+              />
+            );
+          })}
+        </div>
+      ) : (
+        <PipelineTableView
+          leads={filtered}
+          onOpenLead={onOpenLead}
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          loading={loading}
+        />
+      )}
+
+      {/* Won Modal */}
+      {showWonModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card-c p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-primary-c mb-2">Deal Won! 🎉</h3>
+            <p className="text-sm text-secondary-c mb-4">Please enter the final deal value (in INR).</p>
+            <input
+              type="number"
+              value={dealValueInput}
+              onChange={(e) => setDealValueInput(e.target.value)}
+              placeholder="e.g. 50000"
+              className="w-full rounded-lg border border-base-c bg-card-c p-2 text-primary-c focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+              autoFocus
             />
-          );
-        })}
-      </div>
+            
+            <div className="mt-4">
+              <label className="text-sm font-medium text-secondary-c mb-2 block">Payment Status</label>
+              <select
+                value={paymentStatus}
+                onChange={(e) => setPaymentStatus(e.target.value as 'PAID' | 'PENDING')}
+                className="w-full rounded-lg border border-base-c bg-card-c p-2 text-primary-c focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+              >
+                <option value="PAID">Received / Paid</option>
+                <option value="PENDING">Pending / Unpaid</option>
+              </select>
+            </div>
+
+            {paymentStatus === 'PENDING' && (
+              <div className="mt-4 space-y-3">
+                <label className="flex items-center gap-2 text-sm text-primary-c cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={sendPaymentLink}
+                    onChange={(e) => setSendPaymentLink(e.target.checked)}
+                    className="rounded border-base-c text-green-500 focus:ring-green-500"
+                  />
+                  Send Payment Link?
+                </label>
+
+                {sendPaymentLink && (
+                  <div className="pl-6 space-y-3 border-l-2 border-base-c">
+                    <div>
+                      <label className="text-xs font-medium text-secondary-c mb-1 block">Payment Link URL</label>
+                      <input
+                        type="url"
+                        value={paymentLinkUrl}
+                        onChange={(e) => setPaymentLinkUrl(e.target.value)}
+                        placeholder="https://razorpay.me/..."
+                        className="w-full rounded-lg border border-base-c bg-card-c p-2 text-sm text-primary-c focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-secondary-c mb-1 block">Send Via</label>
+                      <select
+                        value={paymentMethod}
+                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        className="w-full rounded-lg border border-base-c bg-card-c p-2 text-sm text-primary-c focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+                      >
+                        <option value="WHATSAPP">WhatsApp Only</option>
+                        <option value="EMAIL">Email Only</option>
+                        <option value="BOTH">Both (WhatsApp & Email)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowWonModal(false);
+                  setPendingDropLead(null);
+                  setDealValueInput('');
+                  setPaymentStatus('PAID');
+                  setSendPaymentLink(false);
+                  setPaymentMethod('WHATSAPP');
+                  setPaymentLinkUrl('');
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-secondary-c hover:bg-base-c"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitWon}
+                className="rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white hover:bg-green-600"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lost Modal */}
+      {showLostModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card-c p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-primary-c mb-2">Deal Lost</h3>
+            <p className="text-sm text-secondary-c mb-4">Please provide a reason why this deal was lost.</p>
+            <textarea
+              value={lostReasonInput}
+              onChange={(e) => setLostReasonInput(e.target.value)}
+              placeholder="e.g. Price too high, went with competitor..."
+              className="w-full rounded-lg border border-base-c bg-card-c p-2 text-primary-c focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500 min-h-[100px]"
+              autoFocus
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowLostModal(false);
+                  setPendingDropLead(null);
+                  setLostReasonInput('');
+                }}
+                className="rounded-lg px-4 py-2 text-sm font-medium text-secondary-c hover:bg-base-c"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitLost}
+                className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

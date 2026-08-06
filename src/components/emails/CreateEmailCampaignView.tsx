@@ -10,7 +10,6 @@ import {
 import { apiFetch } from '@/lib/api';
 import { GlassCard } from '@/components/ui/primitives';
 import { TagSegmentBuilder } from './segments/TagSegmentBuilder';
-import { AdvancedSegmentBuilder } from './segments/AdvancedSegmentBuilder';
 import {
   ArrowLeft,
   Users,
@@ -44,7 +43,11 @@ import {
   FileText,
   Clock,
   Sparkle,
+  EyeOff,
+  Wand2,
+  Lock
 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export interface FilterRule {
   id: string;
@@ -156,6 +159,8 @@ interface SavedTemplate {
 }
 
 export function CreateEmailCampaignView() {
+  const { user } = useAuth();
+  const isPremium = user?.planType?.toUpperCase() === 'PRO' || user?.planType?.toUpperCase() === 'ENTERPRISE';
   const navigate = useNavigate();
 
   // Wizard Stepper State: 'audience' | 'content' | 'review'
@@ -255,10 +260,9 @@ export function CreateEmailCampaignView() {
       setAiError(res.error);
     } else if (res.data) {
       if (res.data.subject) setSubject(res.data.subject);
-      if (res.data.body) setBody(res.data.body);
-      else if ((res.data as any).text) setBody((res.data as any).text);
-      if ((res.data as any).ctaLabel) setCtaLabel((res.data as any).ctaLabel);
-      if ((res.data as any).ctaUrl) setCtaUrl((res.data as any).ctaUrl);
+      if (res.data.htmlContent) setBody(res.data.htmlContent);
+      if (res.data.ctaLabel) setCtaLabel(res.data.ctaLabel);
+      if (res.data.ctaUrl) setCtaUrl(res.data.ctaUrl);
       showToast('AI Email successfully generated!');
     }
   };
@@ -460,7 +464,6 @@ export function CreateEmailCampaignView() {
     body.trim().length > 0 &&
     (recipientMode === 'ALL' ||
       (recipientMode === 'TAGGED' && tagsFilter.trim().length > 0) ||
-      (recipientMode === 'ADVANCED' && audienceFilter.rules.length > 0) ||
       (recipientMode === 'MANUAL' && (manualRecipients.trim().length > 0 || csvRows.length > 0)));
 
   const handleSubmit = async () => {
@@ -473,7 +476,7 @@ export function CreateEmailCampaignView() {
       ctaLabel: ctaLabel.trim() || undefined,
       ctaUrl: ctaUrl.trim() || undefined,
       recipientMode,
-      tagsFilter: recipientMode === 'ADVANCED' ? JSON.stringify(audienceFilter) : recipientMode === 'TAGGED' ? tagsFilter.trim() : undefined,
+      tagsFilter: recipientMode === 'TAGGED' ? tagsFilter.trim() : undefined,
       manualRecipients: recipientMode === 'MANUAL' ? manualRecipients.trim() : undefined,
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
     });
@@ -620,8 +623,6 @@ export function CreateEmailCampaignView() {
               <p className="text-[11px] text-muted-c mt-1 font-medium truncate">
                 {recipientMode === 'ALL'
                   ? 'ALL_CONTACTS'
-                  : recipientMode === 'ADVANCED'
-                  ? 'ADVANCED'
                   : recipientMode === 'TAGGED'
                   ? 'TAG_BASED'
                   : csvFileName
@@ -708,7 +709,7 @@ export function CreateEmailCampaignView() {
             </div>
 
             {/* Visual Recipient Mode Radio Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <label
                 className={cx(
                   'flex flex-col justify-between rounded-2xl border p-5 cursor-pointer transition-all',
@@ -778,39 +779,6 @@ export function CreateEmailCampaignView() {
               <label
                 className={cx(
                   'flex flex-col justify-between rounded-2xl border p-5 cursor-pointer transition-all',
-                  recipientMode === 'ADVANCED'
-                    ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20 shadow-md'
-                    : 'border-base-c hover:border-indigo-300 hover:bg-slate-50 dark:hover:bg-ink-850'
-                )}
-              >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                      <Sliders className="h-5 w-5" />
-                    </div>
-                    <input
-                      type="radio"
-                      checked={recipientMode === 'ADVANCED'}
-                      onChange={() => setRecipientMode('ADVANCED')}
-                      className="h-4 w-4 text-indigo-600 border-base-c focus:ring-indigo-600/20"
-                    />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-primary-c">Advanced Rule Builder</h4>
-                    <p className="text-xs text-muted-c mt-1 leading-relaxed">
-                      Build dynamic audience rules using multi-attribute conditions.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 pt-3 border-t border-base-c/60 flex items-center justify-between text-xs text-secondary-c font-semibold">
-                  <span>Scope: Multi-Filter</span>
-                  <span className="text-amber-600 dark:text-amber-400">Enterprise</span>
-                </div>
-              </label>
-
-              <label
-                className={cx(
-                  'flex flex-col justify-between rounded-2xl border p-5 cursor-pointer transition-all',
                   recipientMode === 'MANUAL'
                     ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/40 ring-2 ring-indigo-500/20 shadow-md'
                     : 'border-base-c hover:border-indigo-300 hover:bg-slate-50 dark:hover:bg-ink-850'
@@ -845,13 +813,6 @@ export function CreateEmailCampaignView() {
             {/* Conditional Input 1: Tag Filters */}
             {recipientMode === 'TAGGED' && (
               <TagSegmentBuilder value={tagsFilter} onChange={setTagsFilter} />
-            )}
-
-            {/* Conditional Input: Advanced Filters */}
-            {recipientMode === 'ADVANCED' && (
-              <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <AdvancedSegmentBuilder filter={audienceFilter} onChange={setAudienceFilter} />
-              </div>
             )}
 
             {/* Conditional Input 2: Dynamic CSV & Filter Rule Builder Engine */}
@@ -1192,15 +1153,23 @@ export function CreateEmailCampaignView() {
 
                   <button
                     type="button"
-                    onClick={() => setCreationMode('ai')}
+                    onClick={() => {
+                      if (isPremium) {
+                        setCreationMode('ai');
+                      } else {
+                        navigate('/settings?tab=billing');
+                      }
+                    }}
                     className={cx(
                       'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
                       creationMode === 'ai'
                         ? 'bg-white text-emerald-700 shadow-sm dark:bg-ink-800 dark:text-emerald-400 border border-emerald-500/30'
-                        : 'text-muted-c hover:text-primary-c'
+                        : isPremium 
+                          ? 'text-muted-c hover:text-primary-c'
+                          : 'text-amber-500/70 hover:text-amber-600 bg-amber-50/50 dark:bg-amber-900/10'
                     )}
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-emerald-500" />
+                    {isPremium ? <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> : <Lock className="h-3.5 w-3.5 text-amber-500" />}
                     AI Writer PRO
                   </button>
 

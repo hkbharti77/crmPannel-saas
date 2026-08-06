@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cx } from '@/lib/types';
 import { Badge, Avatar } from '@/components/ui/primitives';
 import {
@@ -8,11 +8,33 @@ import {
   Mail, MessageSquare, Phone, ExternalLink, BookOpen,
   ChevronUp, ChevronDown, Settings, Tag as TagIcon, MessageCircle, Sliders,
   ArrowUp, ArrowDown, User, AtSign, CheckCircle2, RotateCcw, Save, Loader2, AlertCircle,
-  ArrowLeft, X, Send, Calendar
+  ArrowLeft, X, Send, Calendar, Sparkles, Wand2
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, StatPill } from './_shared';
 import { apiFetch } from '@/lib/api';
 import { fetchTickets, createTicket, type TicketDTO } from '@/lib/ticketsApi';
+
+/* ─── Persona Template Presets ─── */
+const PERSONA_TEMPLATES = [
+  {
+    label: '🏠 Real Estate Agent',
+    prompt: 'You are a professional and knowledgeable real estate assistant. Speak with authority about properties, pricing, amenities, and locations. Use a warm but professional tone. Always highlight key selling points and create a sense of urgency when appropriate.',
+  },
+  {
+    label: '💼 Business Consultant',
+    prompt: 'You are a polished business consultant. Be concise, data-driven, and solution-oriented. Use professional language and structure your responses clearly with actionable next steps.',
+  },
+  {
+    label: '🏥 Healthcare Guide',
+    prompt: 'You are a caring and empathetic healthcare support assistant. Speak in a reassuring tone. Always recommend consulting a medical professional for specific health concerns. Prioritize patient comfort and clarity.',
+  },
+  {
+    label: '🛒 E-Commerce Support',
+    prompt: 'You are a friendly and efficient e-commerce support assistant. Help customers with orders, returns, and product questions. Be upbeat, solution-focused, and always aim to resolve issues quickly.',
+  },
+];
+
+const MAX_PERSONA_CHARS = 4000;
 
 /* ─── Knowledge Base ─── */
 export function KnowledgeBasePanel() {
@@ -25,6 +47,57 @@ export function KnowledgeBasePanel() {
   const [autoReply, setAutoReply] = useState(true);
   const [fallbackHuman, setFallbackHuman] = useState(true);
 
+  // ── AI Persona State ──
+  const [personaPrompt, setPersonaPrompt] = useState('');
+  const [savedPersona, setSavedPersona] = useState('');
+  const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
+  const [personaLoading, setPersonaLoading] = useState(true);
+  const [personaSaving, setPersonaSaving] = useState(false);
+  const [personaToast, setPersonaToast] = useState<string | null>(null);
+  const [personaError, setPersonaError] = useState<string | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  const personaDirty = personaPrompt !== savedPersona;
+  const charCount = personaPrompt.length;
+  const charOverLimit = charCount > MAX_PERSONA_CHARS;
+
+  // ── Load Persona on Mount ──
+  useEffect(() => {
+    loadPersona();
+  }, []);
+
+  const loadPersona = async () => {
+    setPersonaLoading(true);
+    const res = await apiFetch<{ aiPersonaPrompt: string | null; aiPersonaUpdatedAt: string | null }>('/api/v1/settings/ai/persona');
+    if (res.data) {
+      const prompt = res.data.aiPersonaPrompt || '';
+      setPersonaPrompt(prompt);
+      setSavedPersona(prompt);
+      setPersonaUpdatedAt(res.data.aiPersonaUpdatedAt || null);
+    }
+    setPersonaLoading(false);
+  };
+
+  const savePersona = async () => {
+    if (charOverLimit) return;
+    setPersonaSaving(true);
+    setPersonaError(null);
+    const res = await apiFetch('/api/v1/settings/ai/persona', {
+      method: 'PUT',
+      body: JSON.stringify({ aiPersonaPrompt: personaPrompt }),
+    });
+    setPersonaSaving(false);
+    if (res.error) {
+      setPersonaError(res.error);
+      setTimeout(() => setPersonaError(null), 4000);
+    } else {
+      setSavedPersona(personaPrompt);
+      setPersonaUpdatedAt(res.data?.aiPersonaUpdatedAt || new Date().toISOString());
+      setPersonaToast('AI Persona saved successfully!');
+      setTimeout(() => setPersonaToast(null), 3000);
+    }
+  };
+
   const statusMeta: Record<string, { label: string; variant: 'success' | 'warning' }> = {
     trained: { label: 'Trained', variant: 'success' },
     processing: { label: 'Processing', variant: 'warning' },
@@ -32,6 +105,123 @@ export function KnowledgeBasePanel() {
 
   return (
     <div className="space-y-4">
+      {/* ─── AI Persona Section ─── */}
+      <SectionCard>
+        <PanelHeader title="AI Persona" desc="Customize the tone, style, and behavior of your AI assistant" icon={<Sparkles className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
+
+        {/* Toast / Error */}
+        {personaToast && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-3">
+            <CheckCircle2 className="h-4 w-4 shrink-0" /> {personaToast}
+          </div>
+        )}
+        {personaError && (
+          <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-xs font-medium text-rose-700 dark:text-rose-400 mb-3">
+            <AlertCircle className="h-4 w-4 shrink-0" /> {personaError}
+          </div>
+        )}
+
+        {personaLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-primary-600" />
+            <span className="ml-2 text-xs text-muted-c">Loading AI persona…</span>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Helpful info */}
+            <div className="rounded-xl border border-blue-200 bg-blue-50/50 dark:border-blue-800/50 dark:bg-blue-950/20 p-3.5">
+              <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                <strong>How it works:</strong> Your AI persona is layered <em>on top of</em> the base system prompt — it customizes tone and style but <strong>cannot override</strong> the core safety rules, RAG constraints, or factual grounding.
+              </p>
+            </div>
+
+            {/* Template Presets */}
+            <div>
+              <button
+                onClick={() => setShowTemplates(!showTemplates)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                {showTemplates ? 'Hide Templates' : 'Choose from Templates'}
+                {showTemplates ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+
+              {showTemplates && (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {PERSONA_TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      onClick={() => { setPersonaPrompt(t.prompt); setShowTemplates(false); }}
+                      className="rounded-xl border border-base-c bg-card-c p-3 text-left hover:border-primary-500/40 hover:bg-primary-50/30 dark:hover:bg-primary-950/20 transition-all"
+                    >
+                      <span className="text-xs font-bold text-primary-c">{t.label}</span>
+                      <p className="mt-1 text-[11px] text-muted-c line-clamp-2">{t.prompt}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Textarea */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-secondary-c">
+                System Persona Instructions
+              </label>
+              <textarea
+                value={personaPrompt}
+                onChange={(e) => setPersonaPrompt(e.target.value)}
+                rows={6}
+                placeholder="e.g. You are a professional and knowledgeable luxury real estate assistant for Luxe Estates. Speak with authority about properties, pricing, amenities, and locations. Use a warm but professional tone..."
+                className={cx(
+                  'w-full rounded-xl border bg-white p-3.5 text-xs text-primary-c leading-relaxed focus:outline-none transition-colors dark:bg-slate-950',
+                  charOverLimit
+                    ? 'border-rose-400 focus:border-rose-500'
+                    : 'border-base-c focus:border-primary-500'
+                )}
+              />
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-[11px] text-muted-c">
+                  {personaPrompt.trim() ? 'Custom persona active' : 'Using default system persona'}
+                </p>
+                <span className={cx(
+                  'text-[11px] font-medium tabular-nums',
+                  charOverLimit ? 'text-rose-500' : 'text-muted-c'
+                )}>
+                  {charCount.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Audit info */}
+            {personaUpdatedAt && (
+              <p className="text-[10px] text-muted-c">
+                Last updated: {new Date(personaUpdatedAt).toLocaleString()}
+              </p>
+            )}
+
+            {/* Save / Reset */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => { setPersonaPrompt(savedPersona); }}
+                disabled={!personaDirty}
+                className="flex items-center gap-1.5 rounded-xl border border-base-c bg-white px-4 py-2 text-xs font-semibold text-secondary-c hover:bg-slate-50 disabled:opacity-40 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              </button>
+              <button
+                onClick={savePersona}
+                disabled={!personaDirty || charOverLimit || personaSaving}
+                className="flex items-center gap-1.5 rounded-xl bg-gradient-accent px-5 py-2 text-xs font-bold text-white hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 transition-all shadow-sm"
+              >
+                {personaSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save Persona
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ─── Knowledge Base Section (unchanged) ─── */}
       <SectionCard>
         <PanelHeader title="Knowledge Base" desc="Upload documents to train your RAG bot" icon={<Brain className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
 
@@ -93,6 +283,7 @@ export function KnowledgeBasePanel() {
     </div>
   );
 }
+
 
 interface FlowFieldItem {
   key: string;

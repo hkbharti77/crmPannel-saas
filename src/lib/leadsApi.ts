@@ -75,11 +75,15 @@ export type PagedResponse<T> = {
 export async function fetchLeadsPaged(
   page = 0,
   size = 100,
-  status?: string
+  status?: string,
+  search?: string
 ): Promise<{ data: PagedLeadsResponse | null; error: string | null }> {
   let url = `/api/v1/leads/paged?page=${page}&size=${size}`;
   if (status) {
     url += `&status=${status}`;
+  }
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
   }
 
   const res = await apiFetch<PagedLeadsResponse>(url);
@@ -99,11 +103,34 @@ export async function fetchLeadById(
   return { data: res.data || null, error: null };
 }
 
+export async function fetchLeadsByContactId(contactId: string) {
+  try {
+    const res = await apiFetch<LeadDTO[]>(`/api/v1/leads/contact/${contactId}`);
+    return { data: res.data, error: res.error };
+  } catch (error: any) {
+    return { data: null, error: error.message };
+  }
+}
+
 export async function updateLeadStatus(
   leadId: string,
-  status: string
+  status: string,
+  dealValue?: number,
+  lostReason?: string,
+  paymentStatus?: string,
+  sendPaymentLink?: boolean,
+  paymentMethod?: string,
+  paymentLinkUrl?: string
 ): Promise<{ data: LeadDTO | null; error: string | null }> {
-  const res = await apiFetch<LeadDTO>(`/api/v1/leads/${leadId}/status?status=${status}`, {
+  let url = `/api/v1/leads/${leadId}/status?status=${status}`;
+  if (dealValue !== undefined) url += `&dealValue=${dealValue}`;
+  if (lostReason !== undefined) url += `&lostReason=${encodeURIComponent(lostReason)}`;
+  if (paymentStatus !== undefined) url += `&paymentStatus=${paymentStatus}`;
+  if (sendPaymentLink !== undefined) url += `&sendPaymentLink=${sendPaymentLink}`;
+  if (paymentMethod !== undefined) url += `&paymentMethod=${encodeURIComponent(paymentMethod)}`;
+  if (paymentLinkUrl !== undefined) url += `&paymentLinkUrl=${encodeURIComponent(paymentLinkUrl)}`;
+  
+  const res = await apiFetch<LeadDTO>(url, {
     method: 'PATCH',
   });
   if (res.error) {

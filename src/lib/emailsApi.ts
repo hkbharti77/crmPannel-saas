@@ -1,19 +1,7 @@
 import { apiFetch } from './api';
 
-export type RecipientMode = 'ALL' | 'TAGGED' | 'MANUAL' | 'LEAD_STATUS_BASED' | 'ADVANCED';
+export type RecipientMode = 'ALL' | 'TAGGED' | 'MANUAL' | 'LEAD_STATUS_BASED';
 export type EmailStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'PAUSED' | 'CANCELLED' | 'SENT' | 'FAILED' | 'COMPLETED';
-
-export type SegmentRuleDTO = {
-  field: string;
-  operator: string;
-  value: any;
-};
-
-export type AudienceFilterDTO = {
-  version?: number;
-  logicalOperator?: 'AND' | 'OR';
-  rules: SegmentRuleDTO[];
-};
 
 export type CustomEmailDTO = {
   id: string;
@@ -114,8 +102,21 @@ export async function saveEmailDraft(
 
 export async function generateAiEmailContent(
   prompt: string
-): Promise<{ data: { subject?: string; body?: string } | null; error: string | null }> {
-  const res = await apiFetch<{ subject?: string; body?: string; text?: string; content?: string }>('/api/v1/custom-emails/generate-ai', {
+): Promise<{ data: { subject?: string; htmlContent?: string; ctaLabel?: string; ctaUrl?: string } | null; error: string | null }> {
+  const res = await apiFetch<{ subject?: string; htmlContent?: string; ctaLabel?: string; ctaUrl?: string }>('/api/v1/custom-emails/ai/generate-content', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
+  });
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
+export async function generateAiEmailTemplate(
+  prompt: string
+): Promise<{ data: { subject?: string; html?: string; hasUnsubscribeLink?: boolean } | null; error: string | null }> {
+  const res = await apiFetch<{ subject?: string; html?: string; hasUnsubscribeLink?: boolean }>('/api/v1/custom-emails/ai/generate-template', {
     method: 'POST',
     body: JSON.stringify({ prompt }),
   });

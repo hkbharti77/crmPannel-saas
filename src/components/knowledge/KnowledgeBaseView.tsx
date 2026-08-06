@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { cx } from '@/lib/types';
 import {
   Brain, Upload, Trash2, Download, Check, AlertCircle, Loader2,
   FileText, Sparkles, Bot, RefreshCw, Layers, CheckCircle2, ShieldAlert, File, Info,
+  Wand2, Save, RotateCcw, HelpCircle, MessageSquare, Tag, Sliders, CheckCircle, Clock, User
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
@@ -17,18 +18,54 @@ interface RagDocumentDto {
   vectorModel: string;
 }
 
+interface PersonaDto {
+  aiPersonaPrompt: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+const PERSONA_TEMPLATES = [
+  {
+    label: '🏠 Real Estate Specialist',
+    prompt: 'You are a professional real estate assistant for GyanVaniAi Connect. Speak with authority regarding property listings, pricing, market trends, amenities, and scheduling site visits. Use a warm, persuasive, and professional tone. Highlight key selling points and encourage leads to book a property tour.',
+  },
+  {
+    label: '💼 Enterprise B2B Advisor',
+    prompt: 'You are an executive B2B enterprise consultant. Speak in a concise, data-driven, and consultative manner. Help business leaders understand ROI, feature capabilities, workflow automation, and custom integrations. Always offer clear next steps and meeting booking links.',
+  },
+  {
+    label: '🏥 Healthcare & Wellness Guide',
+    prompt: 'You are an empathetic healthcare and wellness assistant. Speak with reassurance, clarity, and care. Assist patients with service inquiries, booking consultations, and general operational information. Always include a disclaimer to consult a licensed medical professional for clinical guidance.',
+  },
+  {
+    label: '🛒 E-Commerce Support',
+    prompt: 'You are a friendly and energetic e-commerce support concierge. Help shoppers find products, answer shipping and return questions, provide discount codes, and track package deliveries with an upbeat, helpful attitude.',
+  },
+  {
+    label: '⚡ SaaS Technical Concierge',
+    prompt: 'You are a technical SaaS product advisor. Help users troubleshoot API keys, integration setup, webhooks, user permissions, and billing questions. Use clear step-by-step instructions and code snippets when helpful.',
+  },
+];
+
+const MAX_PERSONA_CHARS = 4000;
+
 export function KnowledgeBaseView() {
-  const [activeTab, setActiveTab] = useState<'rag' | 'faq'>('rag');
+  const [activeTab, setActiveTab] = useState<'persona' | 'rag' | 'faq'>('persona');
   const [documents, setDocuments] = useState<RagDocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [trainingText, setTrainingText] = useState('');
   const [training, setTraining] = useState(false);
 
-  // Bot Toggles State
-  const [botEnabled, setBotEnabled] = useState(true);
-  const [autoReply, setAutoReply] = useState(true);
-  const [humanFallback, setHumanFallback] = useState(true);
+  // ── AI Persona State ──
+  const [personaPrompt, setPersonaPrompt] = useState('');
+  const [savedPersona, setSavedPersona] = useState('');
+  const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
+  const [personaUpdatedBy, setPersonaUpdatedBy] = useState<string | null>(null);
+  const [personaLoading, setPersonaLoading] = useState(true);
+  const [personaSaving, setPersonaSaving] = useState(false);
+  const [personaToast, setPersonaToast] = useState<string | null>(null);
+  const [personaError, setPersonaError] = useState<string | null>(null);
 
   // Status & Notifications
   const [message, setMessage] = useState<string | null>(null);
@@ -38,30 +75,71 @@ export function KnowledgeBaseView() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    // Check subscription plan & load documents
-    Promise.all([
-      fetchSubscriptionStatus(),
-      loadDocuments(),
-    ]).then(([subRes]) => {
-      if (subRes.data) {
-        const isPaidPlan = subRes.data.planId === 'PRO' || subRes.data.planId === 'ENTERPRISE';
-        const hasFeature = subRes.data.limits?.hasRagLlm !== false;
-        if (isPaidPlan || hasFeature) {
-          setPlanLocked(false);
-        } else {
-          setPlanLocked(true);
-        }
-      }
-    });
+  // Load AI Persona from backend
+  const loadPersona = useCallback(async () => {
+    setPersonaLoading(true);
+    setPersonaError(null);
+    const res = await apiFetch<PersonaDto>(`/api/v1/settings/ai/persona?t=${Date.now()}`);
+    setPersonaLoading(false);
+    if (res.data) {
+      const val = res.data.aiPersonaPrompt || '';
+      setPersonaPrompt(val);
+      setSavedPersona(val);
+      setPersonaUpdatedAt(res.data.updatedAt || null);
+      setPersonaUpdatedBy(res.data.updatedBy || null);
+    } else if (res.error) {
+      setPersonaError(res.error);
+    }
   }, []);
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setLoading(true);
     const res = await apiFetch<RagDocumentDto[]>('/api/v1/rag/documents');
     setLoading(false);
     if (res.data) {
       setDocuments(res.data);
+    }
+  }, []);
+
+  useEffect(() => {
+    Promise.all([
+      fetchSubscriptionStatus(),
+      loadPersona(),
+      loadDocuments(),
+    ]).then(([subRes]) => {
+      if (subRes.data) {
+        const isPaidPlan = subRes.data.planId === 'PRO' || subRes.data.planId === 'ENTERPRISE';
+        const hasFeature = subRes.data.limits?.hasRagLlm !== false;
+        setPlanLocked(!(isPaidPlan || hasFeature));
+      }
+    });
+  }, [loadPersona, loadDocuments]);
+
+  // Save Persona Handler
+  const handleSavePersona = async () => {
+    if (personaPrompt.length > MAX_PERSONA_CHARS) {
+      setPersonaError(`Persona prompt exceeds maximum character limit of ${MAX_PERSONA_CHARS} characters.`);
+      return;
+    }
+
+    setPersonaSaving(true);
+    setPersonaError(null);
+    setPersonaToast(null);
+
+    const res = await apiFetch<PersonaDto>('/api/v1/settings/ai/persona', {
+      method: 'PUT',
+      body: JSON.stringify({ aiPersonaPrompt: personaPrompt }),
+    });
+
+    setPersonaSaving(false);
+    if (!res.error) {
+      setSavedPersona(personaPrompt);
+      setPersonaToast('AI Persona prompt saved successfully! Future AI responses will reflect this tone.');
+      if (res.data?.updatedAt) setPersonaUpdatedAt(res.data.updatedAt);
+      if (res.data?.updatedBy) setPersonaUpdatedBy(res.data.updatedBy);
+      setTimeout(() => setPersonaToast(null), 4000);
+    } else {
+      setPersonaError(res.error);
     }
   };
 
@@ -108,39 +186,11 @@ export function KnowledgeBaseView() {
     }
   };
 
-  const handleTextTraining = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trainingText.trim()) return;
-
-    setTraining(true);
-    setMessage(null);
-    setError(null);
-
-    const res = await apiFetch('/api/v1/knowledge-base/train', {
-      method: 'POST',
-      body: JSON.stringify({ content: trainingText.trim() }),
-    });
-
-    setTraining(false);
-    if (!res.error) {
-      setMessage('Text knowledge trained successfully in background vector database!');
-      setTrainingText('');
-      loadDocuments();
-      setTimeout(() => setMessage(null), 4000);
-    } else {
-      setError(`Training failed: ${res.error}`);
-    }
-  };
-
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     docId: string;
     docName: string;
   }>({ isOpen: false, docId: '', docName: '' });
-
-  const handleDeleteDocument = (docId: string, docName: string) => {
-    setDeleteModal({ isOpen: true, docId, docName });
-  };
 
   const confirmDeleteDocument = async () => {
     const { docId, docName } = deleteModal;
@@ -165,288 +215,353 @@ export function KnowledgeBaseView() {
     window.open(`http://localhost:8080/api/v1/rag/documents/${docId}/download?access_token=${token}`, '_blank');
   };
 
+  const personaDirty = personaPrompt !== savedPersona;
+  const charsRemaining = MAX_PERSONA_CHARS - personaPrompt.length;
+
   return (
-    <div className="mx-auto max-w-5xl p-4 lg:p-6 space-y-6">
-      {/* Header Title */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-base-c pb-4">
+    <div className="mx-auto max-w-6xl p-4 lg:p-8 space-y-6">
+      {/* Top Page Header */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-primary-c">Knowledge Base</h2>
-            <span className="rounded-full bg-primary-500/15 border border-primary-500/30 px-2.5 py-0.5 text-[10px] font-bold text-primary-600 dark:text-primary-400">
-              RAG AI Engine (Quantized MiniLM)
+            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              AI Persona &amp; Knowledge Base
+            </h1>
+            <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 px-2.5 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+              Enterprise RAG Engine
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-secondary-c">
-            Upload company policy documents & FAQs to train your custom RAG AI Bot for automated customer inquiry responses.
+          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Define your dynamic tenant AI persona, upload vector PDF policy documents, and manage instant FAQ knowledge.
           </p>
         </div>
 
-        <button
-          onClick={loadDocuments}
-          className="flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c px-3 py-2 text-xs font-semibold text-secondary-c hover:text-primary-c"
-        >
-          <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} />
-          <span>Refresh Vectors</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => { loadPersona(); loadDocuments(); }}
+            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs"
+          >
+            <RefreshCw className={cx('h-3.5 w-3.5 text-slate-400', (loading || personaLoading) && 'animate-spin')} />
+            Refresh
+          </button>
+        </div>
       </div>
 
-      {/* Sub-Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-base-c pb-3">
+      {/* Enterprise Tab Bar */}
+      <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/60 p-1.5 shadow-xs">
         <button
-          onClick={() => setActiveTab('rag')}
+          onClick={() => setActiveTab('persona')}
           className={cx(
-            'flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all',
-            activeTab === 'rag'
-              ? 'bg-primary-500 text-white shadow-sm'
-              : 'border border-base-c bg-card-c text-muted-c hover:text-primary-c'
+            'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
+            activeTab === 'persona'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
           )}
         >
           <Brain className="h-4 w-4" />
-          <span>RAG Knowledge Documents</span>
+          AI Persona &amp; Tone Rules
         </button>
+
+        <button
+          onClick={() => setActiveTab('rag')}
+          className={cx(
+            'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
+            activeTab === 'rag'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+          )}
+        >
+          <FileText className="h-4 w-4" />
+          Document Embeddings (RAG)
+          <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-extrabold', activeTab === 'rag' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300')}>
+            {documents.length}
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab('faq')}
           className={cx(
-            'flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition-all',
+            'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
             activeTab === 'faq'
-              ? 'bg-primary-500 text-white shadow-sm'
-              : 'border border-base-c bg-card-c text-muted-c hover:text-primary-c'
+              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
           )}
         >
-          <Sparkles className="h-4 w-4 text-amber-400" />
-          <span>High-Confidence FAQ Engine (85% Match)</span>
+          <HelpCircle className="h-4 w-4" />
+          FAQ Knowledge Base
         </button>
       </div>
-
-      {activeTab === 'faq' ? (
-        <FaqManagementView />
-      ) : (
-        <>
-
-      {planLocked && (
-        <div className="rounded-xl2 border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Info className="h-4 w-4 shrink-0 text-amber-500" />
-            <span>Custom RAG LLM Bot Training requires a <strong>PRO</strong> or <strong>ENTERPRISE</strong> plan. Upgrade your plan to activate full AI responses.</span>
-          </div>
-          <button
-            onClick={() => window.location.hash = '#billing'}
-            className="rounded-lg bg-gradient-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm shrink-0"
-          >
-            Upgrade Plan
-          </button>
-        </div>
-      )}
-
-      {message && (
-        <div className="flex items-center gap-2 rounded-xl border border-success-500/20 bg-success-500/10 p-3 text-xs text-success-600 dark:text-success-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
-          <span>{message}</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{error}</span>
-        </div>
-      )}
-
-      {/* Bot Automation Toggles Card */}
-      <div className="rounded-xl2 border border-base-c bg-card-c p-5 space-y-4 shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-400">
-            <Bot className="h-5 w-5" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-primary-c">AI Bot Control & Auto-Reply Rules</h3>
-            <p className="text-xs text-secondary-c">Configure automated AI response behaviors on live WhatsApp messages.</p>
-          </div>
-        </div>
-
-        <div className="divide-y divide-base-c">
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <p className="text-xs font-bold text-primary-c">Enable AI Bot</p>
-              <p className="text-[11px] text-muted-c">Let the RAG bot answer incoming lead questions automatically.</p>
+      {activeTab === 'persona' && (
+        <div className="space-y-5 animate-fade-in">
+          {personaToast && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{personaToast}</span>
             </div>
-            <input
-              type="checkbox"
-              checked={botEnabled}
-              onChange={(e) => setBotEnabled(e.target.checked)}
-              className="h-5 w-10 rounded-full bg-slate-200 accent-primary-600 cursor-pointer"
-            />
-          </div>
-
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <p className="text-xs font-bold text-primary-c">Auto-Reply on WhatsApp</p>
-              <p className="text-[11px] text-muted-c">Bot replies instantly when a customer sends a message.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={autoReply}
-              onChange={(e) => setAutoReply(e.target.checked)}
-              className="h-5 w-10 rounded-full bg-slate-200 accent-primary-600 cursor-pointer"
-            />
-          </div>
-
-          <div className="flex items-center justify-between py-3">
-            <div>
-              <p className="text-xs font-bold text-primary-c">Fallback to Human Agent</p>
-              <p className="text-[11px] text-muted-c">Hand off to a live agent when the AI confidence score is below threshold.</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={humanFallback}
-              onChange={(e) => setHumanFallback(e.target.checked)}
-              className="h-5 w-10 rounded-full bg-slate-200 accent-primary-600 cursor-pointer"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Drag & Drop Document Ingestion Card */}
-      <div className="rounded-xl2 border border-base-c bg-card-c p-5 space-y-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-primary-c">Document Ingestion (RAG Vector Training)</h3>
-          <span className="text-xs text-muted-c">PDF, DOCX, TXT, XLSX — max 10MB</span>
-        </div>
-
-        <div
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            if (e.dataTransfer.files?.[0]) {
-              handleFileUpload(e.dataTransfer.files[0]);
-            }
-          }}
-          onClick={() => fileInputRef.current?.click()}
-          className={cx(
-            'flex flex-col items-center justify-center rounded-xl2 border-2 border-dashed p-8 text-center cursor-pointer transition-all',
-            dragOver
-              ? 'border-primary-500 bg-primary-500/10'
-              : 'border-base-c bg-slate-50/50 dark:bg-ink-850/50 hover:border-primary-500/50 hover:bg-card-c',
           )}
-        >
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={(e) => {
-              if (e.target.files?.[0]) handleFileUpload(e.target.files[0]);
-            }}
-            accept=".pdf,.docx,.txt,.xlsx"
-            className="hidden"
-          />
 
-          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-primary-500/10 text-primary-600 dark:text-primary-400 mb-3">
-            {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
-          </div>
+          {personaError && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-xs font-semibold text-rose-700 dark:text-rose-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{personaError}</span>
+            </div>
+          )}
 
-          <p className="text-xs font-bold text-primary-c">
-            {uploading ? 'Processing & Ingesting Vectors...' : 'Drop documents here or click to upload'}
-          </p>
-          <p className="mt-1 text-[11px] text-muted-c">
-            Supported formats: PDF, DOCX, TXT, XLSX (max 10MB each)
-          </p>
-        </div>
-      </div>
-
-      {/* Manual Text Training Box */}
-      <div className="rounded-xl2 border border-base-c bg-card-c p-5 space-y-3 shadow-sm">
-        <h3 className="text-base font-bold text-primary-c">Quick Text Knowledge Trainer</h3>
-        <p className="text-xs text-secondary-c">Paste raw text, product details, FAQs, or policies directly to train the AI instantly.</p>
-
-        <form onSubmit={handleTextTraining} className="space-y-3">
-          <textarea
-            rows={4}
-            value={trainingText}
-            onChange={(e) => setTrainingText(e.target.value)}
-            placeholder="e.g. Our business working hours are Mon-Fri 9 AM to 6 PM. Refund policy allows 30-day money back guarantee..."
-            className="w-full rounded-xl2 border border-base-c bg-card-c p-3 text-xs text-primary-c focus:border-primary-500/50 focus:outline-none scrollbar-thin"
-          />
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={training || !trainingText.trim()}
-              className="flex items-center gap-2 rounded-xl bg-gradient-accent px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 disabled:opacity-50"
-            >
-              {training ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              <span>Train AI with Text</span>
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Ingested Documents List Table */}
-      <div className="rounded-xl2 border border-base-c bg-card-c p-5 space-y-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-primary-500" />
-            <h3 className="text-base font-bold text-primary-c">Ingested Vector Documents</h3>
-          </div>
-          <span className="rounded-full bg-slate-100 dark:bg-ink-800 px-2.5 py-0.5 text-xs font-bold text-secondary-c">
-            {documents.length} Files Ingested
-          </span>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-primary-500" />
-          </div>
-        ) : documents.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-base-c p-8 text-center text-xs text-muted-c">
-            No documents ingested yet. Upload PDF/DOCX/TXT files above to build your RAG knowledge base.
-          </div>
-        ) : (
-          <div className="divide-y divide-base-c border border-base-c rounded-xl overflow-hidden">
-            {documents.map((doc) => (
-              <div key={doc.documentId} className="flex items-center justify-between p-3.5 hover:bg-slate-50/50 dark:hover:bg-ink-850/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-9 w-9 place-items-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400">
-                    <FileText className="h-4 w-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-primary-c">{doc.name}</h4>
-                    <p className="text-[10px] font-mono text-muted-c">
-                      {doc.totalChunks} Chunks • Vector Dim: {doc.embeddingSize}d • Model: {doc.vectorModel}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleDownloadDocument(doc.documentId)}
-                    title="Download extracted text chunks"
-                    className="grid h-8 w-8 place-items-center rounded-lg border border-base-c text-muted-c hover:text-primary-c hover:bg-card-c"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                  </button>
-
-                  <button
-                    onClick={() => handleDeleteDocument(doc.documentId, doc.name)}
-                    title="Delete document"
-                    className="grid h-8 w-8 place-items-center rounded-lg border border-rose-500/30 text-rose-500 hover:bg-rose-500/10"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+          {/* Architecture Banner */}
+          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 dark:border-indigo-950/60 dark:bg-indigo-950/30 p-4">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-xs">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-200">
+                  Layered Enterprise System Prompt Architecture
+                </h3>
+                <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 leading-relaxed">
+                  Your core AI behavior follows strict safety guidelines. The tenant persona below instructs the AI on brand voice, specific business policies, tone, and greetings while preserving strict system rules.
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
+                  <span className="rounded-md bg-white/80 dark:bg-indigo-900/80 px-2 py-0.5 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">1. Base Safety System Prompt</span>
+                  <span className="text-indigo-400">→</span>
+                  <span className="rounded-md bg-purple-600 text-white px-2 py-0.5 shadow-xs">2. Tenant Persona (Custom Below)</span>
+                  <span className="text-indigo-400">→</span>
+                  <span className="rounded-md bg-white/80 dark:bg-indigo-900/80 px-2 py-0.5 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">3. RAG Knowledge Embeddings</span>
+                  <span className="text-indigo-400">→</span>
+                  <span className="rounded-md bg-white/80 dark:bg-indigo-900/80 px-2 py-0.5 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">4. User Query</span>
                 </div>
               </div>
-            ))}
+            </div>
           </div>
-        )}
-      </div>
-      </>
+
+          {/* Persona Editor Card */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Wand2 className="h-4 w-4 text-purple-600" />
+                  Custom AI Brand Persona &amp; Tone Instructions
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Write detailed instructions defining how the AI should introduce itself, answer questions, and handle leads.
+                </p>
+              </div>
+
+              {/* Industry Preset Selector Button */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-500">Presets:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {PERSONA_TEMPLATES.map((tmpl, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setPersonaPrompt(tmpl.prompt)}
+                      className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-all"
+                      title="Apply preset prompt"
+                    >
+                      {tmpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Textarea */}
+            <div className="relative">
+              {personaLoading ? (
+                <div className="flex items-center justify-center py-16 border border-slate-200 rounded-xl bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+                  <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+                  <span className="ml-2 text-xs text-slate-500">Loading AI Persona configuration...</span>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    rows={8}
+                    value={personaPrompt}
+                    onChange={(e) => setPersonaPrompt(e.target.value)}
+                    placeholder="e.g. You are a knowledgeable assistant for GyanVaniAi Connect. Always maintain a warm, helpful, and professional tone. Highlight pricing details and urge leads to schedule a live product demo..."
+                    className="w-full rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 text-xs text-slate-800 focus:border-purple-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-purple-400 font-mono leading-relaxed"
+                  />
+                  <div className="mt-2 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-3 text-slate-400">
+                      {personaUpdatedAt && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" /> Updated: {new Date(personaUpdatedAt).toLocaleString()}
+                        </span>
+                      )}
+                      {personaUpdatedBy && (
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" /> By User #{personaUpdatedBy}
+                        </span>
+                      )}
+                    </div>
+                    <span className={cx('font-semibold tabular-nums', charsRemaining < 200 ? 'text-amber-600 font-bold' : 'text-slate-400')}>
+                      {charsRemaining.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()} chars remaining
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Action Bar */}
+            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
+              <button
+                onClick={() => setPersonaPrompt(savedPersona)}
+                disabled={!personaDirty || personaSaving}
+                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 disabled:opacity-40 transition-all"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Revert Changes
+              </button>
+
+              <button
+                onClick={handleSavePersona}
+                disabled={!personaDirty || personaSaving || charsRemaining < 0}
+                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-indigo-700 hover:to-purple-700 disabled:opacity-40 transition-all"
+              >
+                {personaSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Save Persona Configuration
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Confirm Modal */}
+      {/* ── TAB 2: DOCUMENT EMBEDDINGS (RAG) ── */}
+      {activeTab === 'rag' && (
+        <div className="space-y-5 animate-fade-in">
+          {message && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{message}</span>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-xs font-semibold text-rose-700 dark:text-rose-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Upload Drop Zone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0]);
+            }}
+            className={cx(
+              'flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all',
+              dragOver
+                ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30'
+                : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900'
+            )}
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+              accept=".pdf,.txt,.docx,.csv,.md"
+              className="hidden"
+            />
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+              {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
+            </div>
+            <h3 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
+              {uploading ? 'Processing document embeddings…' : 'Upload Vector Knowledge Document'}
+            </h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-md">
+              Drag &amp; drop PDF, DOCX, TXT, or CSV files (max 10MB). Text is parsed into vector chunks automatically.
+            </p>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50"
+            >
+              Browse Local File
+            </button>
+          </div>
+
+          {/* RAG Documents Table */}
+          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                Trained Vector Embeddings ({documents.length})
+              </h3>
+              <span className="text-[11px] font-semibold text-slate-400">Model: Quantized MiniLM-L6-v2</span>
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                <span className="ml-2 text-xs text-slate-500">Fetching document list...</span>
+              </div>
+            ) : documents.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-500">
+                No vector documents uploaded yet. Upload a PDF or TXT file above.
+              </div>
+            ) : (
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-200/80 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/40 text-[11px] font-bold text-slate-500">
+                      <th className="px-4 py-3">Document Name</th>
+                      <th className="px-4 py-3">Vector Chunks</th>
+                      <th className="px-4 py-3">Embedding Dim</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {documents.map((doc) => (
+                      <tr key={doc.documentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                        <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
+                          {doc.name}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-300">
+                          {doc.totalChunks} chunks
+                        </td>
+                        <td className="px-4 py-3 font-mono text-slate-500">
+                          {doc.embeddingSize || 384} float32
+                        </td>
+                        <td className="px-4 py-3 text-right space-x-2">
+                          <button
+                            onClick={() => handleDownloadDocument(doc.documentId)}
+                            className="p-1 text-slate-400 hover:text-indigo-600"
+                            title="Download document"
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteModal({ isOpen: true, docId: doc.documentId, docName: doc.name })}
+                            className="p-1 text-slate-400 hover:text-rose-600"
+                            title="Delete vector document"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 3: FAQ KNOWLEDGE BASE ── */}
+      {activeTab === 'faq' && (
+        <div className="pt-2 animate-fade-in">
+          <FaqManagementView />
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={deleteModal.isOpen}
-        title="Delete RAG Document"
-        message={`Are you sure you want to delete "${deleteModal.docName}" from AI Knowledge Base? Vectors will be unindexed.`}
+        title="Delete Vector Document"
+        message={`Are you sure you want to remove "${deleteModal.docName}" from your RAG vector database?`}
         confirmText="Delete Document"
         variant="danger"
         onConfirm={confirmDeleteDocument}

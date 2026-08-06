@@ -78,6 +78,16 @@ export async function createAppointment(
   });
 }
 
+export async function fetchAppointmentsByContactId(
+  contactId: string
+): Promise<{ data: AppointmentDto[]; error: string | null }> {
+  const res = await apiFetch<AppointmentDto[]>(`/api/v1/appointments/contact/${contactId}`);
+  if (res.error) {
+    return { data: [], error: res.error };
+  }
+  return { data: res.data || [], error: null };
+}
+
 export async function completeAppointment(
   id: string
 ): Promise<{ data: AppointmentDto | null; error: string | null }> {

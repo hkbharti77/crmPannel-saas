@@ -130,6 +130,7 @@ export default function CreateBroadcastView() {
     appliedFilters: { column: string; operator: string; value: string }[];
     filteredCount: number;
   } | null>(null);
+  const [saveImportedRecipients, setSaveImportedRecipients] = useState(false);
 
   // Fallback to default preset templates if templates array is empty
   const activeTemplates = useMemo(() => {
@@ -213,6 +214,7 @@ export default function CreateBroadcastView() {
       targetType: payload.targetType || 'ALL_CONTACTS',
       targetFilterJson: payload.targetFilterJson,
       variableMappingJson: payload.variableMappingJson,
+      saveImportedRecipients: targetType === 'CSV_EXCEL_UPLOAD' ? saveImportedRecipients : undefined,
     });
 
     if (createRes.data) {
@@ -460,27 +462,47 @@ export default function CreateBroadcastView() {
 
                   {/* CSV Upload Complete Summary */}
                   {targetType === 'CSV_EXCEL_UPLOAD' && csvUploadData && (
-                    <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
-                           <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 p-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                             <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
+                              {csvUploadData.filteredCount} recipients ready
+                            </p>
+                            <p className="text-xs font-medium text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
+                              Phone column: {csvUploadData.phoneColumn}
+                              {csvUploadData.appliedFilters.length > 0 && ` • ${csvUploadData.appliedFilters.length} filter(s)`}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">
-                            {csvUploadData.filteredCount} recipients ready
-                          </p>
-                          <p className="text-xs font-medium text-emerald-600/80 dark:text-emerald-400/80 mt-0.5">
-                            Phone column: {csvUploadData.phoneColumn}
-                            {csvUploadData.appliedFilters.length > 0 && ` • ${csvUploadData.appliedFilters.length} filter(s)`}
-                          </p>
-                        </div>
+                        <button
+                          onClick={() => setCsvUploadData(null)}
+                          className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 transition-colors border border-emerald-200"
+                        >
+                          Re-upload
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setCsvUploadData(null)}
-                        className="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 transition-colors border border-emerald-200"
-                      >
-                        Re-upload
-                      </button>
+
+                      {/* Save to CRM Toggle */}
+                      <label className="flex items-start gap-3 cursor-pointer rounded-xl border border-base-c bg-subtle-c p-4 transition-all hover:bg-card-c">
+                        <div className="mt-0.5 flex items-center h-5">
+                          <input
+                            type="checkbox"
+                            checked={saveImportedRecipients}
+                            onChange={(e) => setSaveImportedRecipients(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-primary-c">Save recipients as Contacts in CRM</p>
+                          <p className="text-xs text-secondary-c mt-1 leading-relaxed">
+                            If checked, recipients will be saved to your CRM. If they already exist, we won't overwrite their existing name or email. If unchecked, they will receive the broadcast but won't clutter your Contacts list.
+                          </p>
+                        </div>
+                      </label>
                     </div>
                   )}
                 </div>

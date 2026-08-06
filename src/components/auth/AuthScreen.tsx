@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
+import { getStoredUser } from '@/lib/api';
 import { cx } from '@/lib/types';
 import {
   Mail, KeyRound, User, ArrowRight, Sun, Moon,
@@ -10,7 +12,8 @@ import {
 type Mode = 'login' | 'signup';
 
 export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
-  const { requestOtp, verifyOtp } = useAuth();
+  const navigate = useNavigate();
+  const { user, requestOtp, verifyOtp } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [mode, setMode] = useState<Mode>(initialMode);
   const [step, setStep] = useState<1 | 2>(1); // 1 = Enter Email, 2 = Enter OTP
@@ -21,6 +24,48 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   const [error, setError] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendTimer, setResendTimer] = useState<number>(0);
+
+  useEffect(() => {
+    const storedTime = localStorage.getItem('otpResendAvailableAt');
+    if (storedTime) {
+      const remaining = Math.floor((parseInt(storedTime, 10) - Date.now()) / 1000);
+      if (remaining > 0) {
+        setResendTimer(remaining);
+      } else {
+        localStorage.removeItem('otpResendAvailableAt');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer((prev) => {
+          if (prev <= 1) {
+            localStorage.removeItem('otpResendAvailableAt');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendTimer]);
+
+  const startResendTimer = () => {
+    const expiresAt = Date.now() + 60 * 1000;
+    localStorage.setItem('otpResendAvailableAt', expiresAt.toString());
+    setResendTimer(60);
+  };
+
+  useEffect(() => {
+    if (user) {
+      const isSuper = user.isSuperAdmin || user.role === 'SUPER_ADMIN';
+      navigate(isSuper ? '/admin' : '/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
 
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +91,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
     } else {
       setStep(2);
       setInfoMessage(message || 'A 6-digit verification code has been sent to your email.');
+      startResendTimer();
     }
   };
 
@@ -59,11 +105,18 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
     }
 
     setLoading(true);
+    setInfoMessage('Verifying code & preparing session...');
     const { error } = await verifyOtp(email, otp, mode === 'signup' ? name : undefined, mode === 'signup' ? businessName : undefined);
-    setLoading(false);
 
     if (error) {
+      setLoading(false);
+      setInfoMessage(null);
       setError(error);
+    } else {
+      setInfoMessage('Verification successful! Redirecting to dashboard...');
+      const storedUser = getStoredUser();
+      const isSuper = storedUser?.isSuperAdmin || storedUser?.role === 'SUPER_ADMIN' || user?.isSuperAdmin || user?.role === 'SUPER_ADMIN';
+      navigate(isSuper ? '/admin' : '/dashboard', { replace: true });
     }
   };
 
@@ -78,6 +131,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
       setError(error);
     } else {
       setInfoMessage(message || 'A new verification code has been sent to your email.');
+      startResendTimer();
     }
   };
 
@@ -349,10 +403,11 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  disabled={loading}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-secondary-c hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
+                  disabled={loading || resendTimer > 0}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-secondary-c hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <RefreshCw className="h-3.5 w-3.5" /> Resend Code
+                  <RefreshCw className={cx("h-3.5 w-3.5", loading ? "animate-spin" : "")} /> 
+                  {resendTimer > 0 ? `Resend Code in ${resendTimer}s` : 'Resend Code'}
                 </button>
               </div>
             </form>

@@ -6,7 +6,7 @@ import {
   Paintbrush, Moon, Bell,
   Plug, Mail, LayoutList, ShoppingBag, FormInput, ListTree,
   MessageSquare, MousePointerClick,
-  HelpCircle, Zap, LifeBuoy, ChevronRight, SlidersHorizontal,
+  HelpCircle, Zap, LifeBuoy, ChevronRight, SlidersHorizontal, Brain,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';

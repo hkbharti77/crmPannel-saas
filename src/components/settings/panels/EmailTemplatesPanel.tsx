@@ -389,7 +389,7 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
     }
     if (promptOverride) setAiPrompt(promptOverride);
     setAiLoading(true);
-    const res = await generateAiEmailContent(targetPrompt);
+    const res = await generateAiEmailTemplate(targetPrompt);
     setAiLoading(false);
 
     if (res.error) {
@@ -398,42 +398,9 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
     }
 
     if (res.data) {
-      let generatedBody = res.data.body || (res.data as any).text || (res.data as any).content || '';
+      const generatedBody = res.data.html || '';
       if (res.data.subject) {
         setForm((prev) => ({ ...prev, subject: res.data.subject! }));
-      }
-
-      const trimmed = generatedBody.trim();
-      if (!trimmed.startsWith('<!DOCTYPE html>') && !trimmed.startsWith('<html')) {
-        generatedBody = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 32px 16px; color: #1e293b; }
-    .card { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; }
-    .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 36px 32px; text-align: center; color: #ffffff; }
-    .header h1 { margin: 0; font-size: 22px; font-weight: 800; }
-    .body { padding: 32px; font-size: 15px; line-height: 1.6; color: #334155; }
-    .cta-box { text-align: center; margin: 32px 0; }
-    .btn { background-color: #2563eb; color: #ffffff !important; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 700; display: inline-block; }
-    .footer { background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="header">
-      <h1>${res.data.subject || 'Exclusive Offer'}</h1>
-    </div>
-    <div class="body">
-      ${generatedBody}
-    </div>
-    <div class="footer">
-      <p>&copy; {{current_date}} {{business.name}}. All rights reserved.</p>
-    </div>
-  </div>
-</body>
-</html>`;
       }
 
       setForm((prev) => ({ ...prev, content: generatedBody }));

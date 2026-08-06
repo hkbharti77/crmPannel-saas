@@ -17,6 +17,8 @@ import {
   Bot,
   Sparkles,
 } from 'lucide-react';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { useRef } from 'react';
 
 const SOURCE_ICONS: Record<string, typeof Phone> = {
   WhatsApp: MessageSquare,
@@ -129,6 +131,8 @@ export function KanbanColumn({
   isDragOver,
   onDragOver,
   onDragLeave,
+  draggedLeadId,
+  onDragStart,
 }: {
   stage: string;
   title: string;
@@ -141,6 +145,8 @@ export function KanbanColumn({
   isDragOver: boolean;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
+  draggedLeadId?: string | null;
+  onDragStart?: (leadId: string | null) => void;
 }) {
   const totalValue = leads.reduce((s, l) => {
     const v = l.value || '';
@@ -149,6 +155,15 @@ export function KanbanColumn({
     const num = parseFloat(v.replace(/[^0-9.]/g, ''));
     return s + (isNaN(num) ? 0 : num);
   }, 0);
+
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: leads.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 150, // Approximate height of a LeadCard + margin
+    overscan: 5,
+  });
 
   return (
     <div
@@ -183,16 +198,50 @@ export function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 space-y-2.5 overflow-y-auto p-2.5 scrollbar-thin" style={{ minHeight: '120px' }}>
+      <div 
+        ref={parentRef}
+        className="flex-1 overflow-y-auto p-2.5 scrollbar-thin" 
+        style={{ minHeight: '120px' }}
+      >
         {leads.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <ArrowRight className="h-6 w-6 text-muted-c/30" />
             <p className="mt-2 text-[11px] text-muted-c">Drop leads here</p>
           </div>
         ) : (
-          leads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onOpen={() => onOpenLead(lead)} />
-          ))
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const lead = leads[virtualRow.index];
+              return (
+                <div
+                  key={lead.id}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                    paddingBottom: '10px' // Spacer between cards
+                  }}
+                >
+                  <LeadCard 
+                    lead={lead} 
+                    onOpen={() => onOpenLead(lead)} 
+                    isDragging={draggedLeadId === lead.id}
+                    onDragStart={() => onDragStart?.(lead.id)}
+                    onDragEnd={() => onDragStart?.(null)}
+                  />
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

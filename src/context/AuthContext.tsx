@@ -22,6 +22,7 @@ export type AuthUser = {
   role?: string;
   isSuperAdmin?: boolean;
   onboardingCompleted?: boolean;
+  planType?: string;
   user_metadata?: {
     name?: string;
   };
@@ -72,6 +73,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(storedToken);
       setUser(updatedUser);
       setTenantId(storedTenant);
+
+      // Silently fetch latest profile in background to update planType and other volatile fields
+      apiFetch('/api/v1/users/me').then(res => {
+        if (!res.error && res.data) {
+          const freshData = res.data;
+          const freshUser = {
+            ...updatedUser,
+            planType: freshData.planType || 'FREE',
+            role: freshData.role || updatedUser.role,
+            businessName: freshData.businessName || updatedUser.businessName,
+          };
+          setUser(freshUser);
+          setAuthSession({ token: storedToken, tenantId: storedTenant, user: freshUser });
+        }
+      });
     } else {
       clearAuthSession();
       setToken(null);
@@ -138,15 +154,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = res.data;
     const role = data.role || 'OWNER';
     const isSuper = checkIsSuper(role, data.email || email);
+    const resolvedTenantId = data.tenantId || data.userId;
 
     const newUser: AuthUser = {
       id: data.userId || 'user-' + Date.now(),
       email: data.email || email,
-      tenantId: data.tenantId,
+      tenantId: resolvedTenantId,
       businessName: data.businessName || businessName || 'My Business',
       role: isSuper ? 'SUPER_ADMIN' : role,
       isSuperAdmin: isSuper,
       onboardingCompleted: data.onboardingCompleted ?? false,
+      planType: data.planType || 'FREE',
       user_metadata: {
         name: data.displayName || displayName || data.businessName || email.split('@')[0],
       },
@@ -154,13 +172,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const sessionData = {
       token: data.token,
-      tenantId: data.tenantId,
+      tenantId: resolvedTenantId,
       user: newUser,
     };
 
     setAuthSession(sessionData);
     setToken(data.token);
-    setTenantId(data.tenantId || null);
+    setTenantId(resolvedTenantId || null);
     setUser(newUser);
 
     return { error: null };
