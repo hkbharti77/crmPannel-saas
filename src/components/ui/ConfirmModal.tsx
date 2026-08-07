@@ -1,4 +1,5 @@
 import React from 'react';
+import { Modal } from './Modal';
 import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { cx } from '@/lib/types';
 
@@ -25,10 +26,8 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={onCancel}>
+    <Modal isOpen={isOpen} onClose={onCancel}>
       <div
         className="w-full max-w-md rounded-2xl border border-base-c bg-card-c p-6 shadow-2xl animate-scale-up space-y-4"
         onClick={(e) => e.stopPropagation()}
@@ -81,6 +80,6 @@ export function ConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

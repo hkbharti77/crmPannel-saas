@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import { Badge, Avatar } from '@/components/ui/primitives';
 import {
@@ -1086,9 +1087,9 @@ export function NeedHelpPanel() {
       </SectionCard>
 
       {/* New Ticket Modal */}
-      {showModal && (
+      {showModal && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm animate-fade-in"
           onClick={() => setShowModal(false)}
         >
           <div
@@ -1153,7 +1154,8 @@ export function NeedHelpPanel() {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

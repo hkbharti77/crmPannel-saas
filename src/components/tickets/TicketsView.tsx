@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { TicketStatus, TicketPriority } from '@/lib/types';
@@ -565,8 +566,8 @@ function CreateTicketModal({
     });
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
       <div
         className="w-full max-w-lg rounded-t-xl2 border border-base-c bg-card-c p-5 shadow-soft-lg animate-slide-up sm:rounded-xl2"
         onClick={(e) => e.stopPropagation()}
@@ -687,6 +688,7 @@ function CreateTicketModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

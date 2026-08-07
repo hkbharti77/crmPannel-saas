@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import {
   Plug, Check, Copy, AlertCircle, CheckCircle2,
@@ -547,8 +548,8 @@ export function MetaConfigView() {
       )}
 
       {/* Meta Terms & Conditions Modal (Required by Meta Rules before FB Login) */}
-      {showTermsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowTermsModal(false)}>
+      {showTermsModal && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowTermsModal(false)}>
           <div
             className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-xl2 border border-base-c bg-card-c shadow-2xl animate-slide-up overflow-hidden"
             onClick={(e) => e.stopPropagation()}
@@ -619,7 +620,8 @@ export function MetaConfigView() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Disconnect Confirmation Modal */}

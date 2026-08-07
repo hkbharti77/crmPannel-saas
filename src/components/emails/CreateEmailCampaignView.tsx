@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import {
@@ -1742,8 +1743,8 @@ function SentConfirmation({
   recipientCount: string;
   onClose: () => void;
 }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md" onClick={onClose}>
       <div
         className="w-full max-w-md rounded-2xl border border-base-c bg-card-c p-8 text-center shadow-2xl animate-scale-in"
         onClick={(e) => e.stopPropagation()}
@@ -1769,6 +1770,7 @@ function SentConfirmation({
           Return to Email Dashboard
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

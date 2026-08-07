@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
@@ -933,8 +934,8 @@ export function BookingDetailModal({
   const phone = booking.collectedData?.phone || booking.contactWaId || 'N/A';
   const email = booking.collectedData?.email || 'N/A';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border border-base-c bg-card-c p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between border-b border-base-c pb-4">
           <div>
@@ -1023,6 +1024,7 @@ export function BookingDetailModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

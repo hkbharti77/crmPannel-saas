@@ -16,8 +16,8 @@ export function AppShell() {
         onCloseMobile={() => setMobileOpen(false)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar onOpenMobile={() => setMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto scrollbar-thin">
+        <main className="flex-1 overflow-y-auto scrollbar-thin relative">
+          <TopBar onOpenMobile={() => setMobileOpen(true)} />
           <Outlet />
         </main>
       </div>

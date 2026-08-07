@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import { Avatar } from '@/components/ui/primitives';
 import {
@@ -641,8 +642,8 @@ export default function RootLayout({ children }) {
     setTimeout(() => setCopiedDocSnippet(false), 2000);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
       <div
         className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-xl2 border border-base-c bg-card-c shadow-2xl animate-slide-up overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -865,7 +866,8 @@ export default function RootLayout({ children }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

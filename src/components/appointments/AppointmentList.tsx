@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { Appointment } from './appointmentData';
@@ -237,8 +238,8 @@ export function AppointmentDetailModal({
     if (onRefresh) onRefresh();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="w-full max-w-lg max-h-[85vh] flex flex-col rounded-2xl border border-base-c bg-card-c p-6 shadow-soft-lg" onClick={(e) => e.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between border-b border-base-c pb-4">
           <div>
@@ -331,7 +332,8 @@ export function AppointmentDetailModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -370,8 +372,8 @@ export function BookingModal({
 
   const typeOptions = TYPE_CONFIG.map((t) => ({ value: t.type, label: t.label }));
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
       <div
         className="w-full max-w-lg rounded-t-xl2 border border-base-c bg-card-c p-5 shadow-soft-lg animate-slide-up sm:rounded-xl2"
         onClick={(e) => e.stopPropagation()}
@@ -484,7 +486,8 @@ export function BookingModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
