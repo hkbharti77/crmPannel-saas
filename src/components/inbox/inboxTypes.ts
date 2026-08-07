@@ -8,10 +8,11 @@ export type Conversation = {
   avatar?: string;
   lastMessage: string;
   lastMessageSender: 'them' | 'me' | 'bot';
-  timestamp: string;
+  timestamp: string;       // formatted relative time e.g. "2m ago"
+  lastMessageTime?: string; // raw ISO timestamp for session window check
   unread: number;
   status: ConversationStatus;
   tags: ConversationTag[];
   assignedTo?: string;
-  isBotHandled: boolean;
+  isBotHandled: boolean;   // false = human (bot paused), true = bot active
 };

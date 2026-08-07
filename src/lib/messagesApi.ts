@@ -7,6 +7,7 @@ export type ApiChat = {
   time: string;
   unread: number;
   status: string;
+  botPaused?: boolean;
 };
 
 export type ApiMessage = {

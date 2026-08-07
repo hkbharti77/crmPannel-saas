@@ -11,6 +11,7 @@ import {
   Globe,
   MessageSquare,
 } from 'lucide-react';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
 export type ChannelId = 'whatsapp' | 'webchat';
 export type FilterId = 'all' | 'unread' | 'bot' | 'vip' | 'mine';
@@ -50,32 +51,15 @@ export function InboxToolbar({
   return (
     <div className="space-y-4">
       {/* Channel Switcher Tabs */}
-      <div className="flex rounded-xl border border-base-c bg-card-c p-1">
-        <button
-          onClick={() => onChannel('whatsapp')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all',
-            channel === 'whatsapp'
-              ? 'bg-gradient-accent text-white shadow-soft'
-              : 'text-secondary-c hover:text-primary-c'
-          )}
-        >
-          <MessageSquare className="h-4 w-4" />
-          WhatsApp Chats
-        </button>
-        <button
-          onClick={() => onChannel('webchat')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all',
-            channel === 'webchat'
-              ? 'bg-gradient-accent text-white shadow-soft'
-              : 'text-secondary-c hover:text-primary-c'
-          )}
-        >
-          <Globe className="h-4 w-4" />
-          WebChat Sessions
-        </button>
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: 'whatsapp', label: 'WhatsApp', icon: <MessageSquare className="h-4 w-4" /> },
+          { id: 'webchat', label: 'WebChat', icon: <Globe className="h-4 w-4" /> }
+        ]}
+        activeTab={channel}
+        onChange={(id) => onChannel(id as ChannelId)}
+        className="w-full justify-between [&>button]:flex-1"
+      />
 
       {/* Search */}
       <div className="relative">

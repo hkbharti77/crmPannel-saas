@@ -7,7 +7,8 @@ import {
   Palette, Search, Sparkles, Send, Layers, Filter, Check, ExternalLink, HelpCircle,
   LayoutGrid, List, MoreVertical, RotateCcw, AlertTriangle, Play, Wand2, FileCode, Sliders, CheckSquare
 } from 'lucide-react';
-import { SectionCard } from './_shared';
+import { SectionCard } from '@/components/settings/panels/_shared';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
 import { generateAiEmailContent } from '@/lib/emailsApi';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -500,28 +501,14 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
 
           <div className="flex items-center gap-2">
             {/* Preview Mode Switcher */}
-            <div className="flex rounded-xl border border-base-c bg-slate-100 p-0.5 dark:bg-ink-900">
-              <button
-                type="button"
-                onClick={() => setPreviewMode('desktop')}
-                className={cx(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                  previewMode === 'desktop' ? 'bg-white text-primary-600 shadow-sm dark:bg-ink-800 dark:text-primary-400' : 'text-muted-c hover:text-primary-c'
-                )}
-              >
-                <Monitor className="h-3.5 w-3.5" /> Desktop
-              </button>
-              <button
-                type="button"
-                onClick={() => setPreviewMode('mobile')}
-                className={cx(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                  previewMode === 'mobile' ? 'bg-white text-primary-600 shadow-sm dark:bg-ink-800 dark:text-primary-400' : 'text-muted-c hover:text-primary-c'
-                )}
-              >
-                <Smartphone className="h-3.5 w-3.5" /> Mobile
-              </button>
-            </div>
+            <TabSwitcher
+              tabs={[
+                { id: 'desktop', label: 'Desktop', icon: <Monitor className="h-3.5 w-3.5" /> },
+                { id: 'mobile', label: 'Mobile', icon: <Smartphone className="h-3.5 w-3.5" /> }
+              ]}
+              activeTab={previewMode}
+              onChange={(id) => setPreviewMode(id as 'desktop' | 'mobile')}
+            />
 
             <button
               type="button"

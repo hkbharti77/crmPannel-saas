@@ -64,3 +64,30 @@ export async function fetchTimezones() {
 export async function fetchCountries() {
   return apiFetch<CountryOption[]>('/api/v1/countries');
 }
+
+// ─── Security Settings ─────────────────────────────────────────────────────
+
+export interface SecurityDashboardDto {
+  healthScore: number;
+  biometricsEnabled: boolean;
+  loginAlertsEnabled: boolean;
+  ipWhitelist: string[];
+  accountStatus: string;
+}
+
+export interface SecuritySettingsRequest {
+  biometricsEnabled?: boolean;
+  loginAlertsEnabled?: boolean;
+  ipWhitelist?: string[];
+}
+
+export async function fetchSecurityDashboard() {
+  return apiFetch<SecurityDashboardDto>('/api/v1/users/me/security-dashboard');
+}
+
+export async function updateSecuritySettings(data: SecuritySettingsRequest) {
+  return apiFetch<string>('/api/v1/users/me/security-settings', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}

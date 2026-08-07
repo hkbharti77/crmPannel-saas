@@ -37,13 +37,15 @@ export function FieldRow({
   );
 }
 
-export function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+export function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
       className={cx(
         'relative h-6 w-11 shrink-0 rounded-full transition-colors',
         checked ? 'bg-gradient-accent' : 'bg-slate-300 dark:bg-ink-700',
+        disabled && 'opacity-60 cursor-not-allowed',
       )}
     >
       <span

@@ -25,12 +25,16 @@ export function ActivityFeed({ activities = [] }: { activities?: ActivityLogDTO[
   const formatTime = (dateStr?: string) => {
     if (!dateStr) return 'Just now';
     try {
-      const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000);
-      if (diff < 1) return 'Just now';
-      if (diff < 60) return `${diff}m ago`;
-      const hours = Math.floor(diff / 60);
-      if (hours < 24) return `${hours}h ago`;
-      return `${Math.floor(hours / 24)}d ago`;
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
     } catch {
       return dateStr;
     }
@@ -52,9 +56,22 @@ export function ActivityFeed({ activities = [] }: { activities?: ActivityLogDTO[
 
           <div className="space-y-1">
             {activities.map((a) => {
-              const actType = (a.action || 'note').toLowerCase();
-              const iconObj = ICONS[actType] || ICONS['note'];
+              const actType = (a.activityType || a.action || 'note').toLowerCase();
+              // Map backend activity type codes to icon keys
+              const iconKey = actType.includes('chat') || actType.includes('message') ? 'chat'
+                : actType.includes('call') ? 'call'
+                : actType.includes('appointment') ? 'appointment'
+                : actType.includes('won') || actType.includes('closed_won') ? 'won'
+                : actType.includes('email') ? 'email'
+                : actType.includes('lead') ? 'lead'
+                : 'note';
+              const iconObj = ICONS[iconKey] || ICONS['note'];
               const Icon = iconObj.icon;
+
+              // Actor: prefer contactName (who the activity is about), fallback to ownerName
+              const displayName = a.contactName || a.actorName || a.ownerName || 'System';
+              // Description: prefer summary, fallback to activityType/action
+              const displayDesc = a.summary || a.description || a.activityType || a.action || '';
 
               return (
                 <div
@@ -69,8 +86,8 @@ export function ActivityFeed({ activities = [] }: { activities?: ActivityLogDTO[
                   </div>
                   <div className="min-w-0 flex-1 pt-1">
                     <p className="text-sm text-primary-c">
-                      <span className="font-semibold">{a.actorName || 'System'}</span>{' '}
-                      <span className="text-secondary-c">{a.description || a.action}</span>
+                      <span className="font-semibold">{displayName}</span>{' '}
+                      <span className="text-secondary-c">{displayDesc}</span>
                     </p>
                     <p className="mt-0.5 text-xs text-muted-c">{formatTime(a.createdAt)}</p>
                   </div>

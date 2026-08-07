@@ -73,9 +73,12 @@ export function PipelineStats({ leads }: { leads: Lead[] }) {
 }
 
 function parseValue(v: string): number {
-  if (v.includes('Cr')) return parseFloat(v.replace(/[₹Cr]/g, '').trim()) * 100;
-  if (v.includes('L')) return parseFloat(v.replace(/[₹L]/g, '').trim());
-  return 0;
+  if (!v) return 0;
+  if (v.includes('Cr')) return parseFloat(v.replace(/[₹Cr,]/g, '').trim()) * 100;
+  if (v.includes('L')) return parseFloat(v.replace(/[₹L,]/g, '').trim());
+  // Plain rupee amount like "₹7,000" or "₹60000" — convert to lakhs
+  const plain = parseFloat(v.replace(/[₹,]/g, '').trim());
+  return isNaN(plain) ? 0 : plain / 100_000;
 }
 
 function formatCr(lakhs: number): string {

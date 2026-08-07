@@ -96,9 +96,9 @@ export function ConversationItem({
           </p>
         </div>
 
-        {/* Tags + unread */}
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1">
+        {/* Tags + unread + bot badge */}
+          <div className="mt-1.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 flex-wrap">
             {conv.tags.map((t) => (
               <span
                 key={t}
@@ -110,6 +110,18 @@ export function ConversationItem({
                 {t}
               </span>
             ))}
+            {/* Bot/Human mode badge */}
+            <span
+              className={cx(
+                'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide',
+                conv.isBotHandled
+                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'
+                  : 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300'
+              )}
+            >
+              {conv.isBotHandled ? <Bot className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
+              {conv.isBotHandled ? 'Bot' : 'Human'}
+            </span>
             {conv.assignedTo && (
               <span className="text-[10px] text-muted-c">
                 · {conv.assignedTo}

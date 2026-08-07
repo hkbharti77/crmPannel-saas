@@ -1,713 +1,338 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cx } from '@/lib/types';
-import {
-  CAMPAIGN_STATUS_META,
-  type Campaign,
-} from './emailData';
-import {
-  fetchEmailCampaigns,
-  resendEmailCampaign,
-  pauseEmailCampaign,
-  resumeEmailCampaign,
-  cancelEmailCampaign,
-  type CustomEmailDTO,
-} from '@/lib/emailsApi';
+import { fetchEmailCampaigns, fetchEmailTemplates, deleteEmailTemplate } from '@/lib/emailsApi';
+import { Campaign, EmailTemplate, CAMPAIGN_STATUS_META } from './emailData';
+import { GlassCard } from '@/components/ui/primitives';
 import { CampaignDetailsPanel } from './CampaignDetailsPanel';
-import { EmailTemplatesPanel } from '@/components/settings/panels/EmailTemplatesPanel';
+import { EmailTemplatesPanel } from './EmailTemplatesPanel';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import {
-  Mail,
-  Plus,
-  Search,
-  Clock,
-  Users,
-  MailOpen,
-  MousePointerClick,
-  Inbox,
-  Loader2,
-  AlertTriangle,
-  Megaphone,
-  FileText,
-  Filter,
-  Download,
-  CheckSquare,
-  Square,
-  RefreshCw,
-  Eye,
-  Pause,
-  Play,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  ArrowUpDown,
-  Tag,
-  CheckCircle2,
-  X,
-  Calendar,
-  SlidersHorizontal
+  Mail, LayoutTemplate, Plus, Search, Filter, Play, PauseCircle,
+  XCircle, Copy, Trash2, ArrowRight, MousePointerClick, MailOpen, BarChart3, AlertCircle
 } from 'lucide-react';
-
-type Tab = 'campaigns' | 'compose';
-type StatusFilter = 'all' | 'completed' | 'scheduled' | 'draft' | 'sending' | 'failed';
-
-function mapDtoToCampaign(dto: CustomEmailDTO): Campaign {
-  let status: Campaign['status'] = 'sent';
-  if (dto.status === 'DRAFT') status = 'draft';
-  else if (dto.status === 'SCHEDULED') status = 'scheduled';
-  else if (dto.status === 'SENDING') status = 'sending';
-  else if (dto.status === 'PAUSED') status = 'paused';
-  else if (dto.status === 'CANCELLED') status = 'cancelled';
-  else if (dto.status === 'COMPLETED') status = 'completed';
-  else if (dto.status === 'FAILED') status = 'failed';
-  else if (dto.status === 'SENT') status = 'sent';
-
-  const formatDate = (dStr?: string) => dStr ? new Date(dStr).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : undefined;
-
-  return {
-    id: dto.id,
-    name: dto.subject || 'Untitled Campaign',
-    subject: dto.subject || 'No Subject',
-    status,
-    recipients: dto.totalRecipients || dto.totalSent || 0,
-    totalRecipients: dto.totalRecipients || 0,
-    processedRecipients: dto.processedRecipients || 0,
-    totalSent: dto.totalSent || 0,
-    totalFailed: dto.totalFailed || 0,
-    openRate: dto.openRate || 0,
-    clickRate: dto.clickRate || 0,
-    uniqueOpens: dto.uniqueOpens || 0,
-    uniqueClicks: dto.uniqueClicks || 0,
-    bounces: dto.bounces || 0,
-    unsubscribes: dto.unsubscribes || 0,
-    clickToOpenRate: dto.clickToOpenRate || 0,
-    bounceRate: dto.bounceRate || 0,
-    unsubscribeRate: dto.unsubscribeRate || 0,
-    createdAt: dto.createdAt,
-    sentAt: formatDate(dto.sentAt) || formatDate(dto.createdAt) || 'Just now',
-    scheduledAt: formatDate(dto.scheduledAt),
-    startedAt: formatDate(dto.startedAt),
-    completedAt: formatDate(dto.completedAt),
-    pausedAt: formatDate(dto.pausedAt),
-    cancelledAt: formatDate(dto.cancelledAt),
-    template: dto.recipientMode ? `Mode: ${dto.recipientMode}` : 'Custom Email',
-  };
-}
-
-/**
- * Enterprise Merge Tag Renderer: Formats {{variable_name}} into sleek inline pills
- */
-function FormattedTextWithTags({ text }: { text: string }) {
-  if (!text) return null;
-  const parts = text.split(/({{[^}]+}})/g);
-  return (
-    <span className="inline-flex flex-wrap items-center gap-1">
-      {parts.map((part, i) => {
-        if (part.startsWith('{{') && part.endsWith('}}')) {
-          const varName = part.slice(2, -2).trim();
-          return (
-            <span
-              key={i}
-              className="inline-flex items-center rounded bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 text-[10px] font-mono font-semibold text-slate-700 dark:text-slate-300"
-            >
-              ${varName}
-            </span>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </span>
-  );
-}
 
 export function EmailsView() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  
+  // URL State mapping
+  const activeTab = searchParams.get('tab') === 'templates' ? 'templates' : 'campaigns';
+  const selectedCampaignId = searchParams.get('id');
 
-  const urlTab = searchParams.get('tab');
-  const initialTab: Tab = urlTab === 'templates' || urlTab === 'compose' ? 'compose' : 'campaigns';
-
-  const [tab, setTabState] = useState<Tab>(initialTab);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'openRate' | 'recipients'>('newest');
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const [createTemplateTrigger, setCreateTemplateTrigger] = useState(0);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Bulk Selection State
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  // Pagination State
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
-
-  useEffect(() => {
-    if (urlTab === 'templates' || urlTab === 'compose') {
-      setTabState('compose');
-    } else if (!urlTab) {
-      setTabState('campaigns');
-    }
-  }, [urlTab]);
-
-  const setTab = (newTab: Tab) => {
-    setTabState(newTab);
-    if (newTab === 'compose') {
-      setSearchParams({ tab: 'templates' });
-    } else {
-      setSearchParams({});
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (activeTab === 'campaigns') {
+        const res = await fetchEmailCampaigns(0, 100);
+        if (res.error) throw new Error(res.error);
+        if (res.data) {
+          const mapped: Campaign[] = res.data.content.map(dto => {
+            let status: Campaign['status'] = 'draft';
+            if (dto.status === 'SENT') status = 'sent';
+            else if (dto.status === 'SCHEDULED') status = 'scheduled';
+            else if (dto.status === 'SENDING') status = 'sending';
+            else if (dto.status === 'PAUSED') status = 'paused';
+            else if (dto.status === 'CANCELLED') status = 'cancelled';
+            else if (dto.status === 'COMPLETED') status = 'completed';
+            else if (dto.status === 'FAILED') status = 'failed';
+            return {
+              id: dto.id,
+              name: dto.name || dto.subject,
+              subject: dto.subject,
+              status,
+              recipients: dto.totalRecipients || 0,
+              totalRecipients: dto.totalRecipients || 0,
+              processedRecipients: dto.processedRecipients || 0,
+              totalSent: dto.totalSent || 0,
+              totalFailed: dto.totalFailed || 0,
+              openRate: dto.openRate || 0,
+              clickRate: dto.clickRate || 0,
+              uniqueOpens: dto.uniqueOpens || 0,
+              uniqueClicks: dto.uniqueClicks || 0,
+              bounces: dto.bounces || 0,
+              unsubscribes: dto.unsubscribes || 0,
+              createdAt: dto.createdAt,
+              sentAt: dto.sentAt,
+              template: dto.recipientMode || 'Manual'
+            };
+          });
+          setCampaigns(mapped);
+        }
+      } else {
+        const res = await fetchEmailTemplates();
+        if (res.error) throw new Error(res.error);
+        if (res.data) {
+          // Cast DTO to UI model
+          setTemplates(res.data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            subject: t.subject,
+            body: t.content,
+            category: t.interestCategory || 'announcement'
+          })));
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load data');
+    } finally {
+      setLoading(false);
     }
   };
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setApiError(null);
-
-    const cmpRes = await fetchEmailCampaigns(0, 100);
-
-    if (cmpRes.error) {
-      setApiError(cmpRes.error);
-      setCampaigns([]);
-    } else if (cmpRes.data) {
-      setCampaigns(cmpRes.data.content.map(mapDtoToCampaign));
-    }
-
-    setLoading(false);
-  }, []);
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [activeTab]);
 
-  // Filter & Sort Logic
-  const filteredCampaigns = useMemo(() => {
-    let result = campaigns.filter((c) => {
-      const matchesSearch =
-        !search ||
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        c.subject.toLowerCase().includes(search.toLowerCase());
+  const handleTabChange = (tab: 'campaigns' | 'templates') => {
+    setSearchParams(tab === 'campaigns' ? {} : { tab: 'templates' });
+  };
 
-      const matchesStatus =
-        statusFilter === 'all'
-          ? true
-          : statusFilter === 'completed'
-          ? c.status === 'completed' || c.status === 'sent'
-          : c.status === statusFilter;
-
-      return matchesSearch && matchesStatus;
+  // Metrics calculation
+  const metrics = useMemo(() => {
+    if (!campaigns.length) return { totalSent: 0, avgOpen: 0, avgClick: 0 };
+    let totalSent = 0;
+    let totalOpens = 0;
+    let totalClicks = 0;
+    campaigns.forEach(c => {
+      totalSent += (c.totalSent || 0);
+      totalOpens += (c.uniqueOpens || 0);
+      totalClicks += (c.uniqueClicks || 0);
     });
-
-    // Sorting
-    result.sort((a, b) => {
-      if (sortBy === 'newest') return (b.createdAt || '').localeCompare(a.createdAt || '');
-      if (sortBy === 'oldest') return (a.createdAt || '').localeCompare(b.createdAt || '');
-      if (sortBy === 'openRate') return b.openRate - a.openRate;
-      if (sortBy === 'recipients') return b.recipients - a.recipients;
-      return 0;
-    });
-
-    return result;
-  }, [campaigns, search, statusFilter, sortBy]);
-
-  // Paginated campaigns
-  const paginatedCampaigns = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredCampaigns.slice(start, start + pageSize);
-  }, [filteredCampaigns, currentPage]);
-
-  const totalPages = Math.ceil(filteredCampaigns.length / pageSize) || 1;
-
-  // Counts for status tabs
-  const statusCounts = useMemo(() => {
     return {
-      all: campaigns.length,
-      completed: campaigns.filter((c) => c.status === 'completed' || c.status === 'sent').length,
-      scheduled: campaigns.filter((c) => c.status === 'scheduled').length,
-      draft: campaigns.filter((c) => c.status === 'draft').length,
-      sending: campaigns.filter((c) => c.status === 'sending' || c.status === 'paused').length,
-      failed: campaigns.filter((c) => c.status === 'failed' || c.status === 'cancelled').length,
+      totalSent,
+      avgOpen: totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0,
+      avgClick: totalSent > 0 ? Math.round((totalClicks / totalSent) * 100) : 0
     };
   }, [campaigns]);
 
-  // Stats Metrics
-  const totalSent = campaigns.reduce((s, c) => s + (c.totalSent || 0), 0);
-  const totalRecipients = campaigns.reduce((s, c) => s + (c.totalRecipients || c.totalSent || c.recipients || 0), 0);
-
-  const sentCampaigns = campaigns.filter((c) => c.status === 'sent' || c.status === 'completed');
-  const avgOpen =
-    sentCampaigns.length > 0
-      ? Math.round(sentCampaigns.reduce((s, c) => s + c.openRate, 0) / sentCampaigns.length)
-      : 0;
-
-  const avgClick =
-    sentCampaigns.length > 0
-      ? Math.round(sentCampaigns.reduce((s, c) => s + c.clickRate, 0) / sentCampaigns.length)
-      : 0;
-
-  const scheduled = campaigns.filter((c) => c.status === 'scheduled').length;
-
-  // Bulk Selection Handlers
-  const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedCampaigns.length && paginatedCampaigns.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(paginatedCampaigns.map((c) => c.id)));
-    }
-  };
-
-  const toggleSelect = (id: string) => {
-    const next = new Set(selectedIds);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setSelectedIds(next);
-  };
-
-  // CSV Export Handler
-  const exportToCsv = () => {
-    const itemsToExport = selectedIds.size > 0
-      ? campaigns.filter((c) => selectedIds.has(c.id))
-      : filteredCampaigns;
-
-    const headers = ['ID', 'Name', 'Subject', 'Status', 'Recipients', 'Total Sent', 'Open Rate %', 'Click Rate %', 'Sent Date'];
-    const rows = itemsToExport.map((c) => [
-      c.id,
-      `"${c.name.replace(/"/g, '""')}"`,
-      `"${c.subject.replace(/"/g, '""')}"`,
-      c.status,
-      c.recipients,
-      c.totalSent || 0,
-      c.openRate,
-      c.clickRate,
-      `"${c.sentAt || ''}"`,
-    ]);
-
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `email_campaigns_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // If a campaign is selected, render the details panel
+  if (selectedCampaignId) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <CampaignDetailsPanel 
+          campaignId={selectedCampaignId} 
+          onBack={() => {
+            searchParams.delete('id');
+            setSearchParams(searchParams);
+          }} 
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 p-4 lg:p-6">
-      {selectedCampaignId ? (
-        <CampaignDetailsPanel
-          campaignId={selectedCampaignId}
-          onBack={() => {
-            setSelectedCampaignId(null);
-            loadData();
-          }}
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-8 animate-fade-in">
+      {/* Header & Tabs */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-primary-c sm:text-4xl">
+            Email Center
+          </h1>
+          <p className="text-sm text-secondary-c mt-2 max-w-2xl">
+            Manage your high-volume outbound campaigns and reusable HTML templates.
+          </p>
+        </div>
+        <TabSwitcher
+          tabs={[
+            { id: 'campaigns', label: 'Campaigns', icon: <Mail className="h-4 w-4" /> },
+            { id: 'templates', label: 'Templates', icon: <LayoutTemplate className="h-4 w-4" /> }
+          ]}
+          activeTab={activeTab}
+          onChange={(id) => handleTabChange(id as any)}
         />
-      ) : (
-        <>
-          {/* Header */}
-          {!isEditorOpen && (
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                  {tab === 'campaigns' ? 'Email Marketing' : 'Email Templates'}
-                </h1>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                  {tab === 'campaigns'
-                    ? 'Create, schedule, and analyze enterprise email broadcasts.'
-                    : 'Manage responsive HTML templates and reusable blocks.'}
+      </div>
+
+      {error && (
+        <div className="p-4 bg-danger-500/10 border border-danger-500/20 text-danger-700 dark:text-danger-400 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+          <AlertCircle className="h-5 w-5 shrink-0" />
+          <p className="text-sm font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Campaigns Tab Content */}
+      {activeTab === 'campaigns' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <GlassCard className="p-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <BarChart3 className="h-24 w-24 text-blue-500" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-600 dark:text-blue-400 ring-1 ring-blue-500/20">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-bold text-secondary-c uppercase tracking-widest">Total Sent</p>
+                </div>
+                <p className="text-4xl font-black text-primary-c tabular-nums tracking-tight">{loading ? '-' : metrics.totalSent}</p>
+                <p className="text-xs text-muted-c mt-2 font-medium flex items-center gap-1">
+                  Across <span className="text-primary-c font-bold">{campaigns.length}</span> campaigns
                 </p>
               </div>
+            </GlassCard>
+            
+            <GlassCard className="p-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <MailOpen className="h-24 w-24 text-emerald-500" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-emerald-500/10 rounded-xl text-emerald-600 dark:text-emerald-400 ring-1 ring-emerald-500/20">
+                    <MailOpen className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-bold text-secondary-c uppercase tracking-widest">Avg Open Rate</p>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-black text-primary-c tabular-nums tracking-tight">{loading ? '-' : `${metrics.avgOpen}`}</p>
+                  <span className="text-xl font-bold text-muted-c">%</span>
+                </div>
+                <p className="text-xs text-muted-c mt-2 font-medium">Industry standard: ~20%</p>
+              </div>
+            </GlassCard>
 
-              <div className="flex items-center gap-2.5">
+            <GlassCard className="p-6 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                <MousePointerClick className="h-24 w-24 text-purple-500" />
+              </div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2.5 bg-purple-500/10 rounded-xl text-purple-600 dark:text-purple-400 ring-1 ring-purple-500/20">
+                    <MousePointerClick className="h-5 w-5" />
+                  </div>
+                  <p className="text-xs font-bold text-secondary-c uppercase tracking-widest">Avg Click Rate</p>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-4xl font-black text-primary-c tabular-nums tracking-tight">{loading ? '-' : `${metrics.avgClick}`}</p>
+                  <span className="text-xl font-bold text-muted-c">%</span>
+                </div>
+                <p className="text-xs text-muted-c mt-2 font-medium">Based on unique clicks</p>
+              </div>
+            </GlassCard>
+          </div>
+
+          {/* Action Bar */}
+          <div className="flex justify-between items-center bg-white dark:bg-ink-900 p-2 rounded-xl ring-1 ring-base-c shadow-sm">
+            <div className="relative w-80">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-c" />
+              <input 
+                type="text" 
+                placeholder="Search campaigns..." 
+                className="w-full pl-10 pr-4 py-2 bg-transparent text-sm text-primary-c focus:outline-none placeholder:text-muted-c font-medium"
+              />
+            </div>
+            <div className="flex items-center gap-2 pr-1">
+              <button className="flex items-center gap-2 px-3 py-2 text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800 rounded-lg text-sm font-semibold transition-colors">
+                <Filter className="h-4 w-4" />
+                Filter
+              </button>
+              <div className="w-px h-6 bg-base-c mx-1" />
+              <button
+                onClick={() => navigate('/emails/create')}
+                className="flex items-center gap-2 px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-bold shadow-md shadow-primary-500/20 transition-all hover:shadow-primary-500/40"
+              >
+                <Plus className="h-4.5 w-4.5" />
+                New Campaign
+              </button>
+            </div>
+          </div>
+
+          {/* Campaigns List */}
+          <div className="flex flex-col gap-3">
+            {loading ? (
+              <GlassCard className="flex flex-col items-center justify-center py-20">
+                <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary-500 border-t-transparent mb-4" />
+                <p className="font-bold text-sm text-primary-c">Loading campaigns...</p>
+              </GlassCard>
+            ) : campaigns.length === 0 ? (
+              <GlassCard className="flex flex-col items-center justify-center py-24 text-center group">
+                <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-ink-800 dark:to-ink-900 text-muted-c mb-6 shadow-inner group-hover:scale-105 transition-transform duration-500">
+                  <Mail className="h-10 w-10 text-primary-500/50" />
+                </div>
+                <h3 className="text-xl font-black text-primary-c mb-2 tracking-tight">No campaigns yet</h3>
+                <p className="text-sm text-secondary-c mb-8 max-w-sm">Launch your first highly-targeted email sequence and start tracking engagement.</p>
                 <button
-                  onClick={loadData}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-xs"
+                  onClick={() => navigate('/emails/create')}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-accent text-white rounded-xl text-sm font-bold shadow-lg shadow-primary-500/25 hover:shadow-primary-500/40 transition-all hover:-translate-y-0.5"
                 >
-                  <RefreshCw className={cx('h-3.5 w-3.5 text-slate-400', loading && 'animate-spin')} />
-                  Refresh
+                  <Plus className="h-5 w-5" />
+                  Create Your First Campaign
                 </button>
-
-                {tab === 'campaigns' ? (
-                  <button
-                    onClick={() => navigate('/emails/create')}
-                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
+              </GlassCard>
+            ) : (
+              campaigns.map((campaign, idx) => {
+                const meta = CAMPAIGN_STATUS_META[campaign.status] || CAMPAIGN_STATUS_META.draft;
+                return (
+                  <GlassCard 
+                    key={campaign.id} 
+                    className="p-4 sm:p-5 hover:border-primary-500/30 hover:shadow-xl hover:shadow-primary-500/5 transition-all duration-300 cursor-pointer group flex flex-col sm:flex-row sm:items-center justify-between gap-6"
+                    onClick={() => setSearchParams({ ...Object.fromEntries(searchParams.entries()), id: campaign.id })}
                   >
-                    <Plus className="h-4 w-4" /> New Campaign
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setCreateTemplateTrigger((prev) => prev + 1)}
-                    className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-                  >
-                    <Plus className="h-4 w-4" /> Create Template
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {apiError && (
-            <div className="flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-400">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>Backend Error: {apiError}</span>
-            </div>
-          )}
-
-          {/* Metrics Overview Cards */}
-          {tab === 'campaigns' && (
-            <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard
-                icon={Megaphone}
-                label="Total Sent"
-                value={totalSent.toLocaleString()}
-                sub="All time emails"
-              />
-              <MetricCard
-                icon={Users}
-                label="Total Recipients"
-                value={totalRecipients.toLocaleString()}
-                sub="Audience size"
-              />
-              <MetricCard
-                icon={MailOpen}
-                label="Avg Open Rate"
-                value={`${avgOpen}%`}
-                sub={`CTR ${avgClick}%`}
-              />
-              <MetricCard
-                icon={Clock}
-                label="Scheduled"
-                value={String(scheduled)}
-                sub="Pending dispatch"
-              />
-            </div>
-          )}
-
-          {/* Main Tab Switcher (Original Gradient Pill Styling) */}
-          {!isEditorOpen && (
-            <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/60 p-1.5 shadow-xs">
-              <button
-                onClick={() => setTab('campaigns')}
-                className={cx(
-                  'flex flex-1 items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
-                  tab === 'campaigns'
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                )}
-              >
-                <Inbox className="h-4 w-4" />
-                Campaigns
-                <span
-                  className={cx(
-                    'rounded-full px-2 py-0.5 text-[10px] font-extrabold',
-                    tab === 'campaigns'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                  )}
-                >
-                  {campaigns.length}
-                </span>
-              </button>
-              <button
-                onClick={() => setTab('compose')}
-                className={cx(
-                  'flex flex-1 items-center justify-center gap-2.5 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
-                  tab === 'compose'
-                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                )}
-              >
-                <FileText className="h-4 w-4" />
-                Email Templates
-              </button>
-            </div>
-          )}
-
-          {/* Tab Content */}
-          {tab === 'campaigns' ? (
-            <div className="space-y-3.5">
-              {/* Enterprise Filter Control Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-white p-3 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-                {/* Search Bar */}
-                <div className="relative flex-1 min-w-[220px] max-w-xs">
-                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={search}
-                    onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-                    placeholder="Filter campaigns..."
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-7 py-1.5 text-xs text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:focus:border-indigo-400"
-                  />
-                  {search && (
-                    <button
-                      onClick={() => setSearch('')}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
-
-                {/* Filter Controls Group */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Status Dropdown */}
-                  <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950 px-2.5 py-1 text-xs">
-                    <SlidersHorizontal className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="text-[11px] font-medium text-slate-500">Status:</span>
-                    <select
-                      value={statusFilter}
-                      onChange={(e: any) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-                      className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
-                    >
-                      <option value="all">All ({statusCounts.all})</option>
-                      <option value="completed">Completed ({statusCounts.completed})</option>
-                      <option value="scheduled">Scheduled ({statusCounts.scheduled})</option>
-                      <option value="draft">Drafts ({statusCounts.draft})</option>
-                      <option value="sending">Active ({statusCounts.sending})</option>
-                      <option value="failed">Failed ({statusCounts.failed})</option>
-                    </select>
-                  </div>
-
-                  {/* Sort Dropdown */}
-                  <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950 px-2.5 py-1 text-xs">
-                    <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
-                    <span className="text-[11px] font-medium text-slate-500">Sort:</span>
-                    <select
-                      value={sortBy}
-                      onChange={(e: any) => setSortBy(e.target.value)}
-                      className="bg-transparent font-semibold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer text-xs"
-                    >
-                      <option value="newest">Newest</option>
-                      <option value="oldest">Oldest</option>
-                      <option value="openRate">Highest Open Rate</option>
-                      <option value="recipients">Most Recipients</option>
-                    </select>
-                  </div>
-
-                  {/* Export CSV */}
-                  <button
-                    onClick={exportToCsv}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                    title="Export CSV"
-                  >
-                    <Download className="h-3.5 w-3.5 text-slate-400" />
-                    Export
-                  </button>
-                </div>
-              </div>
-
-              {/* Active Selection Banner */}
-              {selectedIds.size > 0 && (
-                <div className="flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50/70 dark:border-indigo-900/50 dark:bg-indigo-950/30 px-3.5 py-2 text-xs text-indigo-900 dark:text-indigo-200">
-                  <div className="flex items-center gap-2 font-medium">
-                    <CheckCircle2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span>{selectedIds.size} campaign{selectedIds.size > 1 ? 's' : ''} selected</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={exportToCsv}
-                      className="rounded bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors"
-                    >
-                      Export CSV
-                    </button>
-                    <button
-                      onClick={() => setSelectedIds(new Set())}
-                      className="text-xs font-medium text-indigo-700 dark:text-indigo-300 hover:underline px-2"
-                    >
-                      Deselect
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Data Table Container */}
-              <div className="rounded-xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-xs">
-                {loading && campaigns.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12">
-                    <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                    <p className="mt-2 text-xs text-slate-500">Loading campaigns...</p>
-                  </div>
-                ) : filteredCampaigns.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                    <Inbox className="h-8 w-8 text-slate-300 dark:text-slate-600" />
-                    <p className="mt-2 text-xs font-medium text-slate-600 dark:text-slate-400">No campaigns found</p>
-                    {search || statusFilter !== 'all' ? (
-                      <button
-                        onClick={() => { setSearch(''); setStatusFilter('all'); }}
-                        className="mt-2 text-xs font-semibold text-indigo-600 hover:underline"
-                      >
-                        Reset filters
-                      </button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="w-full overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200/80 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/40 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          <th scope="col" className="w-8 px-3 py-3 text-center">
-                            <button onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-600">
-                              {selectedIds.size === paginatedCampaigns.length && paginatedCampaigns.length > 0 ? (
-                                <CheckSquare className="h-3.5 w-3.5 text-indigo-600" />
-                              ) : (
-                                <Square className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          </th>
-                          <th scope="col" className="px-3.5 py-3 min-w-[260px]">Campaign Name &amp; Subject</th>
-                          <th scope="col" className="px-3.5 py-3 min-w-[110px]">Status</th>
-                          <th scope="col" className="px-3.5 py-3 min-w-[130px]">Recipients</th>
-                          <th scope="col" className="px-3.5 py-3 min-w-[140px]">Performance</th>
-                          <th scope="col" className="px-3.5 py-3 min-w-[130px]">Date</th>
-                          <th scope="col" className="px-3.5 py-3 text-right min-w-[100px]">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                        {paginatedCampaigns.map((c) => {
-                          const isSelected = selectedIds.has(c.id);
-                          return (
-                            <CampaignTableRow
-                              key={c.id}
-                              campaign={c}
-                              isSelected={isSelected}
-                              onToggleSelect={() => toggleSelect(c.id)}
-                              onRefresh={loadData}
-                              onViewDetails={() => setSelectedCampaignId(c.id)}
-                            />
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-
-                {/* Simple Enterprise Pagination */}
-                {filteredCampaigns.length > 0 && (
-                  <div className="flex items-center justify-between border-t border-slate-200/80 dark:border-slate-800 px-4 py-2.5 text-xs text-slate-500 dark:text-slate-400">
-                    <span>
-                      Showing <strong>{Math.min((currentPage - 1) * pageSize + 1, filteredCampaigns.length)}</strong>-<strong>{Math.min(currentPage * pageSize, filteredCampaigns.length)}</strong> of <strong>{filteredCampaigns.length}</strong>
-                    </span>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        className="rounded border border-slate-200 bg-white p-1 text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <span className="px-2 font-medium">{currentPage} / {totalPages}</span>
-                      <button
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        className="rounded border border-slate-200 bg-white p-1 text-slate-600 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
+                    {/* Left: Icon & Title */}
+                    <div className="flex items-center gap-4 sm:gap-5 flex-1 min-w-0">
+                      <div className="relative shrink-0 h-12 w-12 rounded-2xl bg-gradient-to-br from-primary-500/10 to-primary-600/5 flex items-center justify-center ring-1 ring-primary-500/20 group-hover:scale-105 transition-transform duration-300">
+                        <Mail className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+                        <div className={cx("absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full border-2 border-white dark:border-ink-900 shadow-sm", meta.dot)} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="font-black text-primary-c text-base group-hover:text-primary-600 transition-colors truncate pr-4">{campaign.name}</h3>
+                        <p className="text-xs text-secondary-c mt-0.5 truncate font-medium max-w-sm">{campaign.subject}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="pt-1 animate-fade-in">
-              <EmailTemplatesPanel createTrigger={createTemplateTrigger} onEditorStateChange={setIsEditorOpen} />
-            </div>
-          )}
-        </>
+
+                    {/* Middle: Stats */}
+                    <div className="flex items-center gap-6 sm:gap-10 sm:px-10 sm:border-x border-base-c border-dashed shrink-0">
+                      <div className="flex flex-col items-start sm:items-center">
+                        <span className="text-[9px] uppercase font-bold text-muted-c tracking-widest mb-1.5">Delivered</span>
+                        <span className="font-black text-primary-c text-lg sm:text-xl tabular-nums leading-none">{campaign.totalSent || 0}</span>
+                      </div>
+                      <div className="flex flex-col items-start sm:items-center">
+                        <span className="text-[9px] uppercase font-bold text-muted-c tracking-widest mb-1.5">Open Rate</span>
+                        <div className="flex items-center gap-1.5 leading-none">
+                          <span className="font-black text-primary-c text-lg sm:text-xl tabular-nums">{campaign.openRate || 0}</span>
+                          <span className="text-sm font-bold text-muted-c">%</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-start sm:items-center">
+                        <span className="text-[9px] uppercase font-bold text-muted-c tracking-widest mb-1.5">Clicks</span>
+                        <span className="font-black text-primary-c text-lg sm:text-xl tabular-nums leading-none">{campaign.uniqueClicks || 0}</span>
+                      </div>
+                    </div>
+
+                    {/* Right: Status & Action */}
+                    <div className="flex items-center justify-between sm:justify-end gap-5 shrink-0 w-full sm:w-[140px]">
+                      <span className={cx('inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10px] font-black uppercase tracking-wider', meta.color)}>
+                        <span className={cx('h-1.5 w-1.5 rounded-full', campaign.status === 'sending' ? 'animate-pulse' : '', meta.dot)} />
+                        {meta.label}
+                      </span>
+                      <div className="h-10 w-10 rounded-full bg-slate-50 dark:bg-ink-800 flex items-center justify-center text-muted-c group-hover:bg-primary-50 dark:group-hover:bg-primary-900/30 group-hover:text-primary-600 transition-all transform group-hover:translate-x-1 ring-1 ring-base-c group-hover:ring-primary-500/30 shadow-sm">
+                        <ArrowRight className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </GlassCard>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Templates Tab Content */}
+      {activeTab === 'templates' && (
+        <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <EmailTemplatesPanel />
+        </div>
       )}
     </div>
   );
 }
 
-/* ─── Metric Card ─── */
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: typeof Mail;
-  label: string;
-  value: string;
-  sub: string;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-xs dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center gap-2.5">
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div>
-          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{label}</p>
-          <p className="text-lg font-bold text-slate-900 dark:text-white tabular-nums leading-tight">{value}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ─── Table Row Component ─── */
-function CampaignTableRow({
-  campaign,
-  isSelected,
-  onToggleSelect,
-  onRefresh,
-  onViewDetails,
-}: {
-  campaign: Campaign;
-  isSelected: boolean;
-  onRefresh: () => void;
-  onViewDetails: () => void;
-  onToggleSelect: () => void;
-}) {
-  const [actionLoading, setActionLoading] = useState(false);
-  const meta = CAMPAIGN_STATUS_META[campaign.status] || CAMPAIGN_STATUS_META.sent;
-
-  return (
-    <tr className={cx('hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors', isSelected && 'bg-indigo-50/30 dark:bg-indigo-950/20')}>
-      <td className="px-3 py-3 text-center">
-        <button onClick={onToggleSelect} className="text-slate-400 hover:text-indigo-600">
-          {isSelected ? <CheckSquare className="h-3.5 w-3.5 text-indigo-600" /> : <Square className="h-3.5 w-3.5" />}
-        </button>
-      </td>
-      <td className="px-3.5 py-3">
-        <div className="flex flex-col">
-          <span onClick={onViewDetails} className="font-semibold text-slate-900 dark:text-white hover:text-indigo-600 cursor-pointer">
-            <FormattedTextWithTags text={campaign.name} />
-          </span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 max-w-[280px]">
-            <FormattedTextWithTags text={campaign.subject} />
-          </span>
-        </div>
-      </td>
-      <td className="px-3.5 py-3">
-        <span className={cx('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase', meta.color)}>
-          {meta.label}
-        </span>
-      </td>
-      <td className="px-3.5 py-3 font-medium text-slate-800 dark:text-slate-200">
-        {campaign.recipients.toLocaleString()}
-      </td>
-      <td className="px-3.5 py-3">
-        <div className="flex items-center gap-3 text-[11px] font-medium">
-          <span className="text-slate-600 dark:text-slate-300">Open <strong>{campaign.openRate}%</strong></span>
-          <span className="text-slate-400">|</span>
-          <span className="text-slate-600 dark:text-slate-300">Click <strong>{campaign.clickRate}%</strong></span>
-        </div>
-      </td>
-      <td className="px-3.5 py-3 text-slate-600 dark:text-slate-400 text-[11px]">
-        {campaign.sentAt || 'N/A'}
-      </td>
-      <td className="px-3.5 py-3 text-right">
-        <button
-          onClick={onViewDetails}
-          className="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-        >
-          Details
-        </button>
-      </td>
-    </tr>
-  );
-}
+export default EmailsView;

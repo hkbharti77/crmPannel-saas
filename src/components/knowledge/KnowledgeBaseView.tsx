@@ -5,6 +5,7 @@ import {
   FileText, Sparkles, Bot, RefreshCw, Layers, CheckCircle2, ShieldAlert, File, Info,
   Wand2, Save, RotateCcw, HelpCircle, MessageSquare, Tag, Sliders, CheckCircle, Clock, User
 } from 'lucide-react';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { FaqManagementView } from './FaqManagementView';
@@ -248,49 +249,16 @@ export function KnowledgeBaseView() {
       </div>
 
       {/* Enterprise Tab Bar */}
-      <div className="flex items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-100/70 dark:border-slate-800 dark:bg-slate-900/60 p-1.5 shadow-xs">
-        <button
-          onClick={() => setActiveTab('persona')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
-            activeTab === 'persona'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          )}
-        >
-          <Brain className="h-4 w-4" />
-          AI Persona &amp; Tone Rules
-        </button>
-
-        <button
-          onClick={() => setActiveTab('rag')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
-            activeTab === 'rag'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          )}
-        >
-          <FileText className="h-4 w-4" />
-          Document Embeddings (RAG)
-          <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-extrabold', activeTab === 'rag' ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300')}>
-            {documents.length}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('faq')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-xs',
-            activeTab === 'faq'
-              ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-              : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-          )}
-        >
-          <HelpCircle className="h-4 w-4" />
-          FAQ Knowledge Base
-        </button>
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: 'persona', label: 'AI Persona & Tone Rules', icon: <Brain className="h-4 w-4" /> },
+          { id: 'rag', label: `Document Embeddings (${documents.length})`, icon: <FileText className="h-4 w-4" /> },
+          { id: 'faq', label: 'Structured Q&A', icon: <HelpCircle className="h-4 w-4" /> }
+        ]}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as 'persona' | 'rag' | 'faq')}
+        className="w-full justify-between [&>button]:flex-1"
+      />
       {activeTab === 'persona' && (
         <div className="space-y-5 animate-fade-in">
           {personaToast && (

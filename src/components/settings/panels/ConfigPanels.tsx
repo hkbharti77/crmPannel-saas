@@ -17,7 +17,7 @@ export { MenuBuilderPanel } from './MenuBuilderPanel';
 export { ProductsServicesPanel } from './ProductsServicesPanel';
 export { FormFieldsPanel } from './FormFieldsPanel';
 export { CustomSubMenusPanel } from './CustomSubMenusPanel';
-export { EmailTemplatesPanel } from './EmailTemplatesPanel';
+export { EmailTemplatesPanel } from '@/components/emails/EmailTemplatesPanel';
 export { QuickResponsesPanel } from './QuickResponsesPanel';
 export { FlowCTAPanel } from './FlowCTAPanel';
 

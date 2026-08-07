@@ -5,6 +5,7 @@ export type EmailStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'PAUSED' | 'CANCEL
 
 export type CustomEmailDTO = {
   id: string;
+  name?: string;
   subject: string;
   body: string;
   ctaLabel?: string;
@@ -35,6 +36,7 @@ export type CustomEmailDTO = {
 };
 
 export type CustomEmailRequest = {
+  name?: string;
   subject: string;
   body: string;
   ctaLabel?: string;

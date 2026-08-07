@@ -18,11 +18,23 @@ export type RevenueReportDTO = {
 
 export type ActivityLogDTO = {
   id: string;
-  action: string;
+  // Activity detail
+  activityType?: string;
+  source?: string;
+  summary?: string;
+  // Actor info
+  ownerName?: string;
+  ownerEmail?: string;
+  // Contact info
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  // Timestamp
+  createdAt?: string;
+  // Legacy fields (kept for backwards compat)
+  action?: string;
   actorName?: string;
   description?: string;
-  details?: string;
-  createdAt?: string;
 };
 
 export type DashboardMeetingDTO = {

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import {
   Plug, Check, Copy, AlertCircle, CheckCircle2,
-  ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, ShieldAlert,
+  ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, ShieldAlert, Eye, EyeOff, KeyRound,
+  FileCode2,
 } from 'lucide-react';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { apiFetch } from '@/lib/api';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -54,6 +56,10 @@ export function MetaConfigView() {
   const [error, setError] = useState<string | null>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
   const [planLocked, setPlanLocked] = useState(false);
+
+  // Show/hide toggles for sensitive fields
+  const [showAccessToken, setShowAccessToken] = useState(false);
+  const [showAppSecret, setShowAppSecret] = useState(false);
 
   useEffect(() => {
     // Load subscription plan & whatsapp configuration in parallel
@@ -330,33 +336,15 @@ export function MetaConfigView() {
       )}
 
       {/* Mode Selector Tabs (Matches User Requirement) */}
-      <div className="flex items-center rounded-xl border border-base-c bg-slate-100/80 dark:bg-ink-850/60 p-1">
-        <button
-          onClick={() => setActiveTab('legacy')}
-          className={cx(
-            'flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all',
-            activeTab === 'legacy'
-              ? 'bg-card-c text-primary-c shadow-sm'
-              : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          <Server className="h-4 w-4 text-primary-500" />
-          <span>1. Legacy Method (Cloud API)</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('embedded')}
-          className={cx(
-            'flex-1 flex items-center justify-center gap-2 rounded-lg py-2.5 text-xs font-bold transition-all',
-            activeTab === 'embedded'
-              ? 'bg-card-c text-primary-c shadow-sm'
-              : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          <Sparkles className="h-4 w-4 text-emerald-500" />
-          <span>2. Embedded Sign Up (Co-existence)</span>
-        </button>
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: 'legacy', label: '1. Legacy Method (Cloud API)', icon: <Server className="h-4 w-4" /> },
+          { id: 'embedded', label: '2. Embedded Sign Up (Co-existence)', icon: <Sparkles className="h-4 w-4" /> }
+        ]}
+        activeTab={activeTab}
+        onChange={(id) => setActiveTab(id as 'legacy' | 'embedded')}
+        className="w-full justify-between [&>button]:flex-1"
+      />
 
       {/* TAB 1: LEGACY CLOUD API METHOD */}
       {activeTab === 'legacy' && (
@@ -409,12 +397,21 @@ export function MetaConfigView() {
                   <Key className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
                   <input
                     required
-                    type="password"
+                    type={showAccessToken ? 'text' : 'password'}
                     value={accessToken}
                     onChange={(e) => setAccessToken(e.target.value)}
                     placeholder="EAAG••••••••••••••••••••••••••••••••"
-                    className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                    className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-9 pr-10 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowAccessToken((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c transition-colors"
+                    tabIndex={-1}
+                    aria-label={showAccessToken ? 'Hide access token' : 'Show access token'}
+                  >
+                    {showAccessToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -431,13 +428,24 @@ export function MetaConfigView() {
 
                 <div>
                   <label className="mb-1.5 block text-xs font-semibold text-secondary-c">App Secret (Optional Signature Verification)</label>
-                  <input
-                    type="password"
-                    value={appSecret}
-                    onChange={(e) => setAppSecret(e.target.value)}
-                    placeholder="Meta App Secret..."
-                    className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 px-4 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showAppSecret ? 'text' : 'password'}
+                      value={appSecret}
+                      onChange={(e) => setAppSecret(e.target.value)}
+                      placeholder="Meta App Secret..."
+                      className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-4 pr-10 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAppSecret((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c transition-colors"
+                      tabIndex={-1}
+                      aria-label={showAppSecret ? 'Hide app secret' : 'Show app secret'}
+                    >
+                      {showAppSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

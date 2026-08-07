@@ -5,9 +5,15 @@ import {
   generateAiEmailContent,
   sendEmailCampaign,
   type RecipientMode,
-  type AudienceFilterDTO,
 } from '@/lib/emailsApi';
+
+export interface AudienceFilterDTO {
+  logicalOperator: 'AND' | 'OR';
+  rules: any[];
+}
 import { apiFetch } from '@/lib/api';
+
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { GlassCard } from '@/components/ui/primitives';
 import { TagSegmentBuilder } from './segments/TagSegmentBuilder';
 import {
@@ -167,6 +173,7 @@ export function CreateEmailCampaignView() {
   const [activeStep, setActiveStep] = useState<'audience' | 'content' | 'review'>('audience');
 
   const [aiPrompt, setAiPrompt] = useState('');
+  const [name, setName] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
@@ -460,6 +467,7 @@ export function CreateEmailCampaignView() {
   }, [body, csvRows]);
 
   const canSubmit =
+    name.trim().length > 0 &&
     subject.trim().length > 0 &&
     body.trim().length > 0 &&
     (recipientMode === 'ALL' ||
@@ -471,6 +479,7 @@ export function CreateEmailCampaignView() {
     setSending(true);
 
     const res = await sendEmailCampaign({
+      name: name.trim() || undefined,
       subject: subject.trim(),
       body: body.trim(),
       ctaLabel: ctaLabel.trim() || undefined,
@@ -1260,6 +1269,21 @@ export function CreateEmailCampaignView() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-bold text-primary-c">
+                      Campaign Name <span className="text-muted-c font-normal text-[11px]">(Internal)</span>
+                    </label>
+                    <span className="text-[11px] text-muted-c">{name.length} / 150 chars</span>
+                  </div>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Q3 Enterprise Lead Nurture"
+                    className="form-input text-sm font-medium h-11"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-bold text-primary-c">
                       Subject Line <span className="text-danger-500">*</span>
                     </label>
                     <span className="text-[11px] text-muted-c">{subject.length} / 150 chars</span>
@@ -1397,30 +1421,14 @@ export function CreateEmailCampaignView() {
                 </div>
 
                 {/* Device Frame Toggle */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-ink-800 rounded-lg p-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDevice('desktop')}
-                    className={cx(
-                      'p-1.5 rounded-md transition-colors',
-                      previewDevice === 'desktop' ? 'bg-white dark:bg-ink-900 shadow-2xs text-indigo-600' : 'text-muted-c'
-                    )}
-                    title="Desktop Preview View"
-                  >
-                    <Monitor className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewDevice('mobile')}
-                    className={cx(
-                      'p-1.5 rounded-md transition-colors',
-                      previewDevice === 'mobile' ? 'bg-white dark:bg-ink-900 shadow-2xs text-indigo-600' : 'text-muted-c'
-                    )}
-                    title="Mobile Preview View"
-                  >
-                    <Smartphone className="h-4 w-4" />
-                  </button>
-                </div>
+                <TabSwitcher
+                  tabs={[
+                    { id: 'desktop', label: 'Desktop', icon: <Monitor className="h-4 w-4" /> },
+                    { id: 'mobile', label: 'Mobile', icon: <Smartphone className="h-4 w-4" /> }
+                  ]}
+                  activeTab={previewDevice}
+                  onChange={(id) => setPreviewDevice(id as 'desktop' | 'mobile')}
+                />
               </div>
 
               {/* Email Frame Container */}
@@ -1518,8 +1526,6 @@ export function CreateEmailCampaignView() {
                     <strong className="text-primary-c">
                       {recipientMode === 'ALL'
                         ? 'ALL_CONTACTS'
-                        : recipientMode === 'ADVANCED'
-                        ? 'ADVANCED'
                         : recipientMode === 'TAGGED'
                         ? 'TAG_BASED'
                         : 'MANUAL'}
@@ -1627,7 +1633,7 @@ export function CreateEmailCampaignView() {
                         ctaLabel: ctaLabel || undefined,
                         ctaUrl: ctaUrl || undefined,
                         recipientMode,
-                        tagsFilter: recipientMode === 'ADVANCED' ? JSON.stringify(audienceFilter) : recipientMode === 'TAGGED' ? tagsFilter : undefined,
+                        tagsFilter: recipientMode === 'TAGGED' ? tagsFilter : undefined,
                         manualRecipients: recipientMode === 'MANUAL' ? manualRecipients : undefined,
                       };
                       const draftRes = await apiFetch<any>('/api/v1/custom-emails/draft', {

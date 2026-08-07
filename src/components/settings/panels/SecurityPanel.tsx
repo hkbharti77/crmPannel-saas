@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
-  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, AlertTriangle, Laptop, History, User,
+  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download,  MapPin, Clock, MonitorSmartphone, XCircle, LogOut, RotateCcw, User, AlertTriangle
 } from 'lucide-react';
-import { PanelHeader, FieldRow, Toggle, SectionCard } from './_shared';
+import { SectionCard, PanelHeader, SwitchOption, FieldRow, Toggle } from './_shared';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { fetchSecurityDashboard, updateSecuritySettings } from '@/lib/userApi';
 
 /* ─── Security & Privacy Panel ─── */
 export function SecurityPanel() {
@@ -14,6 +16,44 @@ export function SecurityPanel() {
   const [twoFA, setTwoFA] = useState(true);
   const [loginAlerts, setLoginAlerts] = useState(true);
   const [sessionTimeout, setSessionTimeout] = useState(false);
+  const [savingBiometric, setSavingBiometric] = useState(false);
+  const [savingLoginAlerts, setSavingLoginAlerts] = useState(false);
+
+  // Load real values from backend on mount
+  useEffect(() => {
+    fetchSecurityDashboard()
+      .then((data) => {
+        setBiometricAuth(data.biometricsEnabled);
+        setLoginAlerts(data.loginAlertsEnabled);
+      })
+      .catch(() => {
+        // keep defaults if fetch fails
+      });
+  }, []);
+
+  const handleBiometricToggle = async (val: boolean) => {
+    setBiometricAuth(val);
+    setSavingBiometric(true);
+    try {
+      await updateSecuritySettings({ biometricsEnabled: val });
+    } catch {
+      setBiometricAuth(!val); // revert on error
+    } finally {
+      setSavingBiometric(false);
+    }
+  };
+
+  const handleLoginAlertsToggle = async (val: boolean) => {
+    setLoginAlerts(val);
+    setSavingLoginAlerts(true);
+    try {
+      await updateSecuritySettings({ loginAlertsEnabled: val });
+    } catch {
+      setLoginAlerts(!val); // revert on error
+    } finally {
+      setSavingLoginAlerts(false);
+    }
+  };
   
   const [currentPwd, setCurrentPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
@@ -53,41 +93,15 @@ export function SecurityPanel() {
       </div>
 
       {/* Sub-Navigation Tabs (Overview | Sessions | Audit Log) */}
-      <div className="flex items-center rounded-xl border border-base-c bg-slate-100/70 dark:bg-ink-850/60 p-1">
-        <button
-          onClick={() => setSecTab('overview')}
-          className={cx(
-            'flex-1 rounded-lg py-2 text-xs font-semibold transition-all',
-            secTab === 'overview'
-              ? 'bg-card-c text-primary-c shadow-sm'
-              : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          Overview
-        </button>
-        <button
-          onClick={() => setSecTab('sessions')}
-          className={cx(
-            'flex-1 rounded-lg py-2 text-xs font-semibold transition-all',
-            secTab === 'sessions'
-              ? 'bg-card-c text-primary-c shadow-sm'
-              : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          Sessions
-        </button>
-        <button
-          onClick={() => setSecTab('audit')}
-          className={cx(
-            'flex-1 rounded-lg py-2 text-xs font-semibold transition-all',
-            secTab === 'audit'
-              ? 'bg-card-c text-primary-c shadow-sm'
-              : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          Audit Log
-        </button>
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: 'overview', label: 'Overview' },
+          { id: 'sessions', label: 'Sessions' },
+          { id: 'audit', label: 'Audit Log' }
+        ]}
+        activeTab={secTab}
+        onChange={(id) => setSecTab(id as any)}
+      />
 
       {/* TAB 1: OVERVIEW */}
       {secTab === 'overview' && (
@@ -151,7 +165,7 @@ export function SecurityPanel() {
 
             <div className="space-y-4 pt-2">
               <FieldRow label="Biometric Authentication" desc="Use Face ID or Fingerprint for secure login">
-                <Toggle checked={biometricAuth} onChange={setBiometricAuth} />
+                <Toggle checked={biometricAuth} onChange={handleBiometricToggle} disabled={savingBiometric} />
               </FieldRow>
 
               <div className="border-t border-base-c" />
@@ -163,7 +177,7 @@ export function SecurityPanel() {
               <div className="border-t border-base-c" />
 
               <FieldRow label="Login Alerts" desc="Get notified when new devices access your account">
-                <Toggle checked={loginAlerts} onChange={setLoginAlerts} />
+                <Toggle checked={loginAlerts} onChange={handleLoginAlertsToggle} disabled={savingLoginAlerts} />
               </FieldRow>
 
               <div className="border-t border-base-c" />

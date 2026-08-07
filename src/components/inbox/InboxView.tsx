@@ -10,6 +10,7 @@ import {
   fetchMessageHistory,
   sendWhatsAppMessage,
   sendTenantMenu,
+  toggleBotPaused,
   type ApiMessage,
 } from '@/lib/messagesApi';
 import {
@@ -28,11 +29,21 @@ import {
   Trash2,
   MenuSquare,
   Check,
+  UserCheck,
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+/** Returns a human-friendly relative time string, e.g. "2m ago", "3h ago", "2d ago" */
+function timeAgo(date: Date): string {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000); // seconds
+  if (diff < 60) return `${diff}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
 
 export function InboxView() {
   const navigate = useNavigate();
@@ -60,18 +71,29 @@ export function InboxView() {
     if (error) {
       setApiError(error);
     } else if (data && data.length > 0) {
-      const mapped: Conversation[] = data.map((c) => ({
-        id: String(c.id),
-        name: c.name || 'WhatsApp Contact',
-        phone: String(c.id),
-        lastMessage: c.lastMessage || 'No messages yet',
-        lastMessageSender: 'them',
-        timestamp: c.time ? new Date(c.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now',
-        unread: c.unread || 0,
-        status: 'online',
-        tags: c.status === 'NEW' ? ['NEW', 'HOT'] : ['VIP'],
-        isBotHandled: true,
-      }));
+      const now = Date.now();
+      const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+      const mapped: Conversation[] = data.map((c) => {
+        const lastMsgTime = c.time ? new Date(c.time).getTime() : 0;
+        const isWithin24h = lastMsgTime > 0 && (now - lastMsgTime) < TWENTY_FOUR_HOURS;
+
+        return {
+          id: String(c.id),
+          name: c.name || 'WhatsApp Contact',
+          phone: String(c.id),
+          lastMessage: c.lastMessage || 'No messages yet',
+          lastMessageSender: 'them',
+          timestamp: c.time ? timeAgo(new Date(c.time)) : 'Just now',
+          lastMessageTime: c.time || undefined,
+          unread: c.unread || 0,
+          // Green dot only if last message was within 24h (active WhatsApp session)
+          status: isWithin24h ? 'online' : 'offline',
+          tags: c.status === 'NEW' ? ['NEW', 'HOT'] : ['VIP'],
+          // botPaused=true means human took over; botPaused=false means bot is active
+          isBotHandled: !c.botPaused,
+        };
+      });
       setConversations(mapped);
       if (!selectedId && mapped.length > 0) {
         setSelectedId(mapped[0].id);
@@ -271,7 +293,18 @@ export function InboxView() {
         <div className="hidden h-full overflow-hidden lg:block">
           {channel === 'whatsapp' ? (
             selectedWa ? (
-              <ChatPreview conv={selectedWa} onOpenChat={() => navigate(`/chatroom/${selectedWa.id}`)} />
+              <ChatPreview
+                conv={selectedWa}
+                onOpenChat={() => navigate(`/chatroom/${selectedWa.id}`)}
+                onBotToggle={async (newBotPaused) => {
+                  await toggleBotPaused(selectedWa.id, newBotPaused);
+                  setConversations((prev) =>
+                    prev.map((c) =>
+                      c.id === selectedWa.id ? { ...c, isBotHandled: !newBotPaused } : c
+                    )
+                  );
+                }}
+              />
             ) : (
               <EmptyState />
             )
@@ -315,11 +348,16 @@ function EmptyState() {
   );
 }
 
-function ChatPreview({ conv, onOpenChat }: { conv: Conversation; onOpenChat: () => void }) {
+function ChatPreview({ conv, onOpenChat, onBotToggle }: {
+  conv: Conversation;
+  onOpenChat: () => void;
+  onBotToggle: (newBotPaused: boolean) => Promise<void>;
+}) {
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [menuSending, setMenuSending] = useState(false);
+  const [togglingBot, setTogglingBot] = useState(false);
 
   const loadHistory = async () => {
     if (!conv.id || !conv.id.includes('-')) return;
@@ -369,26 +407,53 @@ function ChatPreview({ conv, onOpenChat }: { conv: Conversation; onOpenChat: () 
       <div className="flex items-center gap-3 border-b border-base-c p-4">
         <div className="relative">
           <Avatar name={conv.name} size={40} />
-          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-success-500 ring-2 ring-card-c" />
+          {/* Green dot = active WhatsApp session (last message within 24h) */}
+          <span className={cx(
+            'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card-c',
+            conv.status === 'online' ? 'bg-success-500' : 'bg-slate-300 dark:bg-ink-700'
+          )} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-primary-c">{conv.name}</p>
-          <p className="truncate text-xs text-muted-c">{conv.phone}</p>
+          <p className="truncate text-xs text-muted-c">
+            {conv.status === 'online'
+              ? '🟢 Active session (within 24h)'
+              : '⚪ Session expired'}
+          </p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={handleSendMenu}
             disabled={menuSending}
             className="flex items-center gap-1 text-xs font-medium rounded-lg border border-primary-500/30 bg-primary-500/10 px-2.5 py-1 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20"
           >
             <MenuSquare className="h-3.5 w-3.5" />
-            {menuSending ? 'Sending Menu...' : 'Send Menu'}
+            {menuSending ? 'Sending…' : 'Send Menu'}
           </button>
-          {conv.isBotHandled && (
-            <Badge variant="primary" className="mr-1">
-              <Bot className="h-3 w-3" /> Bot Active
-            </Badge>
-          )}
+          {/* Bot / Human mode toggle */}
+          <button
+            onClick={async () => {
+              setTogglingBot(true);
+              // isBotHandled=true means bot is active → toggling pauses it (human takes over)
+              // isBotHandled=false means human mode → toggling resumes bot
+              await onBotToggle(!conv.isBotHandled);
+              setTogglingBot(false);
+            }}
+            disabled={togglingBot}
+            title={conv.isBotHandled ? 'Switch to Human mode' : 'Switch to Bot mode'}
+            className={cx(
+              'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
+              conv.isBotHandled
+                ? 'border-primary-500/30 bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20'
+                : 'border-success-500/30 bg-success-500/10 text-success-600 dark:text-success-400 hover:bg-success-500/20'
+            )}
+          >
+            {conv.isBotHandled ? (
+              <><Bot className="h-3.5 w-3.5" />{togglingBot ? '…' : 'Bot Active'}</>
+            ) : (
+              <><UserCheck className="h-3.5 w-3.5" />{togglingBot ? '…' : 'Human Mode'}</>
+            )}
+          </button>
         </div>
       </div>
 

@@ -68,8 +68,10 @@ import {
   LayoutTemplate,
   Smartphone,
   ChevronLeft,
+  XCircle,
   MoreVertical,
 } from 'lucide-react';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
 type FilterStatus = BroadcastStatus | 'ALL';
 type MainTab = 'broadcasts' | 'templates';
@@ -302,32 +304,15 @@ export function BroadcastsView() {
       </div>
 
       {/* Main Tab Switcher */}
-      <div className="flex items-center gap-1 rounded-xl2 border border-base-c bg-card-c p-1">
-        <button
-          onClick={() => setTab('broadcasts')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-            tab === 'broadcasts' ? 'bg-gradient-accent text-white shadow-soft' : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          <Megaphone className="h-4 w-4" /> Broadcast Campaigns
-          <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-bold', tab === 'broadcasts' ? 'bg-white/20' : 'bg-slate-200 dark:bg-ink-800')}>
-            {broadcasts.length}
-          </span>
-        </button>
-        <button
-          onClick={() => setTab('templates')}
-          className={cx(
-            'flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-            tab === 'templates' ? 'bg-gradient-accent text-white shadow-soft' : 'text-secondary-c hover:text-primary-c',
-          )}
-        >
-          <FileText className="h-4 w-4" /> WhatsApp Templates
-          <span className={cx('rounded-full px-1.5 py-0.5 text-[10px] font-bold', tab === 'templates' ? 'bg-white/20' : 'bg-slate-200 dark:bg-ink-800')}>
-            {templates.length}
-          </span>
-        </button>
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: 'broadcasts', label: `Broadcast Campaigns (${broadcasts.length})`, icon: <Megaphone className="h-4 w-4" /> },
+          { id: 'templates', label: `WhatsApp Templates (${templates.length})`, icon: <FileText className="h-4 w-4" /> }
+        ]}
+        activeTab={tab}
+        onChange={(id) => setTab(id as MainTab)}
+        className="w-full justify-between [&>button]:flex-1"
+      />
 
       {tab === 'broadcasts' ? (
         <>

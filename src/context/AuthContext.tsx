@@ -113,6 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setToken(null);
       setTenantId(null);
       setUser(null);
+      // Redirect to login with a message — use replace so back button doesn't return to the expired page
+      window.location.replace('/login?reason=expired');
     };
 
     window.addEventListener('storage', handleStorageChange);

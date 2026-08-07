@@ -40,7 +40,10 @@ import {
   User,
   X,
   Star,
+  ArrowUpRight,
+  TrendingUp,
 } from 'lucide-react';
+import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
 const SERVICE_ICONS: Record<string, typeof MapPin> = {
   MapPin,
@@ -242,30 +245,14 @@ export function BookingView() {
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-xl border border-base-c bg-card-c p-1 shadow-sm">
-            <button
-              onClick={() => setActiveTab('list')}
-              className={cx(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                activeTab === 'list'
-                  ? 'bg-gradient-accent text-white shadow-sm'
-                  : 'text-secondary-c hover:text-primary-c',
-              )}
-            >
-              <FileText className="h-3.5 w-3.5" /> Bookings List ({bookings.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('wizard')}
-              className={cx(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all',
-                activeTab === 'wizard'
-                  ? 'bg-gradient-accent text-white shadow-sm'
-                  : 'text-secondary-c hover:text-primary-c',
-              )}
-            >
-              <Plus className="h-3.5 w-3.5" /> New Booking
-            </button>
-          </div>
+          <TabSwitcher
+            tabs={[
+              { id: 'list', label: `Bookings List (${bookings.length})`, icon: <FileText className="h-3.5 w-3.5" /> },
+              { id: 'wizard', label: 'New Booking', icon: <Plus className="h-3.5 w-3.5" /> }
+            ]}
+            activeTab={activeTab}
+            onChange={(id) => setActiveTab(id as 'list' | 'wizard')}
+          />
 
           {activeTab === 'list' && (
             <button
