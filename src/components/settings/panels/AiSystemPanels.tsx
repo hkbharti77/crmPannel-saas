@@ -9,7 +9,7 @@ import {
   MessageSquare,
   ChevronUp, ChevronDown, Settings, Tag as TagIcon, MessageCircle, Sliders,
   ArrowUp, ArrowDown, User, AtSign, CheckCircle2, RotateCcw, Save, Loader2, AlertCircle,
-  X, Send, Sparkles, Wand2
+  X, Send, Sparkles, Wand2, Zap
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SectionCard, StatPill } from './_shared';
 import { apiFetch } from '@/lib/api';

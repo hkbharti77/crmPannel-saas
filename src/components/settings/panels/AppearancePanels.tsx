@@ -3,16 +3,23 @@ import { cx } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/primitives';
 import { Paintbrush, Moon, Bell, Sun, Check, Upload, Smartphone } from 'lucide-react';
-import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
+import { fetchCurrentUserProfile, updateCurrentUserProfile, uploadWidgetIcon } from '@/lib/userApi';
+import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
 
 /* ─── Custom Branding ─── */
 export function CustomBrandingPanel() {
   const [botName, setBotName] = useState('GyanVaniAi Assistant');
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
+  const [secondaryColor, setSecondaryColor] = useState('#1E293B');
   const [accentColor, setAccentColor] = useState('#7C3AED');
-  const [welcomeMsg, setWelcomeMsg] = useState('Hello! How can I help you find your dream property today?');
+  const [welcomeMsg, setWelcomeMsg] = useState('Hello! How can I help you today?');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [widgetIconUrl, setWidgetIconUrl] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
+  const [uploadingWidgetIcon, setUploadingWidgetIcon] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
     fetchSubscriptionStatus().then((res) => {
@@ -24,35 +31,128 @@ export function CustomBrandingPanel() {
         }
       }
     });
+
+    fetchCurrentUserProfile().then((res) => {
+      if (res.data) {
+        if (res.data.businessName) setBotName(res.data.businessName);
+        if (res.data.primaryColor) setPrimaryColor(res.data.primaryColor);
+        if (res.data.secondaryColor) setSecondaryColor(res.data.secondaryColor);
+        if (res.data.logoUrl) setLogoUrl(res.data.logoUrl);
+        if (res.data.widgetIconUrl) setWidgetIconUrl(res.data.widgetIconUrl);
+      }
+    });
   }, []);
+
+  const handleWidgetIconSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    // Strict client-side check for PNG format
+    if (file.type !== 'image/png' && !file.name.toLowerCase().endsWith('.png')) {
+      setErrorMsg('❌ Only PNG image format (.png) is supported for the widget icon.');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('❌ Widget icon file size must not exceed 2MB.');
+      return;
+    }
+
+    setUploadingWidgetIcon(true);
+    const res = await uploadWidgetIcon(file);
+    setUploadingWidgetIcon(false);
+
+    if (res.error) {
+      setErrorMsg(`❌ ${res.error}`);
+    } else if (res.data) {
+      setWidgetIconUrl(res.data.widgetIconUrl);
+      setSuccessMsg('✅ Widget PNG icon uploaded and saved successfully!');
+      setTimeout(() => setSuccessMsg(null), 3500);
+    }
+  };
 
   const PRESET_COLORS = ['#2563EB', '#0EA5E9', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
 
+const getFullImageUrl = (url: string | null) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
   return (
     <SectionCard>
-      <PanelHeader title="Custom Branding" desc="Customize your bot logo, colors, and welcome message" icon={<Paintbrush className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
+      <PanelHeader title="Custom Branding" desc="Customize your company logo, widget icon (PNG format only), and theme colors" icon={<Paintbrush className="h-5 w-5 text-primary-600 dark:text-primary-400" />} />
 
       {isLocked && (
         <PlanLockBanner featureName="Custom Bot Branding & White-Labeling" requiredPlan="PRO" />
       )}
 
-      {/* Logo upload */}
-      <div className="flex items-center gap-4 rounded-xl2 border border-base-c p-4">
-        <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-xl2 bg-gradient-accent">
-          <span className="text-xl font-bold text-white">GV</span>
+      {errorMsg && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+          {errorMsg}
         </div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-primary-c">Bot Logo</p>
-          <p className="text-xs text-muted-c">PNG or SVG, max 1MB, 256×256 recommended</p>
+      )}
+
+      {successMsg && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-300">
+          {successMsg}
         </div>
-        <button className="flex items-center gap-1.5 rounded-lg border border-base-c px-3 py-2 text-xs font-medium text-secondary-c hover:text-primary-c">
-          <Upload className="h-3.5 w-3.5" /> Upload
-        </button>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {/* Company Logo Upload */}
+        <div className="flex items-center gap-4 rounded-xl2 border border-base-c p-4">
+          <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-xl2 bg-gradient-accent">
+            {logoUrl ? (
+              <img 
+                src={getFullImageUrl(logoUrl)} 
+                alt="" 
+                className="h-full w-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} 
+              />
+            ) : (
+              <span className="text-lg font-bold text-white">GV</span>
+            )}
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-primary-c">Company Header Logo</p>
+            <p className="text-[11px] text-muted-c">Used for website headers & emails</p>
+          </div>
+        </div>
+
+        {/* Dedicated PNG Widget Icon Upload */}
+        <div className="flex items-center gap-4 rounded-xl2 border border-emerald-500/20 bg-emerald-500/5 p-4">
+          <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-emerald-500/30 bg-card-c shadow-sm">
+            {widgetIconUrl ? (
+              <img 
+                src={getFullImageUrl(widgetIconUrl)} 
+                alt="" 
+                className="h-full w-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <Smartphone className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+            )}
+          </div>
+          <div className="flex-1">
+            <p className="text-xs font-semibold text-primary-c">Widget Launcher Icon <Badge variant="success" className="ml-1 text-[10px]">PNG Only</Badge></p>
+            <p className="text-[11px] text-muted-c">Uploaded PNG image displayed on website chatbot launcher</p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-card-c px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30">
+            <Upload className="h-3.5 w-3.5" />
+            {uploadingWidgetIcon ? 'Uploading...' : 'Upload PNG'}
+            <input type="file" accept="image/png" onChange={handleWidgetIconSelect} className="hidden" disabled={uploadingWidgetIcon} />
+          </label>
+        </div>
       </div>
 
       <div className="mt-4 space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-secondary-c">Bot Name</label>
+          <label className="mb-1.5 block text-xs font-medium text-secondary-c">Bot / Business Name</label>
           <input value={botName} onChange={(e) => setBotName(e.target.value)} className="form-input" />
         </div>
 

@@ -50,22 +50,26 @@ function WhatsAppPhonePreview({
   welcomeMessage,
   returningMessage,
   menuType,
-  activeFlows,
-  reservedFeatures,
-  menuItems,
-  maxManualSlots,
-  thirdButtonType,
-  featureLabels,
+  activeFlows = [],
+  reservedFeatures = [],
+  menuItems = [],
+  maxManualSlots = 5,
+  thirdButtonType = 'ABOUT',
+  featureLabels = {
+    SOS: '🆘 Human Support',
+    ABOUT: '📂 About & Contact',
+    SUPPORT_FORM: '🎫 Get Support',
+  },
 }: {
   welcomeMessage: string;
   returningMessage: string;
   menuType: 'list' | 'button';
-  activeFlows: string[];
-  reservedFeatures: string[];
-  menuItems: MenuItem[];
-  maxManualSlots: number;
-  thirdButtonType: 'ABOUT' | 'SOS' | 'SUPPORT_FORM';
-  featureLabels: FeatureLabels;
+  activeFlows?: string[];
+  reservedFeatures?: string[];
+  menuItems?: MenuItem[];
+  maxManualSlots?: number;
+  thirdButtonType?: 'ABOUT' | 'SOS' | 'SUPPORT_FORM';
+  featureLabels?: FeatureLabels;
 }) {
   const [previewMode, setPreviewMode] = useState<'new' | 'returning'>('new');
   const [showDrawer, setShowDrawer] = useState(false);
@@ -79,17 +83,18 @@ function WhatsAppPhonePreview({
     .replace(/\{\{\s*business\s*\}\}/gi, 'GyanVani AI');
 
   // Compute buttons for Quick Reply mode
-  const visibleCustom = menuItems.slice(0, maxManualSlots).filter((it) => it.title.trim());
+  const visibleCustom = (menuItems || []).slice(0, maxManualSlots ?? 5).filter((it) => it?.title?.trim());
   const quickButtons: string[] = [];
 
-  if (activeFlows.length > 0) quickButtons.push(activeFlows[0]);
-  if (activeFlows.length > 1) {
+  if (activeFlows && activeFlows.length > 0) quickButtons.push(activeFlows[0]);
+  if (activeFlows && activeFlows.length > 1) {
     quickButtons.push(activeFlows[1]);
   } else if (visibleCustom.length > 0) {
     quickButtons.push(visibleCustom[0].title);
   }
 
-  const thirdLabel = featureLabels[thirdButtonType] || (thirdButtonType === 'ABOUT' ? '📂 About & Contact' : thirdButtonType === 'SOS' ? '🆘 Human Support' : '🎫 Get Support');
+  const thirdLabel = (featureLabels && thirdButtonType && featureLabels[thirdButtonType])
+    || (thirdButtonType === 'ABOUT' ? '📂 About & Contact' : thirdButtonType === 'SOS' ? '🆘 Human Support' : '🎫 Get Support');
   if (quickButtons.length < 3) quickButtons.push(thirdLabel);
 
   return (
@@ -417,9 +422,9 @@ export function MenuButtonsPanel() {
   if (showBookingFlow) activeFlows.push(triggerLabels.triggerButtonLabel || '✂️ Book Service');
 
   const reservedFeatures: string[] = [
-    ...(showSupportFormButton ? [featureLabels.SUPPORT_FORM || '🎫 Get Support'] : []),
-    ...(showAboutContact ? [featureLabels.ABOUT || '📂 About & Contact'] : []),
-    ...(showSosButton ? [featureLabels.SOS || '🆘 Human Support'] : []),
+    ...(showSupportFormButton ? [featureLabels?.SUPPORT_FORM || '🎫 Get Support'] : []),
+    ...(showAboutContact ? [featureLabels?.ABOUT || '📂 About & Contact'] : []),
+    ...(showSosButton ? [featureLabels?.SOS || '🆘 Human Support'] : []),
   ];
 
   const maxManualSlots = menuType === 'button'
@@ -615,7 +620,7 @@ export function MenuButtonsPanel() {
           <div className="rounded-xl2 border border-base-c p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-primary-c">{featureLabels.SOS}</p>
+                <p className="text-sm font-bold text-primary-c">{featureLabels?.SOS || '🆘 Human Support'}</p>
                 <p className="text-xs text-muted-c">Allows customers to request direct assistance from a support agent.</p>
               </div>
               <Toggle checked={showSosButton} onChange={v => { setShowSosButton(v); setEditingFeatures(true); }} />
@@ -634,7 +639,7 @@ export function MenuButtonsPanel() {
           <div className="rounded-xl2 border border-base-c p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-primary-c">{featureLabels.SUPPORT_FORM}</p>
+                <p className="text-sm font-bold text-primary-c">{featureLabels?.SUPPORT_FORM || '🎫 Get Support'}</p>
                 <p className="text-xs text-muted-c">Allows customers to submit structured tickets via the Support Form flow on WhatsApp.</p>
               </div>
               <Toggle checked={showSupportFormButton} onChange={v => { setShowSupportFormButton(v); setEditingFeatures(true); }} />
@@ -667,7 +672,7 @@ export function MenuButtonsPanel() {
           <div className="rounded-xl2 border border-base-c p-3">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-bold text-primary-c">{featureLabels.ABOUT}</p>
+                <p className="text-sm font-bold text-primary-c">{featureLabels?.ABOUT || '📂 About & Contact'}</p>
                 <p className="text-xs text-muted-c">Shows your business info and maps location.</p>
               </div>
               <Toggle checked={showAboutContact} onChange={v => { setShowAboutContact(v); setEditingFeatures(true); }} />
@@ -902,7 +907,7 @@ export function MenuButtonsPanel() {
         {menuType === 'button' ? (
           <div className="mt-3 rounded-xl2 border border-dashed border-red-400/50 bg-red-50/50 p-3 dark:bg-red-900/10">
             <p className="mb-1 text-[11px] font-bold text-red-600">Option 3 (Reserved)</p>
-            <p className="text-xs italic text-red-400">🔒 Occupied by: {featureLabels[thirdButtonType] || thirdButtonType}</p>
+            <p className="text-xs italic text-red-400">🔒 Occupied by: {featureLabels?.[thirdButtonType] || thirdButtonType}</p>
           </div>
         ) : (
           reservedFeatures.map((feat, i) => (
@@ -954,6 +959,9 @@ export function MenuButtonsPanel() {
           activeFlows={activeFlows}
           reservedFeatures={reservedFeatures}
           menuItems={menuItems}
+          maxManualSlots={maxManualSlots}
+          thirdButtonType={thirdButtonType}
+          featureLabels={featureLabels}
         />
     </div>
   );

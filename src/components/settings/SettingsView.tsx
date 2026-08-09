@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import {
@@ -29,6 +29,7 @@ import { SystemHealthPanel } from './panels/AiSystemPanels';
 import { NeedHelpPanel } from './panels/AiSystemPanels';
 import { BroadcastFilterConfigPanel } from './panels/BroadcastFilterConfigPanel';
 import { EmailBrandingPanel } from './panels/EmailBrandingPanel';
+import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 export type SettingsSub =
   | 'account-profile' | 'security' | 'google-calendar' | 'billing'
@@ -169,8 +170,15 @@ export function SettingsView() {
     }),
   })).filter((group) => group.items.length > 0);
 
-  if (tab && (!PANEL_MAP[tab as SettingsSub] || !filteredNav.flatMap((g) => g.items).some((i) => i.id === tab))) {
-    return <Navigate to="/settings/account-profile" replace />;
+  // 1. If tab parameter was provided but is completely unknown/invalid -> 404 Not Found
+  if (tab && !PANEL_MAP[tab as SettingsSub]) {
+    return <NotFoundView />;
+  }
+
+  // 2. If tab exists in the system but the current user lacks permission -> redirect to first permitted tab
+  if (tab && !filteredNav.flatMap((g) => g.items).some((i) => i.id === tab)) {
+    const fallbackTab = filteredNav[0]?.items[0]?.id || 'account-profile';
+    return <Navigate to={`/settings/${fallbackTab}`} replace />;
   }
 
   const Panel = PANEL_MAP[active];

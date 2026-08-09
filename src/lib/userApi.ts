@@ -11,6 +11,7 @@ export interface UserProfileDto {
   address?: string;
   aboutUs?: string;
   logoUrl?: string;
+  widgetIconUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
   emailHeaderText?: string;
@@ -37,6 +38,15 @@ export async function updateCurrentUserProfile(data: Partial<UserProfileDto>) {
   return apiFetch<UserProfileDto>('/api/v1/users/me', {
     method: 'PUT',
     body: JSON.stringify(data),
+  });
+}
+
+export async function uploadWidgetIcon(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiFetch<{ message: string; widgetIconUrl: string }>('/api/v1/users/me/widget-icon', {
+    method: 'POST',
+    body: formData,
   });
 }
 

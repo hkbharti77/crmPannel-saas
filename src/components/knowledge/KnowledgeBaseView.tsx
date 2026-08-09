@@ -3,7 +3,7 @@ import { cx } from '@/lib/types';
 import {
   Brain, Upload, Trash2, Download, AlertCircle, Loader2,
   FileText, Sparkles, CheckCircle2, File,
-  Wand2, Save, RotateCcw, HelpCircle, Clock, User
+  Wand2, Save, RotateCcw, HelpCircle, Clock, User, RefreshCw
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
@@ -55,6 +55,8 @@ export function KnowledgeBaseView() {
   const [documents, setDocuments] = useState<RagDocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [planLocked, setPlanLocked] = useState(false);
 
   // ── AI Persona State ──
   const [personaPrompt, setPersonaPrompt] = useState('');

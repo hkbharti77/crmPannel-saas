@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { fetchEmailCampaigns, fetchEmailTemplates } from '@/lib/emailsApi';
 import { Campaign } from './emailData';
 import { GlassCard } from '@/components/ui/primitives';
@@ -7,7 +7,7 @@ import { CampaignDetailsPanel } from './CampaignDetailsPanel';
 import { EmailTemplatesPanel } from './EmailTemplatesPanel';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import {
-  Mail, LayoutTemplate, Search, Filter, MousePointerClick, MailOpen, BarChart3, AlertCircle
+  Mail, LayoutTemplate, Search, Filter, MousePointerClick, MailOpen, BarChart3, AlertCircle, Plus
 } from 'lucide-react';
 
 export function EmailsView() {
