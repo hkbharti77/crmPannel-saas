@@ -4,9 +4,9 @@ import { cx } from '@/lib/types';
 import {
   User, Shield, Globe, CreditCard,
   Paintbrush, Moon, Bell,
-  Plug, Mail, LayoutList, ShoppingBag, FormInput, ListTree,
+  Plug, LayoutList, ShoppingBag, FormInput, ListTree,
   MessageSquare, MousePointerClick,
-  HelpCircle, Zap, LifeBuoy, ChevronRight, SlidersHorizontal, Brain,
+  HelpCircle, Zap, LifeBuoy, ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -135,15 +135,18 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'need-help': NeedHelpPanel,
 };
 
+import { usePermissions } from '@/hooks/usePermissions';
+
 export function SettingsView() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const active = (tab as SettingsSub) || 'account-profile';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const setActive = (id: SettingsSub) => {
+  const setActive = useCallback((id: SettingsSub) => {
     navigate(`/settings/${id}`);
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const handleSwitchTab = (e: Event) => {
@@ -154,14 +157,24 @@ export function SettingsView() {
     };
     window.addEventListener('switchSettingsTab', handleSwitchTab);
     return () => window.removeEventListener('switchSettingsTab', handleSwitchTab);
-  }, [navigate]);
+  }, [setActive]);
 
-  if (tab && (!PANEL_MAP[tab as SettingsSub] || !NAV.flatMap((g) => g.items).some((i) => i.id === tab))) {
+  // Filter NAV items dynamically based on permissions
+  const filteredNav: NavGroup[] = NAV.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => {
+      if (item.id === 'billing' && !hasPermission('SETTINGS_BILLING')) return false;
+      if (item.id === 'account-profile' && !hasPermission('SETTINGS_PROFILE')) return false;
+      return true;
+    }),
+  })).filter((group) => group.items.length > 0);
+
+  if (tab && (!PANEL_MAP[tab as SettingsSub] || !filteredNav.flatMap((g) => g.items).some((i) => i.id === tab))) {
     return <Navigate to="/settings/account-profile" replace />;
   }
 
   const Panel = PANEL_MAP[active];
-  const activeItem = NAV.flatMap((g) => g.items).find((i) => i.id === active) || NAV[0].items[0];
+  const activeItem = filteredNav.flatMap((g) => g.items).find((i) => i.id === active) || filteredNav[0]?.items[0];
 
   return (
     <div className="mx-auto max-w-7xl p-3 lg:p-5">
@@ -174,7 +187,7 @@ export function SettingsView() {
         {/* ─── Compact Sidebar nav ─── */}
         <aside className="hidden lg:block">
           <div className="sticky top-4 space-y-2.5">
-            {NAV.map((group) => (
+            {filteredNav.map((group) => (
               <div key={group.section}>
                 <p className="mb-1 px-1 text-[9px] font-bold uppercase tracking-widest text-muted-c">
                   {group.section}

@@ -59,7 +59,6 @@ export function LeadDetailView() {
   const onBack = () => navigate('/pipeline');
   const [tab, setTab] = useState<TabId>('timeline');
   const [lead, setLead] = useState<LeadDTO | null>(leadObj || null);
-  const [loading, setLoading] = useState(false);
 
   const [notes, setNotes] = useState<LeadNoteDTO[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);

@@ -11,7 +11,6 @@ import {
 import { CsvBroadcastUploader } from '@/components/broadcasts/CsvBroadcastUploader';
 import {
   Megaphone,
-  X,
   Users,
   Sparkles,
   CheckCircle2,
@@ -162,15 +161,17 @@ export default function CreateBroadcastView() {
 
   // Update default mapping when variables detected
   useEffect(() => {
+    // Sync default mappings
     if (detectedVariables.length > 0) {
-      const initialMap: Record<string, string> = {};
-      detectedVariables.forEach((v, idx) => {
-        initialMap[v] = variableMap[v] || (idx === 0 ? '{{contact.name}}' : '{{custom_val}}');
+      const initMap: Record<string, string> = {};
+      detectedVariables.forEach((v) => {
+        initMap[v] = variableMap[v] || '';
       });
-      setVariableMap(initialMap);
+      setVariableMap(initMap);
     } else {
       setVariableMap({});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detectedVariables]);
 
   const targetCount =
@@ -678,10 +679,10 @@ export default function CreateBroadcastView() {
 
                   {selectedTemplate?.buttons && selectedTemplate.buttons.length > 0 && (
                     <div className="border-t border-slate-100 bg-slate-50/50 rounded-b-lg overflow-hidden divide-y divide-slate-100">
-                      {selectedTemplate.buttons.map((btn: any, idx: number) => (
+                      {selectedTemplate.buttons.map((btn: Record<string, unknown>, idx: number) => (
                         <div key={idx} className="flex items-center justify-center gap-2 py-2.5 px-3 text-[14px] text-[#00A884] bg-white cursor-pointer hover:bg-slate-50 transition-colors">
                           {btn.type === 'URL' ? <Globe className="h-4 w-4" /> : btn.type === 'PHONE_NUMBER' ? <Phone className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-                          <span className="font-medium truncate">{btn.text}</span>
+                          <span className="font-medium truncate">{btn.text as string}</span>
                         </div>
                       ))}
                     </div>

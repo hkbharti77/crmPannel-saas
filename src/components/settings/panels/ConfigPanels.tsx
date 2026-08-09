@@ -7,10 +7,8 @@ import {
   Check, ExternalLink,
   RefreshCw, Plus, Trash2, X,
 } from 'lucide-react';
-import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
+import { PanelHeader, SectionCard, PlanLockBanner } from './_shared';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
-import { apiFetch } from '@/lib/api';
-import { fetchCurrentUserProfile, updateCurrentUserProfile } from '@/lib/userApi';
 
 export { MenuButtonsPanel } from './MenuButtonsPanel';
 export { MenuBuilderPanel } from './MenuBuilderPanel';

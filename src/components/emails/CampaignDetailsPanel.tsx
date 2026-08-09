@@ -76,8 +76,8 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
         cancelledAt: formatDate(dto.cancelledAt),
         template: dto.recipientMode ? `Mode: ${dto.recipientMode}` : 'Custom Email',
       });
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -85,6 +85,7 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
 
   useEffect(() => {
     loadCampaign();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignId]);
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       }, 5000);
       return () => clearInterval(interval);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaign?.status]);
 
   if (loading && !campaign) {

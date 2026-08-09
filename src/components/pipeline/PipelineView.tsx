@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { STAGE_CONFIG, type Lead } from './pipelineData';
 import { PipelineStats } from './PipelineStats';
@@ -10,7 +9,7 @@ import {
   downloadLeadsExport,
   type LeadDTO,
 } from '@/lib/leadsApi';
-import { Search, SlidersHorizontal, Plus, Download, RefreshCw, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Search, Plus, Download, RefreshCw, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { PipelineTableView } from './PipelineTableView';
 
 type FilterId = 'all' | 'hot' | 'vip' | 'mine';
@@ -77,7 +76,7 @@ export function PipelineView() {
           value: dealVal,
           priority: isHot ? 'HIGH' : 'MEDIUM',
           score: scoreVal,
-          source: (dto.contact?.source as any) || 'WhatsApp',
+          source: (dto.contact?.source as Lead['source']) || 'WhatsApp',
           tags,
           assignedTo: dto.ownerName || 'Agent',
           lastActivity: dto.createdAtHuman || 'Recently',
@@ -100,10 +99,12 @@ export function PipelineView() {
       loadLeads(0, query);
     }, 500);
     return () => clearTimeout(handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
   useEffect(() => {
     loadLeads(page, query);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const filtered = useMemo(() => {
@@ -416,7 +417,7 @@ export function PipelineView() {
                       <label className="text-xs font-medium text-secondary-c mb-1 block">Send Via</label>
                       <select
                         value={paymentMethod}
-                        onChange={(e) => setPaymentMethod(e.target.value as any)}
+                        onChange={(e) => setPaymentMethod(e.target.value as 'WHATSAPP' | 'EMAIL' | 'BOTH')}
                         className="w-full rounded-lg border border-base-c bg-card-c p-2 text-sm text-primary-c focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
                       >
                         <option value="WHATSAPP">WhatsApp Only</option>

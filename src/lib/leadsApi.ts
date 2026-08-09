@@ -6,7 +6,7 @@ export type LeadDTO = {
   leadNumber?: string;
   contact?: ContactDTO;
   status: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'WON' | 'LOST';
-  enquiries?: any[];
+  enquiries?: unknown[];
   createdAt?: string;
   lastActivity?: string;
   dealValue?: number;
@@ -107,8 +107,8 @@ export async function fetchLeadsByContactId(contactId: string) {
   try {
     const res = await apiFetch<LeadDTO[]>(`/api/v1/leads/contact/${contactId}`);
     return { data: res.data, error: res.error };
-  } catch (error: any) {
-    return { data: null, error: error.message };
+  } catch (error: unknown) {
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -225,8 +225,8 @@ export async function uploadLeadAttachment(leadId: string, file: File) {
     }
     const data: LeadAttachmentDTO = await res.json();
     return { data, error: null };
-  } catch (err: any) {
-    return { data: null, error: err.message || 'Network error' };
+  } catch (err: unknown) {
+    return { data: null, error: (err as Error).message || 'Network error' };
   }
 }
 

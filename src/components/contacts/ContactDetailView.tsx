@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/primitives';
-import { Loader2, AlertTriangle, ArrowLeft, Bot, Mail, Phone, MapPin, Hash, UserSquare, Tag as TagIcon, Plus, Target, Calendar, ClipboardList } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, Bot, Mail, Phone, Hash, UserSquare, Tag as TagIcon, Plus, Target, Calendar, ClipboardList } from 'lucide-react';
 import { fetchContactById, toggleContactBot, type ContactDTO } from '@/lib/contactsApi';
 import { fetchLeadsByContactId, type LeadDTO } from '@/lib/leadsApi';
 import { fetchBookingsByContactId, type BookingDto } from '@/lib/bookingsApi';
@@ -79,7 +79,7 @@ export function ContactDetailView() {
     );
   }
 
-  const tabs: { id: TabType; label: string; icon: any; count?: number }[] = [
+  const tabs: { id: TabType; label: string; icon: typeof UserSquare; count?: number }[] = [
     { id: 'overview', label: 'Overview', icon: UserSquare },
     { id: 'leads', label: 'Leads', icon: Target, count: leads.length },
     { id: 'bookings', label: 'Bookings', icon: ClipboardList, count: bookings.length },

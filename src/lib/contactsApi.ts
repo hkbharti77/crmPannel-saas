@@ -25,9 +25,9 @@ export async function createContact(data: CreateContactRequest) {
       body: JSON.stringify(data)
     });
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error creating contact:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -35,9 +35,9 @@ export async function fetchContacts() {
   try {
     const res = await apiFetch<ContactDTO[]>('/api/v1/contacts');
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching contacts:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -45,9 +45,9 @@ export async function fetchContactById(id: string) {
   try {
     const res = await apiFetch<ContactDTO>(`/api/v1/contacts/${id}`);
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error fetching contact:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -58,9 +58,9 @@ export async function updateContactTags(id: string, tags: string[]) {
       body: JSON.stringify(tags)
     });
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error updating contact tags:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -71,9 +71,9 @@ export async function toggleContactBot(id: string, botPaused: boolean) {
       body: JSON.stringify({ botPaused })
     });
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error toggling contact bot:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -83,9 +83,9 @@ export async function deleteContact(id: string) {
       method: 'DELETE'
     });
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error deleting contact:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -122,9 +122,9 @@ export async function importContactsBatch(contacts: ContactImportRowDTO[]) {
       body: JSON.stringify({ contacts })
     });
     return { data: res.data, error: res.error };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error importing contacts:', error);
-    return { data: null, error: error.message };
+    return { data: null, error: (error as Error).message };
   }
 }
 
@@ -134,7 +134,6 @@ export function getExportUrl(search?: string, source?: string, botStatus?: strin
   if (source && source !== 'ALL') params.append('source', source);
   if (botStatus && botStatus !== 'ALL') params.append('botStatus', botStatus);
   
-  const token = localStorage.getItem('token');
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
   
   // Since this is a direct download link, we can't easily pass the Authorization header via a normal <a> tag.
@@ -175,8 +174,8 @@ export async function exportContacts(search?: string, source?: string, botStatus
     window.URL.revokeObjectURL(downloadUrl);
     
     return { error: null };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error exporting contacts:', error);
-    return { error: error.message };
+    return { error: (error as Error).message };
   }
 }

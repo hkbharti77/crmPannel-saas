@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { IconButton, Avatar } from '@/components/ui/primitives';
 import { Menu, Search, Bell, Sun, Moon, Command, LogOut, ChevronDown } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import type { ViewId } from '@/lib/navigation';
 
 const TITLES: Record<string, string> = {
   dashboard: 'Dashboard',
@@ -40,6 +39,45 @@ export function TopBar({
 
   const displayName = user?.user_metadata?.name ?? user?.email?.split('@')[0] ?? 'User';
 
+  const [availability, setAvailability] = useState<'AVAILABLE' | 'BUSY' | 'OFFLINE'>('AVAILABLE');
+
+  // Heartbeat loop every 60 seconds
+  useEffect(() => {
+    const sendHeartbeat = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        await fetch('/api/livechat/heartbeat', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } catch {
+        // silent fail
+      }
+    };
+    sendHeartbeat();
+    const interval = setInterval(sendHeartbeat, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleStatusChange = async (newStatus: 'AVAILABLE' | 'BUSY' | 'OFFLINE') => {
+    setAvailability(newStatus);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      await fetch('/api/livechat/availability', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+    } catch (err) {
+      console.error('Failed updating availability status', err);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-base-c px-4 lg:px-6 glass">
       <button
@@ -53,6 +91,28 @@ export function TopBar({
       <h1 className="text-base font-semibold text-primary-c lg:text-lg">
         {TITLES[currentPath] ?? 'Dashboard'}
       </h1>
+
+      {/* Agent Availability Toggle */}
+      <div className="ml-4 flex items-center gap-1.5 rounded-full border border-base-c bg-card-c px-2 py-1 text-xs">
+        <span
+          className={`h-2.5 w-2.5 rounded-full ${
+            availability === 'AVAILABLE'
+              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
+              : availability === 'BUSY'
+              ? 'bg-amber-500'
+              : 'bg-slate-400'
+          }`}
+        />
+        <select
+          value={availability}
+          onChange={(e) => handleStatusChange(e.target.value as 'AVAILABLE' | 'BUSY' | 'OFFLINE')}
+          className="bg-transparent font-medium text-primary-c focus:outline-none cursor-pointer text-xs"
+        >
+          <option value="AVAILABLE">Online (Available)</option>
+          <option value="BUSY">Busy</option>
+          <option value="OFFLINE">Offline</option>
+        </select>
+      </div>
 
       <div className="ml-auto flex items-center gap-1.5">
         <button className="hidden items-center gap-2 rounded-lg border border-base-c bg-card-c px-3 py-2 text-sm text-muted-c transition-colors hover:border-primary-500/40 hover:text-secondary-c sm:flex">

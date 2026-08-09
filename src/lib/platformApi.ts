@@ -87,20 +87,20 @@ export type ApiHealthService = {
 
 export type ApiHealthResponse = {
   status: string;
-  services?: any;
+  services?: unknown;
   timestamp?: string;
 };
 
-export function normalizeHealthServices(servicesRaw: any): ApiHealthService[] {
+export function normalizeHealthServices(servicesRaw: unknown): ApiHealthService[] {
   if (!servicesRaw) return [];
   if (Array.isArray(servicesRaw)) return servicesRaw;
   if (typeof servicesRaw === 'object') {
-    return Object.entries(servicesRaw).map(([key, val]: [string, any]) => ({
-      name: val.version || key.toUpperCase(),
-      status: val.status ?? 'UP',
-      uptime: val.uptime ?? 99.9,
-      latency: val.latencyMs ?? val.latency ?? 0,
-      message: val.lastChecked ? `Last checked: ${new Date(val.lastChecked).toLocaleTimeString()}` : undefined,
+    return Object.entries(servicesRaw as Record<string, Record<string, unknown>>).map(([key, val]) => ({
+      name: (val?.version as string) || key.toUpperCase(),
+      status: (val?.status as string) ?? 'UP',
+      uptime: (val?.uptime as number) ?? 99.9,
+      latency: (val?.latencyMs as number) ?? (val?.latency as number) ?? 0,
+      message: val?.lastChecked ? `Last checked: ${new Date(val.lastChecked as string | number | Date).toLocaleTimeString()}` : undefined,
     }));
   }
   return [];
@@ -242,27 +242,27 @@ export async function fetchAnalyticsOverview() {
 }
 
 export async function fetchAnalyticsGrowth() {
-  return apiFetch<any>('/api/v1/platform/analytics/growth', { headers: authHeaders() });
+  return apiFetch<unknown>('/api/v1/platform/analytics/growth', { headers: authHeaders() });
 }
 
 export async function fetchAnalyticsSubscriptions() {
-  return apiFetch<any>('/api/v1/platform/analytics/subscriptions', { headers: authHeaders() });
+  return apiFetch<unknown>('/api/v1/platform/analytics/subscriptions', { headers: authHeaders() });
 }
 
 export async function fetchAnalyticsChurn() {
-  return apiFetch<any>('/api/v1/platform/analytics/churn', { headers: authHeaders() });
+  return apiFetch<unknown>('/api/v1/platform/analytics/churn', { headers: authHeaders() });
 }
 
 export async function fetchAnalyticsNiches() {
-  return apiFetch<any>('/api/v1/platform/analytics/niches', { headers: authHeaders() });
+  return apiFetch<unknown>('/api/v1/platform/analytics/niches', { headers: authHeaders() });
 }
 
 export async function fetchAnalyticsOperational() {
-  return apiFetch<any>('/api/v1/platform/analytics/operational', { headers: authHeaders() });
+  return apiFetch<unknown>('/api/v1/platform/analytics/operational', { headers: authHeaders() });
 }
 
 export async function fetchRecentActivity() {
-  return apiFetch<any[]>('/api/v1/platform/analytics/recent-activity', { headers: authHeaders() });
+  return apiFetch<unknown[]>('/api/v1/platform/analytics/recent-activity', { headers: authHeaders() });
 }
 
 /* ────────────────────────────────────────────────────────────────
@@ -294,7 +294,7 @@ export async function platformSearch(query: string) {
    SUBSCRIPTIONS
 ──────────────────────────────────────────────────────────────── */
 export async function fetchPlatformSubscriptions() {
-  return apiFetch<any[]>('/api/v1/platform/subscriptions', { headers: authHeaders() });
+  return apiFetch<unknown[]>('/api/v1/platform/subscriptions', { headers: authHeaders() });
 }
 
 export async function updateTenantPlan(tenantId: string, plan: string) {
@@ -306,10 +306,10 @@ export async function updateTenantPlan(tenantId: string, plan: string) {
 }
 
 export async function fetchPlatformPlans() {
-  return apiFetch<any[]>('/api/v1/platform/plans', { headers: authHeaders() });
+  return apiFetch<unknown[]>('/api/v1/platform/plans', { headers: authHeaders() });
 }
 
-export async function createPlatformPlan(planData: any) {
+export async function createPlatformPlan(planData: unknown) {
   return apiFetch('/api/v1/platform/plans', {
     method: 'POST',
     headers: authHeaders(),
@@ -317,7 +317,7 @@ export async function createPlatformPlan(planData: any) {
   });
 }
 
-export async function updatePlatformPlanDetails(planId: string, planData: any) {
+export async function updatePlatformPlanDetails(planId: string, planData: unknown) {
   return apiFetch(`/api/v1/platform/plans/${planId}`, {
     method: 'PUT',
     headers: authHeaders(),

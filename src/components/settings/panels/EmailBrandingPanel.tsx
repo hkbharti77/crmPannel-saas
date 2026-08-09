@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
-import { Mail, Check, Upload, Loader2, AlertCircle, CheckCircle2, Type, FileText, Palette, Image } from 'lucide-react';
+import { Mail, Check, Loader2, AlertCircle, CheckCircle2, Type, FileText, Palette, Image } from 'lucide-react';
 import { PanelHeader, SaveBar, SectionCard } from './_shared';
 import { fetchCurrentUserProfile, updateCurrentUserProfile } from '@/lib/userApi';
 import { BroadcastFilterConfigPanel } from './BroadcastFilterConfigPanel';

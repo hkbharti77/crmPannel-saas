@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Loader2, Upload, FileText, Download, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Upload, FileText, Download, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import Papa from 'papaparse';
 import { importContactsBatch, type ContactImportRowDTO, type ImportResultDTO } from '@/lib/contactsApi';
 
@@ -15,10 +15,11 @@ interface ParsedRow {
   row: number;
   name?: string;
   email?: string;
-  waId?: string;
+  waId: string;
   tags?: string[];
+  rawWaId: string;
   isValid: boolean;
-  errors: string[];
+  validationError?: string;
 }
 
 export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalProps) {
@@ -28,6 +29,15 @@ export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalP
   const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      processFiles(Array.from(files).filter(f => f.name.endsWith('.csv')));
+    }
+  };
 
   const handleDownloadTemplate = () => {
     const template = 'name,whatsapp_number,email,tags\nRahul Kumar,+919876543210,rahul@example.com,"Customer,Hot Lead"';
@@ -42,26 +52,11 @@ export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalP
     window.URL.revokeObjectURL(url);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    processFiles(Array.from(files));
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const files = e.dataTransfer.files;
-    if (!files || files.length === 0) return;
-
-    processFiles(Array.from(files).filter(f => f.name.endsWith('.csv')));
-  };
-
   const processFiles = async (files: File[]) => {
     setError(null);
     setStep('PREVIEW');
     
-    let allParsed: ParsedRow[] = [];
+    const allParsed: ParsedRow[] = [];
     
     for (const file of files) {
       await new Promise<void>((resolve) => {
@@ -69,7 +64,7 @@ export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalP
           header: true,
           skipEmptyLines: true,
           complete: (results) => {
-            const rows = results.data as Record<string, any>[];
+            const rows = results.data as Record<string, string>[];
             
             rows.forEach((r, index) => {
               // Map defensive headers

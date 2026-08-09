@@ -1,27 +1,24 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { cx } from '@/lib/types';
-import { fetchEmailCampaigns, fetchEmailTemplates, deleteEmailTemplate } from '@/lib/emailsApi';
-import { Campaign, EmailTemplate, CAMPAIGN_STATUS_META } from './emailData';
+import { useSearchParams } from 'react-router-dom';
+import { fetchEmailCampaigns, fetchEmailTemplates } from '@/lib/emailsApi';
+import { Campaign } from './emailData';
 import { GlassCard } from '@/components/ui/primitives';
 import { CampaignDetailsPanel } from './CampaignDetailsPanel';
 import { EmailTemplatesPanel } from './EmailTemplatesPanel';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import {
-  Mail, LayoutTemplate, Plus, Search, Filter, Play, PauseCircle,
-  XCircle, Copy, Trash2, ArrowRight, MousePointerClick, MailOpen, BarChart3, AlertCircle
+  Mail, LayoutTemplate, Search, Filter, MousePointerClick, MailOpen, BarChart3, AlertCircle
 } from 'lucide-react';
 
 export function EmailsView() {
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   
   // URL State mapping
   const activeTab = searchParams.get('tab') === 'templates' ? 'templates' : 'campaigns';
   const selectedCampaignId = searchParams.get('id');
 
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +30,7 @@ export function EmailsView() {
         const res = await fetchEmailCampaigns(0, 100);
         if (res.error) throw new Error(res.error);
         if (res.data) {
-          const mapped: Campaign[] = res.data.content.map(dto => {
+          const mapped: Campaign[] = (res.data.content as Record<string, unknown>[]).map(dto => {
             let status: Campaign['status'] = 'draft';
             if (dto.status === 'SENT') status = 'sent';
             else if (dto.status === 'SCHEDULED') status = 'scheduled';
@@ -43,24 +40,24 @@ export function EmailsView() {
             else if (dto.status === 'COMPLETED') status = 'completed';
             else if (dto.status === 'FAILED') status = 'failed';
             return {
-              id: dto.id,
-              name: dto.name || dto.subject,
-              subject: dto.subject,
+              id: String(dto.id),
+              name: String(dto.name || dto.subject || ''),
+              subject: String(dto.subject || ''),
               status,
-              recipients: dto.totalRecipients || 0,
-              totalRecipients: dto.totalRecipients || 0,
-              processedRecipients: dto.processedRecipients || 0,
-              totalSent: dto.totalSent || 0,
-              totalFailed: dto.totalFailed || 0,
-              openRate: dto.openRate || 0,
-              clickRate: dto.clickRate || 0,
-              uniqueOpens: dto.uniqueOpens || 0,
-              uniqueClicks: dto.uniqueClicks || 0,
-              bounces: dto.bounces || 0,
-              unsubscribes: dto.unsubscribes || 0,
-              createdAt: dto.createdAt,
-              sentAt: dto.sentAt,
-              template: dto.recipientMode || 'Manual'
+              recipients: Number(dto.totalRecipients || 0),
+              totalRecipients: Number(dto.totalRecipients || 0),
+              processedRecipients: Number(dto.processedRecipients || 0),
+              totalSent: Number(dto.totalSent || 0),
+              totalFailed: Number(dto.totalFailed || 0),
+              openRate: Number(dto.openRate || 0),
+              clickRate: Number(dto.clickRate || 0),
+              uniqueOpens: Number(dto.uniqueOpens || 0),
+              uniqueClicks: Number(dto.uniqueClicks || 0),
+              bounces: Number(dto.bounces || 0),
+              unsubscribes: Number(dto.unsubscribes || 0),
+              createdAt: String(dto.createdAt || ''),
+              sentAt: dto.sentAt ? String(dto.sentAt) : undefined,
+              template: String(dto.recipientMode || 'Manual')
             };
           });
           setCampaigns(mapped);
@@ -69,8 +66,7 @@ export function EmailsView() {
         const res = await fetchEmailTemplates();
         if (res.error) throw new Error(res.error);
         if (res.data) {
-          // Cast DTO to UI model
-          setTemplates(res.data.map((t: any) => ({
+          setTemplates(res.data.map((t: Record<string, unknown>) => ({
             id: t.id,
             name: t.name,
             subject: t.subject,
@@ -79,8 +75,8 @@ export function EmailsView() {
           })));
         }
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -88,31 +84,26 @@ export function EmailsView() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   const handleTabChange = (tab: 'campaigns' | 'templates') => {
     setSearchParams(tab === 'campaigns' ? {} : { tab: 'templates' });
   };
 
-  // Metrics calculation
   const metrics = useMemo(() => {
-    if (!campaigns.length) return { totalSent: 0, avgOpen: 0, avgClick: 0 };
-    let totalSent = 0;
-    let totalOpens = 0;
-    let totalClicks = 0;
-    campaigns.forEach(c => {
-      totalSent += (c.totalSent || 0);
-      totalOpens += (c.uniqueOpens || 0);
-      totalClicks += (c.uniqueClicks || 0);
-    });
-    return {
-      totalSent,
-      avgOpen: totalSent > 0 ? Math.round((totalOpens / totalSent) * 100) : 0,
-      avgClick: totalSent > 0 ? Math.round((totalClicks / totalSent) * 100) : 0
-    };
+    const totalSent = campaigns.reduce((acc, c) => acc + (c.totalSent || 0), 0);
+    const validRateCampaigns = campaigns.filter((c) => typeof c.openRate === 'number' && !isNaN(c.openRate));
+    const avgOpenRate = validRateCampaigns.length > 0
+      ? Math.round(validRateCampaigns.reduce((acc, c) => acc + (c.openRate || 0), 0) / validRateCampaigns.length)
+      : 0;
+    const avgClickRate = validRateCampaigns.length > 0
+      ? Math.round(validRateCampaigns.reduce((acc, c) => acc + (c.clickRate || 0), 0) / validRateCampaigns.length)
+      : 0;
+
+    return { totalSent, avgOpenRate, avgClickRate };
   }, [campaigns]);
 
-  // If a campaign is selected, render the details panel
   if (selectedCampaignId) {
     return (
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -129,7 +120,6 @@ export function EmailsView() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full space-y-8 animate-fade-in">
-      {/* Header & Tabs */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-2">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-primary-c sm:text-4xl">
@@ -145,7 +135,7 @@ export function EmailsView() {
             { id: 'templates', label: 'Templates', icon: <LayoutTemplate className="h-4 w-4" /> }
           ]}
           activeTab={activeTab}
-          onChange={(id) => handleTabChange(id as any)}
+          onChange={(id) => handleTabChange(id as 'campaigns' | 'templates')}
         />
       </div>
 
@@ -268,7 +258,7 @@ export function EmailsView() {
                 </button>
               </GlassCard>
             ) : (
-              campaigns.map((campaign, idx) => {
+              campaigns.map((campaign) => {
                 const meta = CAMPAIGN_STATUS_META[campaign.status] || CAMPAIGN_STATUS_META.draft;
                 return (
                   <GlassCard 

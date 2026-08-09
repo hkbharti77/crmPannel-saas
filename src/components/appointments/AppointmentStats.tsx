@@ -1,5 +1,5 @@
 import { GlassCard } from '@/components/ui/primitives';
-import { CalendarCheck, Clock, CheckCircle2, XCircle, CalendarDays } from 'lucide-react';
+import { CalendarCheck, CheckCircle2, XCircle, CalendarDays } from 'lucide-react';
 import type { Appointment } from './appointmentData';
 
 export function AppointmentStats({ appointments }: { appointments: Appointment[] }) {

@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
-  SERVICES as DEFAULT_SERVICES,
   type BookingService,
   type BookingFormData,
 } from './bookingData';
@@ -26,10 +25,8 @@ import {
   Check,
   ChevronRight,
   ChevronLeft,
-  Sparkles,
   CalendarCheck,
   PartyPopper,
-  Video,
   Loader2,
   RefreshCw,
   Search,
@@ -41,8 +38,6 @@ import {
   User,
   X,
   Star,
-  ArrowUpRight,
-  TrendingUp,
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
@@ -53,7 +48,7 @@ const SERVICE_ICONS: Record<string, typeof MapPin> = {
   Users,
 };
 
-export function extractSlotFromBooking(b: BookingDto): string {
+function extractSlotFromBooking(b: BookingDto): string {
   if (b.preferredSlot && b.preferredSlot.trim() !== '') {
     return b.preferredSlot;
   }

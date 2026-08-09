@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react';
-import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { useWebSocket, type WsIncomingMessage } from '@/hooks/useWebSocket';
+import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { AI_SUGGESTIONS, type Message } from './chatData';
 import { MessageBubble } from './MessageBubble';
@@ -17,6 +18,7 @@ import {
 import {
   ArrowLeft,
   Bot,
+  UserCheck,
   PanelRightClose,
   PanelRightOpen,
   MenuSquare,
@@ -35,10 +37,10 @@ export function ChatRoomView() {
   const [draft, setDraft] = useState('');
   const [botMode, setBotMode] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [suggestionIdx, setSuggestionIdx] = useState(0);
   const [showContext, setShowContext] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sendingMenu, setSendingMenu] = useState(false);
+  const [togglingBot, setTogglingBot] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadData = async () => {
@@ -76,9 +78,43 @@ export function ChatRoomView() {
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 3000);
-    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactId]);
+
+  // ── Real-time WebSocket listener ──────────────────────────────────
+  const handleWsMessage = useCallback((msg: WsIncomingMessage) => {
+    if (!contactId || !msg.contactId) return;
+
+    // Case-insensitive UUID / phone matching
+    const targetContactId = contactId.toLowerCase().trim();
+    const incomingContactId = msg.contactId.toLowerCase().trim();
+
+    if (incomingContactId !== targetContactId) return;
+
+    const isIncoming = msg.direction === 'INCOMING';
+    const isOutgoing = msg.direction === 'OUTGOING';
+
+    const newMessage: Message = {
+      id: msg.id || `ws-${Date.now()}-${Math.random()}`,
+      sender: isIncoming ? 'them' : (isOutgoing ? 'me' : (botMode ? 'bot' : 'me')),
+      type: 'text',
+      text: msg.content,
+      time: msg.timestamp
+        ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'read',
+    };
+
+    setMessages((prev) => {
+      // Check if message ID or exact text + time already exists (prevent duplicate optimistic rendering)
+      if (prev.some((m) => m.id === newMessage.id || (m.text === newMessage.text && Math.abs(Date.now() - (parseInt(m.id.replace('m', '')) || 0)) < 3000))) {
+        return prev;
+      }
+      return [...prev, newMessage];
+    });
+  }, [contactId, botMode]);
+
+  useWebSocket(handleWsMessage);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -104,13 +140,26 @@ export function ChatRoomView() {
   };
 
   const handleToggleBot = async () => {
+    if (togglingBot) return;
+    setTogglingBot(true);
     const nextMode = !botMode;
     setBotMode(nextMode);
     setShowSuggestions(!nextMode);
 
+    // Insert a system message so the user sees the mode switch in chat
+    const systemMsg: Message = {
+      id: `sys-${Date.now()}`,
+      sender: 'system',
+      type: 'system',
+      text: nextMode ? '🤖 Bot resumed — AI is now handling replies' : '👤 Human takeover — you are now replying manually',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages((prev) => [...prev, systemMsg]);
+
     if (contactId && contactId.includes('-')) {
       await toggleBotPaused(contactId, !nextMode);
     }
+    setTogglingBot(false);
   };
 
   const handleSendMenu = async () => {
@@ -160,6 +209,24 @@ export function ChatRoomView() {
             </div>
 
             <div className="flex items-center gap-1.5">
+              {/* Bot / Human mode toggle — prominent in the header */}
+              <button
+                onClick={handleToggleBot}
+                disabled={togglingBot}
+                title={botMode ? 'Switch to Human mode (take over)' : 'Switch to Bot mode (let AI handle)'}
+                className={cx(
+                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50',
+                  botMode
+                    ? 'bg-secondary-500/15 text-secondary-600 dark:text-secondary-400 ring-1 ring-secondary-500/30 hover:bg-secondary-500/25'
+                    : 'bg-success-500/15 text-success-600 dark:text-success-400 ring-1 ring-success-500/30 hover:bg-success-500/25',
+                )}
+              >
+                {botMode ? (
+                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />} Bot Active</>  
+                ) : (
+                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />} Human Mode</>  
+                )}
+              </button>
               {contactId && contactId.includes('-') && (
                 <button
                   onClick={handleSendMenu}

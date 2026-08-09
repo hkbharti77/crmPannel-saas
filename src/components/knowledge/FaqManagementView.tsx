@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { cx } from '@/lib/types';
 import {
   HelpCircle, Plus, Search, Trash2, Edit3, CheckCircle,
-  AlertCircle, Sparkles, RefreshCw, Zap, Tag, Loader2, X,
+  AlertCircle, Sparkles, RefreshCw, Zap, Loader2, X,
   Upload, FileText, Download, FileSpreadsheet, Layers, Check,
   ChevronLeft, ChevronRight
 } from 'lucide-react';

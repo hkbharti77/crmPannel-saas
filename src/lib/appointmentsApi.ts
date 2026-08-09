@@ -7,7 +7,7 @@ export type AppointmentDto = {
   contactId?: string;
   appointmentDateTime?: string;
   title: string;
-  collectedData?: Record<string, any>;
+  collectedData?: Record<string, unknown>;
   meetingLink?: string;
   status: 'BOOKED' | 'COMPLETED' | 'CANCELLED' | 'NO_SHOW' | string;
   source?: string;

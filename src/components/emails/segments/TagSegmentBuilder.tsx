@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Tag, Users, CheckCircle2, XCircle, ChevronDown, Check, X, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Tag, Users, CheckCircle2, XCircle, X, AlertTriangle } from 'lucide-react';
 import { cx } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 
@@ -25,7 +25,7 @@ export function TagSegmentBuilder({ value, onChange }: TagSegmentBuilderProps) {
         return { version: 1, matchMode: 'ANY', includeTags: tags, excludeTags: [] };
       }
       return JSON.parse(value);
-    } catch (e) {
+    } catch {
       return { version: 1, matchMode: 'ANY', includeTags: [], excludeTags: [] };
     }
   });
@@ -57,12 +57,13 @@ export function TagSegmentBuilder({ value, onChange }: TagSegmentBuilderProps) {
       fetchPreview(filter);
     }, 800);
     return () => clearTimeout(timeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
   const fetchPreview = async (currentFilter: TagSegmentFilter) => {
     setPreviewLoading(true);
     try {
-      const res = await apiFetch<any>('/api/v1/custom-emails/audience/preview', {
+      const res = await apiFetch<{ matched: number; excluded: number; eligible: number }>('/api/v1/custom-emails/audience/preview', {
         method: 'POST',
         body: JSON.stringify({
           recipientMode: 'TAGGED',

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { PLAN_META, STATUS_META, type TenantStatus, type PlanTier } from '@/components/admin/adminData';
-import { Search, Building2, Users, MapPin, Plus, MoreVertical, RefreshCw, Ban, CheckCircle2, Lock } from 'lucide-react';
+import { Search, Building2, Users, Plus, RefreshCw, Ban, CheckCircle2, Lock } from 'lucide-react';
 import { fetchTenants, suspendTenant, activateTenant, lockTenant, type ApiTenant } from '@/lib/platformApi';
 
 type FilterPlan = PlanTier | 'ALL';
@@ -49,7 +49,8 @@ export function AdminTenants() {
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const filtered = useMemo(() =>
     tenants.filter((t) => {

@@ -14,10 +14,11 @@ import {
   fetchTeamPerformance,
   inviteStaffUser,
   updateAgentAvailability,
+  updateStaffRole,
+  updateAgentPermissions,
   type UserTeamMemberDTO,
   type AgentPerformanceDTO,
 } from '@/lib/teamApi';
-import { fetchCurrentUserProfile } from '@/lib/userApi';
 import {
   Search,
   Plus,
@@ -33,6 +34,7 @@ import {
   X,
   Loader2,
   AlertTriangle,
+  Shield,
 } from 'lucide-react';
 
 type StatusFilter = AgentStatus | 'ALL';
@@ -40,8 +42,9 @@ type RoleFilter = AgentRole | 'ALL';
 
 function mapBackendToAgent(user: UserTeamMemberDTO, perf?: AgentPerformanceDTO): Agent {
   let role: AgentRole = 'Agent';
-  if (user.role === 'OWNER') role = 'Owner';
-  else if (user.role === 'ADMIN') role = 'Admin';
+  const rawRole = ((user.role ? user.role : perf?.role) || '').toUpperCase();
+  if (rawRole.includes('OWNER')) role = 'Owner';
+  else if (rawRole.includes('ADMIN')) role = 'Admin';
   else role = 'Agent';
 
   let status: AgentStatus = 'ACTIVE';
@@ -73,6 +76,8 @@ function mapBackendToAgent(user: UserTeamMemberDTO, perf?: AgentPerformanceDTO):
 
 export function TeamView() {
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [rawMembers, setRawMembers] = useState<UserTeamMemberDTO[]>([]);
+  const [editingAgent, setEditingAgent] = useState<UserTeamMemberDTO | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('ALL');
@@ -92,7 +97,9 @@ export function TeamView() {
     if (membersRes.error) {
       setApiError(membersRes.error);
       setAgents([]);
+      setRawMembers([]);
     } else if (membersRes.data) {
+      setRawMembers(membersRes.data);
       const perfMap = new Map<string, AgentPerformanceDTO>();
       if (perfRes.data) {
         perfRes.data.forEach((p) => perfMap.set(p.agentId, p));
@@ -131,8 +138,17 @@ export function TeamView() {
 
   const handleStatusChange = async (agentId: string, newStatus: AgentStatus) => {
     setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, status: newStatus } : a)));
-    const statusVal = newStatus === 'ACTIVE' ? 'ONLINE' : newStatus;
-    await updateAgentAvailability(agentId, statusVal as any);
+    const statusVal: 'ONLINE' | 'AWAY' | 'OFFLINE' = newStatus === 'ACTIVE' ? 'ONLINE' : newStatus;
+    await updateAgentAvailability(agentId, statusVal);
+  };
+
+  const handleRoleChange = async (agentId: string, newRole: 'OWNER' | 'ADMIN' | 'AGENT') => {
+    const formattedRole = newRole === 'OWNER' ? 'Owner' : newRole === 'ADMIN' ? 'Admin' : 'Agent';
+    setAgents((prev) => prev.map((a) => (a.id === agentId ? { ...a, role: formattedRole as AgentRole } : a)));
+    const res = await updateStaffRole(agentId, newRole);
+    if (res.error) {
+      loadData(); // Revert on failure
+    }
   };
 
   return (
@@ -216,7 +232,16 @@ export function TeamView() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((a) => (
-            <AgentCard key={a.id} agent={a} onStatusChange={handleStatusChange} />
+            <AgentCard
+              key={a.id}
+              agent={a}
+              onStatusChange={handleStatusChange}
+              onRoleChange={handleRoleChange}
+              onEditPermissions={(id) => {
+                const found = rawMembers.find((m) => m.id === id);
+                if (found) setEditingAgent(found);
+              }}
+            />
           ))}
         </div>
       )}
@@ -225,6 +250,15 @@ export function TeamView() {
       {showInvite && (
         <InviteModal
           onClose={() => setShowInvite(false)}
+          onSuccess={loadData}
+        />
+      )}
+
+      {/* Edit Permissions modal */}
+      {editingAgent && (
+        <ManagePermissionsModal
+          user={editingAgent}
+          onClose={() => setEditingAgent(null)}
           onSuccess={loadData}
         />
       )}
@@ -246,7 +280,17 @@ function TeamStat({ icon: Icon, label, value, accent, bg }: { icon: typeof Users
   );
 }
 
-function AgentCard({ agent, onStatusChange }: { agent: Agent; onStatusChange: (id: string, s: AgentStatus) => void }) {
+function AgentCard({
+  agent,
+  onStatusChange,
+  onRoleChange,
+  onEditPermissions,
+}: {
+  agent: Agent;
+  onStatusChange: (id: string, s: AgentStatus) => void;
+  onRoleChange: (id: string, r: 'OWNER' | 'ADMIN' | 'AGENT') => void;
+  onEditPermissions?: (id: string) => void;
+}) {
   const statusMeta = STATUS_META[agent.status] || STATUS_META.ACTIVE;
   const roleMeta = ROLE_META[agent.role] || ROLE_META.Agent;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -278,7 +322,7 @@ function AgentCard({ agent, onStatusChange }: { agent: Agent; onStatusChange: (i
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl2 border border-base-c bg-card-c p-1 shadow-soft-lg animate-slide-down">
+              <div className="absolute right-0 top-9 z-20 w-48 overflow-hidden rounded-xl2 border border-base-c bg-card-c p-1 shadow-soft-lg animate-slide-down">
                 <p className="px-2 py-1 text-[10px] font-bold text-muted-c uppercase">Set Availability</p>
                 <button
                   onClick={() => { setMenuOpen(false); onStatusChange(agent.id, 'ACTIVE'); }}
@@ -298,6 +342,39 @@ function AgentCard({ agent, onStatusChange }: { agent: Agent; onStatusChange: (i
                 >
                   <span className="h-2 w-2 rounded-full bg-slate-400" /> Offline
                 </button>
+
+                <div className="my-1 border-t border-base-c" />
+                <p className="px-2 py-1 text-[10px] font-bold text-muted-c uppercase">Assign Role</p>
+                <button
+                  onClick={() => { setMenuOpen(false); onRoleChange(agent.id, 'OWNER'); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-secondary-c hover:bg-amber-500/10 hover:text-amber-600"
+                >
+                  <span className="h-2 w-2 rounded-full bg-amber-500" /> Make Owner
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); onRoleChange(agent.id, 'ADMIN'); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-secondary-c hover:bg-purple-500/10 hover:text-purple-600"
+                >
+                  <span className="h-2 w-2 rounded-full bg-purple-500" /> Make Admin
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); onRoleChange(agent.id, 'AGENT'); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-secondary-c hover:bg-primary-500/10 hover:text-primary-600"
+                >
+                  <span className="h-2 w-2 rounded-full bg-primary-500" /> Make Agent
+                </button>
+
+                {agent.role === 'Agent' && onEditPermissions && (
+                  <>
+                    <div className="my-1 border-t border-base-c" />
+                    <button
+                      onClick={() => { setMenuOpen(false); onEditPermissions(agent.id); }}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-indigo-600 hover:bg-indigo-500/10 dark:text-indigo-400"
+                    >
+                      <Shield className="h-3.5 w-3.5" /> Edit Permissions
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -366,6 +443,29 @@ function InviteModal({
   const [selectedRole, setSelectedRole] = useState<'AGENT' | 'ADMIN'>('AGENT');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([
+    'MODULE_INBOX',
+    'MODULE_LEADS',
+    'MODULE_SETTINGS',
+    'SETTINGS_PROFILE',
+  ]);
+
+  const togglePerm = (key: string) => {
+    setSelectedPermissions((prev) => {
+      const exists = prev.includes(key);
+      let next = exists ? prev.filter((k) => k !== key) : [...prev, key];
+
+      // Parent hierarchy enforcement: if MODULE_SETTINGS removed, uncheck all SETTINGS_*
+      if (key === 'MODULE_SETTINGS' && exists) {
+        next = next.filter((k) => !k.startsWith('SETTINGS_'));
+      }
+      // If child SETTINGS_* checked, auto check MODULE_SETTINGS
+      if (key.startsWith('SETTINGS_') && !exists && !next.includes('MODULE_SETTINGS')) {
+        next.push('MODULE_SETTINGS');
+      }
+      return next;
+    });
+  };
 
   const canSubmit = name.trim() && email.trim() && !submitting;
 
@@ -379,6 +479,7 @@ function InviteModal({
       displayName: name.trim(),
       phone: phone.trim() || undefined,
       role: selectedRole,
+      permissions: selectedRole === 'AGENT' ? selectedPermissions : undefined,
     });
 
     setSubmitting(false);
@@ -428,7 +529,7 @@ function InviteModal({
           </div>
         )}
 
-        <div className="space-y-3.5">
+        <div className="space-y-3.5 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
           <div>
             <label className="mb-1.5 block text-xs font-medium text-secondary-c">Full Name <span className="text-danger-500">*</span></label>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Ravi Kumar" className="form-input text-xs" />
@@ -454,6 +555,34 @@ function InviteModal({
               <option value="ADMIN">Admin</option>
             </select>
           </div>
+
+          {selectedRole === 'AGENT' && (
+            <div className="mt-4 border-t border-base-c pt-3">
+              <h4 className="text-xs font-bold text-primary-c mb-1">Define Agent Access Permissions</h4>
+              <p className="text-[11px] text-muted-c mb-3">Uncheck any menu to dynamically hide it from the agent dashboard.</p>
+              
+              <div className="space-y-3">
+                {PERMISSION_GROUPS.map((group) => (
+                  <div key={group.title} className="rounded-xl border border-base-c bg-slate-50/50 p-2.5 dark:bg-ink-850">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c mb-2">{group.title}</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {group.items.map((item) => (
+                        <label key={item.key} className="flex items-center gap-2 text-xs text-secondary-c cursor-pointer hover:text-primary-c">
+                          <input
+                            type="checkbox"
+                            checked={selectedPermissions.includes(item.key)}
+                            onChange={() => togglePerm(item.key)}
+                            className="rounded border-base-c text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <span>{item.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="mt-5 flex items-center justify-end gap-2">
@@ -476,3 +605,158 @@ function InviteModal({
     document.body
   );
 }
+
+const PERMISSION_GROUPS = [
+  {
+    title: 'Main Navigation Menus',
+    items: [
+      { key: 'MODULE_INBOX', label: '💬 Inbox & Chat' },
+      { key: 'MODULE_LEADS', label: '👥 Leads & Pipeline' },
+      { key: 'MODULE_CAMPAIGNS', label: '📢 WhatsApp Campaigns' },
+      { key: 'MODULE_ANALYTICS', label: '📊 Reports & Analytics' },
+      { key: 'MODULE_SETTINGS', label: '⚙️ Settings Hub' },
+    ],
+  },
+  {
+    title: 'Sub-Settings Access (Requires Settings Hub)',
+    items: [
+      { key: 'SETTINGS_PROFILE', label: '👤 Account Profile Settings' },
+      { key: 'SETTINGS_WHATSAPP', label: '📱 Meta WhatsApp Config' },
+      { key: 'SETTINGS_WIDGET', label: '💬 Website Chat Widget' },
+      { key: 'SETTINGS_LIVECHAT', label: '⏱️ Live Queue & SLA Controls' },
+    ],
+  },
+];
+
+function ManagePermissionsModal({
+  user,
+  onClose,
+  onSuccess,
+}: {
+  user: UserTeamMemberDTO;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>(
+    user.permissions && user.permissions.length > 0
+      ? user.permissions
+      : ['MODULE_INBOX', 'MODULE_LEADS', 'MODULE_SETTINGS', 'SETTINGS_PROFILE']
+  );
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const togglePerm = (key: string) => {
+    setSelectedPermissions((prev) => {
+      const exists = prev.includes(key);
+      let next = exists ? prev.filter((k) => k !== key) : [...prev, key];
+
+      if (key === 'MODULE_SETTINGS' && exists) {
+        next = next.filter((k) => !k.startsWith('SETTINGS_'));
+      }
+      if (key.startsWith('SETTINGS_') && !exists && !next.includes('MODULE_SETTINGS')) {
+        next.push('MODULE_SETTINGS');
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    setSubmitting(true);
+    setFormError(null);
+
+    const res = await updateAgentPermissions(
+      user.id,
+      selectedPermissions,
+      user.permissionVersion,
+      reason.trim() || undefined
+    );
+
+    setSubmitting(false);
+
+    if (res.error) {
+      setFormError(res.error.toString());
+      return;
+    }
+
+    onSuccess();
+    onClose();
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-t-xl2 border border-base-c bg-card-c p-5 shadow-soft-lg animate-slide-up sm:rounded-xl2"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="grid h-9 w-9 place-items-center rounded-xl2 bg-indigo-600">
+              <Shield className="h-4.5 w-4.5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-primary-c">Manage Permissions for {user.displayName || user.email}</h3>
+              <p className="text-xs text-muted-c">Version: v{user.permissionVersion || 1} • Uncheck menus to hide them</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {formError && (
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>{formError}</span>
+          </div>
+        )}
+
+        <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1 scrollbar-thin">
+          {PERMISSION_GROUPS.map((group) => (
+            <div key={group.title} className="rounded-xl border border-base-c bg-slate-50/50 p-3 dark:bg-ink-850">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c mb-2">{group.title}</p>
+              <div className="grid grid-cols-2 gap-2">
+                {group.items.map((item) => (
+                  <label key={item.key} className="flex items-center gap-2 text-xs text-secondary-c cursor-pointer hover:text-primary-c">
+                    <input
+                      type="checkbox"
+                      checked={selectedPermissions.includes(item.key)}
+                      onChange={() => togglePerm(item.key)}
+                      className="rounded border-base-c text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>{item.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-secondary-c">Reason for update (Security Audit Log)</label>
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Updated module access for support agent"
+              className="form-input text-xs"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={submitting}
+            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition-all hover:bg-indigo-700"
+          >
+            {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Shield className="h-3.5 w-3.5" />} Save Permissions
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+

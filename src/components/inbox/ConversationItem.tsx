@@ -1,4 +1,4 @@
-import { Avatar, Badge } from '@/components/ui/primitives';
+import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { Conversation, ConversationStatus, ConversationTag } from './inboxTypes';
 import { Bot, Check, CheckCheck } from 'lucide-react';

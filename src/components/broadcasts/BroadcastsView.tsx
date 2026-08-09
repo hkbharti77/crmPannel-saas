@@ -1,33 +1,23 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GlassCard, Avatar } from '@/components/ui/primitives';
+import { GlassCard } from '@/components/ui/primitives';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { cx } from '@/lib/types';
 import {
   STATUS_META,
-  CHANNEL_META,
-  AUDIENCE_OPTIONS,
   type Broadcast,
   type BroadcastStatus,
 } from './broadcastData';
 import {
   fetchCampaigns,
-  createCampaign,
-  scheduleCampaign,
-  executeDryRun,
-  pauseCampaign,
-  resumeCampaign,
   cancelCampaign,
   fetchWhatsAppTemplates,
-  createWhatsAppTemplate,
   deleteWhatsAppTemplate,
   fetchCampaignRecipients,
   type WhatsAppTemplateDto,
-  type TemplateButtonDto,
   type WhatsAppCampaignRecipientDto,
 } from '@/lib/broadcastsApi';
 import { fetchLeadsPaged } from '@/lib/leadsApi';
-import { CsvBroadcastUploader } from './CsvBroadcastUploader';
 import {
   Plus,
   Search,
@@ -35,40 +25,23 @@ import {
   Users,
   CheckCircle2,
   Reply,
-  Clock,
-  X,
   Megaphone,
   Filter,
-  Sparkles,
   Trash2,
-  Copy,
   ChevronRight,
   PhoneCall,
-  Play,
-  Pause,
-  StopCircle,
   FileText,
   RefreshCw,
   Loader2,
   ExternalLink,
   MessageSquare,
   AlertCircle,
-  Bold,
-  Italic,
-  Strikethrough,
-  Code,
   Check,
-  Image as ImageIcon,
   Video,
-  File,
-  Globe,
   Phone,
-  FileSpreadsheet,
-  Upload,
   LayoutTemplate,
   Smartphone,
   ChevronLeft,
-  XCircle,
   MoreVertical,
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
@@ -134,37 +107,18 @@ export function BroadcastsView() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<FilterStatus>('ALL');
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const [templatesLoading, setTemplatesLoading] = useState(false);
   const [templates, setTemplates] = useState<WhatsAppTemplateDto[]>([]);
-  const [audienceCounts, setAudienceCounts] = useState<{ all: number; qualified: number; vip: number }>({
-    all: 0,
-    qualified: 0,
-    vip: 0,
-  });
 
   const loadData = useCallback(async () => {
-    setLoading(true);
-    const [campRes, tmplRes, leadsRes] = await Promise.all([
+    const [campRes, tmplRes] = await Promise.all([
       fetchCampaigns(0, 50),
       fetchWhatsAppTemplates(),
       fetchLeadsPaged(0, 100),
     ]);
-    setLoading(false);
 
     if (tmplRes.data) {
       setTemplates(tmplRes.data);
-    }
-
-    if (leadsRes.data) {
-      const allCount = leadsRes.data.totalElements || leadsRes.data.content?.length || 0;
-      const qualified = leadsRes.data.content?.filter((l) => l.status === 'QUALIFIED').length || 0;
-      const vip = leadsRes.data.content?.filter((l) => l.status === 'WON').length || 0;
-      setAudienceCounts({
-        all: allCount,
-        qualified: qualified,
-        vip: vip,
-      });
     }
 
     if (campRes.data && campRes.data.content && campRes.data.content.length > 0) {
@@ -177,7 +131,7 @@ export function BroadcastsView() {
           audience: c.targetType === 'QUALIFIED_LEADS' ? 'Qualified Leads' : c.targetType === 'VIP_CLIENTS' ? 'VIP Clients' : 'All Leads',
           recipients: recipients,
           channel: 'whatsapp',
-          status: (c.status?.toLowerCase() as any) || 'sent',
+          status: (c.status?.toLowerCase() as Broadcast['status']) || 'sent',
           sentAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Recently',
           delivered: c.deliveredCount || 0,
           read: c.readCount || 0,
@@ -934,7 +888,7 @@ function CampaignRecipientsTable({ campaignId }: { campaignId: string }) {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as any)}
+            onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
             className="h-7 rounded-lg border border-base-c bg-card-c px-2 text-[11px] text-primary-c focus:border-primary-500 focus:outline-none"
           >
             <option value="ALL">All Statuses</option>
@@ -970,7 +924,7 @@ function CampaignRecipientsTable({ campaignId }: { campaignId: string }) {
                   if (r.resolvedVariablesJson) {
                     parsedVars = JSON.parse(r.resolvedVariablesJson);
                   }
-                } catch (e) {}
+                } catch (e) { console.error(e); }
 
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-ink-850/50 transition-colors">
@@ -1026,43 +980,5 @@ function CampaignRecipientsTable({ campaignId }: { campaignId: string }) {
     </div>
   );
 }
-
-const DEFAULT_TEMPLATES: WhatsAppTemplateDto[] = [
-  {
-    name: '3p_direct_integration_test_template',
-    category: 'UTILITY',
-    language: 'en_US',
-    status: 'APPROVED',
-    bodyText: 'Hello {{1}}, thank you for contacting Metro CRM! Your inquiry regarding {{2}} has been successfully received.',
-    footerText: 'Reply STOP to unsubscribe',
-    buttons: [{ type: 'QUICK_REPLY', text: 'Talk to Representative' }],
-  },
-  {
-    name: 'utility_general_update',
-    category: 'UTILITY',
-    language: 'en_US',
-    status: 'APPROVED',
-    bodyText: 'Hi {{1}}, here is an automated update regarding your account request for {{2}}.',
-    footerText: 'Metro CRM Automated System',
-    buttons: [{ type: 'URL', text: 'View Dashboard', url: 'https://crm.example.com' }],
-  },
-  {
-    name: 'marketing_seasonal_offer',
-    category: 'MARKETING',
-    language: 'en_US',
-    status: 'APPROVED',
-    bodyText: 'Exclusive Offer for {{1}}! Get 25% special pricing on {{2}} when you book this week.',
-    footerText: 'Limited time property promotion',
-    buttons: [{ type: 'PHONE_NUMBER', text: 'Call Support Now', phoneNumber: '+18005550199' }],
-  },
-  {
-    name: 'hello_world',
-    category: 'UTILITY',
-    language: 'en_US',
-    status: 'APPROVED',
-    bodyText: 'Welcome to our WhatsApp service! We are happy to assist you with your inquiries.',
-    footerText: 'Official Meta WhatsApp Sample',
-  },
-];
 
 

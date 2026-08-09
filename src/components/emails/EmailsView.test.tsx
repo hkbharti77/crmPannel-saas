@@ -31,7 +31,7 @@ Object.defineProperty(window, 'matchMedia', {
 describe('EmailsView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (emailsApi.fetchEmailCampaigns as any).mockResolvedValue({
+    (emailsApi.fetchEmailCampaigns as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
       data: {
         content: [
           {
@@ -69,9 +69,9 @@ describe('EmailsView', () => {
       expect(screen.getByText('Test Campaign')).toBeInTheDocument();
     });
 
-    const mockConfirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    let resolveCancel: any;
-    (emailsApi.cancelEmailCampaign as any).mockImplementation(() => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    let resolveCancel: (val: unknown) => void;
+    (emailsApi.cancelEmailCampaign as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => {
       return new Promise(resolve => {
         resolveCancel = resolve;
       });

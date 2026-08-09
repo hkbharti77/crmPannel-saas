@@ -1,6 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GlassCard } from '@/components/ui/primitives';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { Search, Loader2, AlertTriangle, Users, ChevronLeft, ChevronRight, Trash2, Plus, Filter, Download, MoreHorizontal, ArrowUpDown, Upload } from 'lucide-react';
 import { fetchContacts, deleteContact, exportContacts, type ContactDTO } from '@/lib/contactsApi';
@@ -91,7 +90,7 @@ export function ContactsView() {
   const paginatedContacts = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage]);
+  }, [filtered, currentPage, itemsPerPage]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -290,7 +289,7 @@ export function ContactsView() {
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={(e) => toggleSelect(e as any, contact.id)}
+                            onChange={(e) => toggleSelect(e, contact.id)}
                             className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 dark:border-ink-600 dark:bg-ink-950"
                           />
                         </div>

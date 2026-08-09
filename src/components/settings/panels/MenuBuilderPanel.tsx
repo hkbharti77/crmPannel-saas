@@ -522,6 +522,8 @@ export function MenuBuilderPanel() {
               </button>
             </div>
           </SectionCard>
+
+          <WebWidgetPreview buttons={buttons} businessId={businessId} />
     </div>
   );
 }

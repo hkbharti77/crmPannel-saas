@@ -38,7 +38,7 @@ export function AdminAudit() {
     if (res.error) {
       setError(res.error);
     } else if (res.data) {
-      const list: ApiAuditEntry[] = Array.isArray(res.data) ? res.data : (res.data as any).content ?? [];
+      const list: ApiAuditEntry[] = Array.isArray(res.data) ? res.data : (res.data as { content?: ApiAuditEntry[] }).content ?? [];
       setEntries(list);
     }
     setLoading(false);

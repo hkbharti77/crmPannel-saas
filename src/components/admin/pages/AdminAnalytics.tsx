@@ -16,10 +16,10 @@ import {
 
 export function AdminAnalytics() {
   const [overview, setOverview] = useState<ApiAnalyticsOverview | null>(null);
-  const [growthData, setGrowthData] = useState<any[]>(GROWTH_DATA);
-  const [subscriptionData, setSubscriptionData] = useState<any>(null);
+  const [growthData, setGrowthData] = useState<Record<string, unknown>[]>(GROWTH_DATA);
+  const [subscriptionData, setSubscriptionData] = useState<Record<string, unknown> | null>(null);
   const [churnRate, setChurnRate] = useState<string>('4.2%');
-  const [nicheData, setNicheData] = useState<any[]>([]);
+  const [nicheData, setNicheData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,13 +113,13 @@ export function AdminAnalytics() {
         <GlassCard className="p-5">
           <h3 className="mb-4 text-sm font-semibold text-primary-c">Weekly Growth (Signups vs Churn)</h3>
           <div className="flex items-end justify-between gap-1.5" style={{ height: 160 }}>
-            {growthData.map((d: any, i: number) => (
-              <div key={d.week || i} className="flex flex-1 flex-col items-center gap-1">
+            {growthData.map((d: Record<string, unknown>, i: number) => (
+              <div key={(d.week as string) || i} className="flex flex-1 flex-col items-center gap-1">
                 <div className="flex w-full items-end justify-center gap-0.5" style={{ height: 120 }}>
-                  <div className="w-1/2 rounded-t bg-success-500 transition-all hover:bg-success-600" style={{ height: `${((d.signups || 1) / 10) * 120}px` }} title={`${d.signups || 0} signups`} />
-                  <div className="w-1/2 rounded-t bg-danger-500 transition-all hover:bg-danger-600" style={{ height: `${((d.churn || 0) / 10) * 120}px` }} title={`${d.churn || 0} churned`} />
+                  <div className="w-1/2 rounded-t bg-success-500 transition-all hover:bg-success-600" style={{ height: `${(((d.signups as number) || 1) / 10) * 120}px` }} title={`${d.signups || 0} signups`} />
+                  <div className="w-1/2 rounded-t bg-danger-500 transition-all hover:bg-danger-600" style={{ height: `${(((d.churn as number) || 0) / 10) * 120}px` }} title={`${d.churn || 0} churned`} />
                 </div>
-                <span className="text-[9px] text-muted-c">{d.week || `W${i + 1}`}</span>
+                <span className="text-[9px] text-muted-c">{(d.week as string) || `W${i + 1}`}</span>
               </div>
             ))}
           </div>
@@ -135,10 +135,10 @@ export function AdminAnalytics() {
         <GlassCard className="p-5">
           <h3 className="mb-4 text-sm font-semibold text-primary-c">Tenants by Niche</h3>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {nicheData.map((n: any) => (
-              <div key={n.niche || n.name} className="rounded-xl2 border border-base-c p-3 text-center">
-                <p className="text-2xl font-bold tabular-nums text-primary-c">{n.count || 0}</p>
-                <p className="text-[10px] text-muted-c">{n.niche || n.name}</p>
+            {nicheData.map((n: Record<string, unknown>) => (
+              <div key={(n.niche as string) || (n.name as string)} className="rounded-xl2 border border-base-c p-3 text-center">
+                <p className="text-2xl font-bold tabular-nums text-primary-c">{(n.count as number) || 0}</p>
+                <p className="text-[10px] text-muted-c">{(n.niche as string) || (n.name as string)}</p>
               </div>
             ))}
           </div>

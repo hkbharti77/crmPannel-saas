@@ -17,7 +17,7 @@ export type Appointment = {
   location: string;
   assignedTo: string;
   notes?: string;
-  collectedData?: Record<string, any>;
+  collectedData?: Record<string, unknown>;
 };
 
 export const APPOINTMENTS: Appointment[] = [];

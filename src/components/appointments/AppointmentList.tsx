@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
+import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { Appointment } from './appointmentData';
 import { TYPE_CONFIG, STATUS_CONFIG } from './appointmentData';
 import { generateMeetLink, completeAppointment, cancelAppointment } from '@/lib/appointmentsApi';
 import {
   Clock,
-  MapPin,
   UserCheck,
   Phone,
   MapPinned,
@@ -17,12 +16,8 @@ import {
   X,
   CalendarPlus,
   Video,
-  ChevronRight,
   Loader2,
   Copy,
-  ExternalLink,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react';
 
 const TYPE_ICON_MAP: Record<Appointment['type'], typeof Phone> = {

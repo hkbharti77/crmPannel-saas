@@ -11,6 +11,8 @@ export interface UserTeamMemberDTO {
   availabilityStatus?: 'ONLINE' | 'AWAY' | 'OFFLINE';
   accountStatus?: 'ACTIVE' | 'SUSPENDED' | 'PENDING';
   city?: string;
+  permissions?: string[];
+  permissionVersion?: number;
 }
 
 export interface AgentPerformanceDTO {
@@ -31,6 +33,22 @@ export interface CreateStaffRequest {
   displayName: string;
   phone?: string;
   role: string; // 'ADMIN' | 'AGENT'
+  permissions?: string[];
+}
+
+export interface PermissionAuditLogDTO {
+  id: string;
+  tenantId: string;
+  agentId: string;
+  changedById: string;
+  action: string;
+  oldPermissions: string[];
+  newPermissions: string[];
+  reason?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  permissionVersion: number;
+  createdAt: string;
 }
 
 export async function fetchTeamMembers() {
@@ -53,4 +71,26 @@ export async function updateAgentAvailability(agentId: string, availabilityStatu
     method: 'PATCH',
     body: JSON.stringify({ availabilityStatus }),
   });
+}
+
+export async function updateStaffRole(agentId: string, role: 'OWNER' | 'ADMIN' | 'AGENT') {
+  return apiFetch<{ success: boolean; role: string }>(`/api/v1/users/staff/${agentId}/role?role=${role}`, {
+    method: 'PATCH',
+  });
+}
+
+export async function updateAgentPermissions(
+  agentId: string,
+  permissions: string[],
+  expectedVersion?: number,
+  reason?: string
+) {
+  return apiFetch<UserTeamMemberDTO>(`/api/v1/users/staff/${agentId}/permissions`, {
+    method: 'PATCH',
+    body: JSON.stringify({ permissions, expectedVersion, reason }),
+  });
+}
+
+export async function fetchAgentPermissionAudits(agentId: string) {
+  return apiFetch<PermissionAuditLogDTO[]>(`/api/v1/users/staff/${agentId}/permissions/audits`);
 }

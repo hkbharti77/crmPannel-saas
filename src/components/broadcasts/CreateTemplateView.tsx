@@ -336,7 +336,7 @@ export default function CreateTemplateView() {
                       <label className="mb-2 block text-sm font-semibold text-primary-c">Category</label>
                       <select 
                         value={category} 
-                        onChange={(e) => setCategory(e.target.value as any)} 
+                        onChange={(e) => setCategory(e.target.value as 'MARKETING' | 'UTILITY' | 'AUTHENTICATION')} 
                         className="w-full rounded-xl border border-base-c bg-subtle-c px-4 py-2.5 text-sm text-primary-c focus:bg-card-c focus:ring-2 focus:ring-primary-500/50 outline-none cursor-pointer appearance-none"
                         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%2364748b\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 1rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em' }}
                       >
@@ -380,7 +380,7 @@ export default function CreateTemplateView() {
                       <label className="mb-2 block text-sm font-semibold text-primary-c">Header Media (Optional)</label>
                       <select 
                         value={mediaSample} 
-                        onChange={(e) => setMediaSample(e.target.value as any)} 
+                        onChange={(e) => setMediaSample(e.target.value as 'NONE' | 'IMAGE' | 'VIDEO' | 'DOCUMENT')} 
                         className="w-full rounded-xl border border-base-c bg-subtle-c px-4 py-2.5 text-sm text-primary-c focus:bg-card-c focus:ring-2 focus:ring-primary-500/50 outline-none cursor-pointer appearance-none"
                         style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%2364748b\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundPosition: 'right 1rem center', backgroundRepeat: 'no-repeat', backgroundSize: '1.2em' }}
                       >

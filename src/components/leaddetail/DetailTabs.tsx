@@ -22,7 +22,7 @@ export function ActivityTimeline({
   enquiries = [],
   activities = [],
 }: {
-  enquiries?: any[];
+  enquiries?: Record<string, unknown>[];
   activities?: LeadActivityDTO[];
 }) {
   const combined = [
@@ -234,8 +234,8 @@ export function FilesPanel({
     setUploading(true);
     try {
       await onUploadFile(selectedFile);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Upload failed');
+    } catch (err: unknown) {
+      setErrorMsg((err as Error).message || 'Upload failed');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

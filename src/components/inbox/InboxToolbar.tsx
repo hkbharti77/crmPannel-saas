@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
   Search,

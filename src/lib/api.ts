@@ -8,7 +8,7 @@ export function getTenantId(): string | null {
   return localStorage.getItem('crmlite_tenant_id');
 }
 
-export function setAuthSession(data: { token: string; tenantId?: string; user?: any }) {
+export function setAuthSession(data: { token: string; tenantId?: string; user?: unknown }) {
   localStorage.setItem('crmlite_token', data.token);
   if (data.tenantId) {
     localStorage.setItem('crmlite_tenant_id', data.tenantId);
@@ -24,7 +24,7 @@ export function clearAuthSession() {
   localStorage.removeItem('crmlite_user');
 }
 
-export function getStoredUser(): any | null {
+export function getStoredUser(): unknown | null {
   const raw = localStorage.getItem('crmlite_user');
   if (!raw) return null;
   try {
@@ -34,7 +34,7 @@ export function getStoredUser(): any | null {
   }
 }
 
-export async function apiFetch<T = any>(
+export async function apiFetch<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ data?: T; error?: string; status?: number }> {
@@ -62,7 +62,7 @@ export async function apiFetch<T = any>(
 
     const status = res.status;
     const contentType = res.headers.get('content-type');
-    let body: any = null;
+    let body: unknown = null;
 
     if (contentType && contentType.includes('application/json')) {
       body = await res.json();
@@ -76,12 +76,12 @@ export async function apiFetch<T = any>(
         // Dispatch global event for auth context to pick up
         window.dispatchEvent(new CustomEvent('session-expired'));
       }
-      const errorMessage = body?.error || body?.message || `Request failed with status ${res.status}`;
+      const errorMessage = (body as { error?: string; message?: string })?.error || (body as { error?: string; message?: string })?.message || `Request failed with status ${res.status}`;
       return { error: errorMessage, status };
     }
 
-    return { data: body, status };
-  } catch (err: any) {
-    return { error: err?.message || 'Network error. Please check backend connection.' };
+    return { data: body as T, status };
+  } catch (err: unknown) {
+    return { error: (err as Error)?.message || 'Network error. Please check backend connection.' };
   }
 }

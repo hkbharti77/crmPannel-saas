@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
-  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download,  MapPin, Clock, MonitorSmartphone, XCircle, LogOut, RotateCcw, User, AlertTriangle
+  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle
 } from 'lucide-react';
-import { SectionCard, PanelHeader, SwitchOption, FieldRow, Toggle } from './_shared';
+import { SectionCard, PanelHeader, FieldRow, Toggle } from './_shared';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSecurityDashboard, updateSecuritySettings } from '@/lib/userApi';
 
@@ -100,7 +100,7 @@ export function SecurityPanel() {
           { id: 'audit', label: 'Audit Log' }
         ]}
         activeTab={secTab}
-        onChange={(id) => setSecTab(id as any)}
+        onChange={(id) => setSecTab(id as 'overview' | 'sessions' | 'audit')}
       />
 
       {/* TAB 1: OVERVIEW */}

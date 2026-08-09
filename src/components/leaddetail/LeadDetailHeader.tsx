@@ -16,7 +16,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
-export const STAGES: LeadStage[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'WON', 'LOST'];
+const STAGES: LeadStage[] = ['NEW', 'CONTACTED', 'QUALIFIED', 'WON', 'LOST'];
 
 const STAGE_COLORS: Record<LeadStage, string> = {
   NEW: 'bg-primary-500',
@@ -59,7 +59,7 @@ export function LeadDetailHeader({
   const phone = lead?.contact?.phone || lead?.contact?.waId || 'N/A';
   const email = lead?.contact?.email || 'Not provided';
   const tags = lead?.contact?.tags || (lead?.score && lead.score >= 70 ? ['HOT'] : ['NEW']);
-  const stage = normalizeStage(lead?.status || (lead as any)?.stage);
+  const stage = normalizeStage(lead?.status || (lead as Record<string, unknown> | undefined)?.stage as string);
 
   return (
     <GlassCard className="p-4 lg:p-5">

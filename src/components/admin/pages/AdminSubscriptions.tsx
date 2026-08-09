@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { PLAN_META, type PlanTier } from '@/components/admin/adminData';
-import { Search, CreditCard, DollarSign, Users, AlertCircle, RefreshCw, Plus, Edit2, Trash2, Check, X, Shield, Layers, Zap } from 'lucide-react';
+import { Search, Users, RefreshCw, Plus, Edit2, Trash2, X, Shield, Layers, Zap, Sliders, History, Sparkles } from 'lucide-react';
 import { fetchPlatformSubscriptions, updateTenantPlan, fetchPlatformPlans, createPlatformPlan, updatePlatformPlanDetails, deletePlatformPlan } from '@/lib/platformApi';
+import { fetchEffectiveEntitlements, updateTenantOverrides, resetTenantOverrides, fetchOverrideAudits, EffectiveEntitlementsDto, TenantOverrideAudit } from '@/lib/billingApi';
 
 function mapPlan(planStr?: string): PlanTier {
   const p = (planStr ?? 'FREE').toLowerCase();
@@ -17,16 +18,37 @@ export function AdminSubscriptions() {
   const [activeTab, setActiveTab] = useState<'tenants' | 'plans'>('tenants');
   
   // Tenant Subscriptions State
-  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
+  // Tenant Custom Overrides Modal State
+  const [overrideModalTenant, setOverrideModalTenant] = useState<Record<string, unknown> | null>(null);
+  const [effectiveEntitlements, setEffectiveEntitlements] = useState<EffectiveEntitlementsDto | null>(null);
+  const [overrideAudits, setOverrideAudits] = useState<TenantOverrideAudit[]>([]);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideSaving, setOverrideSaving] = useState(false);
+  const [overrideTab, setOverrideTab] = useState<'config' | 'audit'>('config');
+
+  const [overrideForm, setOverrideForm] = useState({
+    employeeLimit: 10,
+    maxRecipientsPerWhatsappCampaign: 25000,
+    monthlyWhatsappMessageQuota: 25000,
+    maxAllowedPriority: 'MEDIUM' as 'LOW' | 'MEDIUM' | 'HIGH',
+    hasWhatsapp: true,
+    hasWhatsappCampaign: true,
+    hasCustomWidget: true,
+    hasRagLlm: true,
+    customMonthlyInr: 2499,
+    reason: '',
+  });
+
   // Platform Plans State (Super Admin CRUD)
-  const [plans, setPlans] = useState<any[]>([]);
+  const [plans, setPlans] = useState<Record<string, unknown>[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<any | null>(null);
+  const [editingPlan, setEditingPlan] = useState<Record<string, unknown> | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
 
@@ -44,6 +66,8 @@ export function AdminSubscriptions() {
     ticketLimit: 500,
     emailLimit: 10000,
     hasWhatsapp: true,
+    hasWhatsappCampaign: true,
+    whatsappCampaignLimit: 2500,
     hasCustomWidget: false,
     hasRagLlm: true,
     isContactUs: false,
@@ -53,12 +77,12 @@ export function AdminSubscriptions() {
     setLoading(true);
     setError(null);
     const res = await fetchPlatformSubscriptions();
+    setLoading(false);
     if (res.error) {
       setError(res.error);
     } else if (res.data) {
       setSubscriptions(res.data);
     }
-    setLoading(false);
   };
 
   const loadPlans = async () => {
@@ -75,19 +99,88 @@ export function AdminSubscriptions() {
     loadPlans();
   }, []);
 
-  const filtered = useMemo(
-    () => subscriptions.filter((s) => !search || (s.tenant || '').toLowerCase().includes(search.toLowerCase()) || (s.id || '').toLowerCase().includes(search.toLowerCase())),
-    [subscriptions, search],
-  );
+  const openOverrideModal = async (tenant: Record<string, unknown>) => {
+    setOverrideModalTenant(tenant);
+    setOverrideLoading(true);
+    setOverrideTab('config');
 
-  const handlePlanChange = async (tenantId: string, newPlan: string) => {
-    setUpdatingId(tenantId);
-    await updateTenantPlan(tenantId, newPlan);
-    setUpdatingId(null);
-    load();
+    try {
+      const res = await fetchEffectiveEntitlements(tenant.tenantId as string, true);
+      if (res.data) {
+        setEffectiveEntitlements(res.data);
+        setOverrideForm({
+          employeeLimit: res.data.limits?.employeeLimit || 10,
+          maxRecipientsPerWhatsappCampaign: res.data.limits?.maxRecipientsPerWhatsappCampaign || 25000,
+          monthlyWhatsappMessageQuota: res.data.limits?.monthlyWhatsappMessageQuota || 25000,
+          maxAllowedPriority: res.data.maxAllowedPriority || 'MEDIUM',
+          hasWhatsapp: res.data.features?.hasWhatsapp ?? true,
+          hasWhatsappCampaign: res.data.features?.hasWhatsappCampaign ?? true,
+          hasCustomWidget: res.data.features?.hasCustomWidget ?? false,
+          hasRagLlm: res.data.features?.hasRagLlm ?? true,
+          customMonthlyInr: res.data.pricing?.monthlyInr || 2499,
+          reason: 'Custom enterprise tenant entitlement update',
+        });
+      }
+      const auditsRes = await fetchOverrideAudits(tenant.tenantId);
+      if (auditsRes.data) {
+        setOverrideAudits(auditsRes.data);
+      }
+    } catch (e) {
+      console.error('Error fetching entitlements', e);
+    } finally {
+      setOverrideLoading(false);
+    }
   };
 
-  const openCreateModal = () => {
+  const handleSaveOverrides = async () => {
+    if (!overrideModalTenant) return;
+    setOverrideSaving(true);
+    try {
+      const res = await updateTenantOverrides(overrideModalTenant.tenantId, {
+        employeeLimit: Number(overrideForm.employeeLimit),
+        maxRecipientsPerWhatsappCampaign: Number(overrideForm.maxRecipientsPerWhatsappCampaign),
+        monthlyWhatsappMessageQuota: Number(overrideForm.monthlyWhatsappMessageQuota),
+        maxAllowedPriority: overrideForm.maxAllowedPriority,
+        hasWhatsapp: overrideForm.hasWhatsapp,
+        hasWhatsappCampaign: overrideForm.hasWhatsappCampaign,
+        hasCustomWidget: overrideForm.hasCustomWidget,
+        hasRagLlm: overrideForm.hasRagLlm,
+        customMonthlyInr: Number(overrideForm.customMonthlyInr),
+        reason: overrideForm.reason,
+      });
+
+      if (res.data) {
+        setEffectiveEntitlements(res.data);
+        const auditsRes = await fetchOverrideAudits(overrideModalTenant.tenantId);
+        if (auditsRes.data) setOverrideAudits(auditsRes.data);
+        load();
+      }
+    } catch (e) {
+      console.error('Error saving overrides', e);
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
+
+  const handleResetOverrides = async () => {
+    if (!overrideModalTenant) return;
+    if (!confirm('Are you sure you want to reset custom overrides to base plan defaults?')) return;
+    setOverrideSaving(true);
+    try {
+      await resetTenantOverrides(overrideModalTenant.tenantId);
+      const res = await fetchEffectiveEntitlements(overrideModalTenant.tenantId, true);
+      if (res.data) setEffectiveEntitlements(res.data);
+      const auditsRes = await fetchOverrideAudits(overrideModalTenant.tenantId);
+      if (auditsRes.data) setOverrideAudits(auditsRes.data);
+      load();
+    } catch (e) {
+      console.error('Error resetting overrides', e);
+    } finally {
+      setOverrideSaving(false);
+    }
+  };
+
+  const resetForm = () => {
     setPlanForm({
       id: '',
       name: '',
@@ -101,90 +194,90 @@ export function AdminSubscriptions() {
       ticketLimit: 500,
       emailLimit: 10000,
       hasWhatsapp: true,
+      hasWhatsappCampaign: true,
+      whatsappCampaignLimit: 2500,
       hasCustomWidget: false,
       hasRagLlm: true,
       isContactUs: false,
     });
     setEditingPlan(null);
+    setIsCreating(false);
+  };
+
+  const handlePlanChange = async (tenantId: string, newPlanId: string) => {
+    setUpdatingId(tenantId);
+    await updateTenantPlan(tenantId, newPlanId.toUpperCase());
+    setUpdatingId(null);
+    load();
+  };
+
+  const openCreateModal = () => {
+    resetForm();
     setIsCreating(true);
   };
 
-  const openEditModal = (plan: any) => {
+  const openEditModal = (plan: Record<string, unknown>) => {
+    setEditingPlan(plan);
     setPlanForm({
       id: plan.id,
-      name: plan.name,
-      priceMonthlyInr: plan.priceMonthlyInr ?? plan.priceMonthly ?? 0,
-      priceYearlyInr: plan.priceYearlyInr ?? plan.priceYearly ?? 0,
-      priceMonthlyUsd: plan.priceMonthlyUsd ?? plan.priceMonthly ?? 0,
-      priceYearlyUsd: plan.priceYearlyUsd ?? plan.priceYearly ?? 0,
-      employeeLimit: plan.employeeLimit,
-      primaryResourceLimit: plan.primaryResourceLimit,
-      secondaryResourceLimit: plan.secondaryResourceLimit,
-      ticketLimit: plan.ticketLimit,
-      emailLimit: plan.emailLimit,
-      hasWhatsapp: plan.hasWhatsapp,
-      hasCustomWidget: plan.hasCustomWidget,
-      hasRagLlm: plan.hasRagLlm,
+      name: plan.name || '',
+      priceMonthlyInr: plan.priceMonthlyInr ?? plan.priceMonthly ?? 1499,
+      priceYearlyInr: plan.priceYearlyInr ?? plan.priceYearly ?? 14390,
+      priceMonthlyUsd: plan.priceMonthlyUsd ?? 19.99,
+      priceYearlyUsd: plan.priceYearlyUsd ?? 189.90,
+      employeeLimit: plan.employeeLimit ?? 5,
+      primaryResourceLimit: plan.primaryResourceLimit ?? 10000,
+      secondaryResourceLimit: plan.secondaryResourceLimit ?? 5000,
+      ticketLimit: plan.ticketLimit ?? 500,
+      emailLimit: plan.emailLimit ?? 10000,
+      hasWhatsapp: plan.hasWhatsapp ?? true,
+      hasWhatsappCampaign: plan.hasWhatsappCampaign ?? true,
+      whatsappCampaignLimit: plan.whatsappCampaignLimit ?? 2500,
+      hasCustomWidget: plan.hasCustomWidget ?? false,
+      hasRagLlm: plan.hasRagLlm ?? true,
       isContactUs: plan.isContactUs ?? plan.contactUs ?? (plan.id === 'ENTERPRISE'),
     });
-    setEditingPlan(plan);
-    setIsCreating(false);
   };
 
   const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-
-    if (isCreating) {
-      const res = await createPlatformPlan(planForm);
-      if (res.error) {
-        setError(`Plan creation failed: ${res.error}`);
-        return;
-      }
-    } else if (editingPlan) {
-      const res = await updatePlatformPlanDetails(editingPlan.id, planForm);
-      if (res.error) {
-        setError(`Plan update failed: ${res.error}`);
-        return;
-      }
-    }
-
-    setIsCreating(false);
-    setEditingPlan(null);
-    loadPlans();
-  };
-
-  const handleDeletePlan = (planId: string) => {
-    setDeletingPlanId(planId);
-  };
-
-  const confirmDeletePlan = async () => {
-    if (!deletingPlanId) return;
-    setError(null);
-    const planIdToDelete = deletingPlanId;
-    setDeletingPlanId(null);
-
-    const res = await deletePlatformPlan(planIdToDelete);
-    if (res.error) {
-      setError(`Could not delete plan: ${res.error}`);
+    setPlansLoading(true);
+    let res;
+    if (editingPlan) {
+      res = await updatePlatformPlanDetails(editingPlan.id, planForm);
     } else {
+      res = await createPlatformPlan(planForm);
+    }
+    setPlansLoading(false);
+    if (!res.error) {
+      resetForm();
       loadPlans();
     }
   };
 
-  const totalMRR = subscriptions.reduce((sum, s) => sum + (s.mrr || 0), 0);
-  const activeCount = subscriptions.filter((s) => s.status === 'active').length;
-  const trialingCount = subscriptions.filter((s) => s.status === 'trialing').length;
-  const totalSeats = subscriptions.reduce((sum, s) => sum + (s.seats || 0), 0);
-  const usedSeats = subscriptions.reduce((sum, s) => sum + (s.seatsUsed || 0), 0);
+  const handleDeletePlan = async (planId: string) => {
+    if (!confirm(`Are you sure you want to delete plan ${planId}? Tenants assigned to this plan will remain intact.`)) return;
+    setDeletingPlanId(planId);
+    await deletePlatformPlan(planId);
+    setDeletingPlanId(null);
+    loadPlans();
+  };
+
+
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return subscriptions;
+    const q = search.toLowerCase();
+    return subscriptions.filter((s) => ((s.tenant as string) || '').toLowerCase().includes(q) || ((s.id as string) || '').toLowerCase().includes(q));
+  }, [subscriptions, search]);
 
   return (
-    <div className="mx-auto max-w-7xl p-4 lg:p-6 space-y-4">
-      {/* Header & Tabs */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-6 mx-auto max-w-7xl p-4 lg:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-primary-c">Subscription & Plan Management</h2>
-          <p className="mt-0.5 text-sm text-secondary-c">Manage tenant subscriptions, MRR, and superadmin plan pricing CRUD.</p>
+          <h2 className="text-xl font-bold text-primary-c">Subscription & Entitlements Management</h2>
+          <p className="text-xs text-muted-c">Manage tenant subscriptions, per-tenant custom overrides, multi-currency pricing, and plan capabilities.</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -215,14 +308,6 @@ export function AdminSubscriptions() {
       {/* TENANTS SUBSCRIPTIONS TAB */}
       {activeTab === 'tenants' && (
         <div className="space-y-4">
-          {/* KPIs */}
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <SubKpi icon={DollarSign} label="Total Platform MRR" value={loading ? '—' : `₹${(totalMRR / 1000).toFixed(1)}K`} color="#10B981" />
-            <SubKpi icon={CreditCard} label="Active Subscriptions" value={loading ? '—' : String(activeCount)} color="#2563EB" />
-            <SubKpi icon={Users} label="Seats Used" value={loading ? '—' : `${usedSeats}/${totalSeats}`} color="#7C3AED" />
-            <SubKpi icon={AlertCircle} label="Trialing Tenants" value={loading ? '—' : String(trialingCount)} color="#F59E0B" />
-          </div>
-
           {/* Search */}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
@@ -234,14 +319,14 @@ export function AdminSubscriptions() {
             {loading ? (
               [...Array(4)].map((_, i) => <div key={i} className="h-36 rounded-xl2 bg-slate-100 dark:bg-ink-800 animate-pulse" />)
             ) : filtered.length === 0 ? (
-              <p className="col-span-2 text-center py-10 text-sm text-muted-c">{error ? 'Could not load subscriptions' : 'No subscriptions found'}</p>
+              <p className="col-span-2 text-center py-10 text-sm text-muted-c">No subscriptions found</p>
             ) : (
               filtered.map((s) => {
                 const planKey = mapPlan(s.plan);
                 const pMeta = PLAN_META[planKey] || { color: 'bg-primary-500/10 text-primary-500' };
                 const isUpdating = updatingId === s.tenantId;
                 return (
-                  <GlassCard key={s.id} className="p-4">
+                  <GlassCard key={s.id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2">
@@ -266,15 +351,23 @@ export function AdminSubscriptions() {
                             )}
                           </select>
                         </div>
-                        <p className="text-[10px] text-muted-c">{s.id} · {s.paymentMethod}</p>
+                        <p className="text-[10px] text-muted-c">{s.tenantId} · {s.paymentMethod}</p>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={cx('h-2 w-2 rounded-full', s.status === 'active' ? 'bg-success-500' : 'bg-primary-500')} />
-                        <span className="text-[10px] font-bold text-secondary-c">{(s.status || '').toUpperCase()}</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => openOverrideModal(s)}
+                          className="flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 transition-all"
+                        >
+                          <Sliders className="h-3 w-3" /> Custom Overrides
+                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <span className={cx('h-2 w-2 rounded-full', s.status === 'active' ? 'bg-success-500' : 'bg-primary-500')} />
+                          <span className="text-[10px] font-bold text-secondary-c">{(s.status || '').toUpperCase()}</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-lg bg-slate-50 p-2 dark:bg-ink-850/60">
                         <p className="text-[9px] text-muted-c">MRR</p>
                         <p className="text-sm font-bold text-primary-c">₹{(s.mrr || 0).toLocaleString()}</p>
@@ -291,6 +384,153 @@ export function AdminSubscriptions() {
                   </GlassCard>
                 );
               })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* OVERRIDE & ENTITLEMENTS MODAL */}
+      {overrideModalTenant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl rounded-2xl bg-card-c border border-base-c p-6 space-y-5 shadow-2xl my-8">
+            <div className="flex items-center justify-between border-b border-base-c pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-primary-c">Configure Tenant Overrides</h3>
+                  {effectiveEntitlements?.isCustomized && (
+                    <span className="rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-2.5 py-0.5 text-[10px] font-bold border border-indigo-500/30 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> Custom Overrides Active (v{effectiveEntitlements.entitlementVersion})
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-c">Tenant: {overrideModalTenant.tenant} ({overrideModalTenant.tenantId}) · Base Plan: {effectiveEntitlements?.basePlanId}</p>
+              </div>
+              <button onClick={() => setOverrideModalTenant(null)} className="rounded-lg p-1.5 text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 border-b border-base-c pb-2">
+              <button
+                onClick={() => setOverrideTab('config')}
+                className={cx('rounded-lg px-3 py-1.5 text-xs font-bold transition-all', overrideTab === 'config' ? 'bg-primary-500 text-white' : 'text-muted-c hover:text-primary-c')}
+              >
+                Entitlement Limits & Features
+              </button>
+              <button
+                onClick={() => setOverrideTab('audit')}
+                className={cx('rounded-lg px-3 py-1.5 text-xs font-bold transition-all flex items-center gap-1', overrideTab === 'audit' ? 'bg-primary-500 text-white' : 'text-muted-c hover:text-primary-c')}
+              >
+                <History className="h-3.5 w-3.5" /> Audit History ({overrideAudits.length})
+              </button>
+            </div>
+
+            {overrideLoading ? (
+              <div className="py-12 text-center text-xs text-muted-c animate-pulse">Loading effective tenant entitlements…</div>
+            ) : overrideTab === 'config' ? (
+              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                {/* Feature Toggles */}
+                <div className="rounded-xl border border-base-c p-4 space-y-3 bg-slate-50/50 dark:bg-ink-850/40">
+                  <p className="text-xs font-bold text-primary-c flex items-center gap-1.5">
+                    <Shield className="h-4 w-4 text-indigo-500" /> Feature Entitlement Toggles
+                  </p>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={overrideForm.hasWhatsapp} onChange={(e) => setOverrideForm({ ...overrideForm, hasWhatsapp: e.target.checked })} className="rounded text-primary-500 focus:ring-primary-500" />
+                      <span>WhatsApp Business API</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={overrideForm.hasWhatsappCampaign} onChange={(e) => setOverrideForm({ ...overrideForm, hasWhatsappCampaign: e.target.checked })} className="rounded text-primary-500 focus:ring-primary-500" />
+                      <span>WhatsApp Campaigns</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={overrideForm.hasRagLlm} onChange={(e) => setOverrideForm({ ...overrideForm, hasRagLlm: e.target.checked })} className="rounded text-primary-500 focus:ring-primary-500" />
+                      <span>AI RAG LLM Bot</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={overrideForm.hasCustomWidget} onChange={(e) => setOverrideForm({ ...overrideForm, hasCustomWidget: e.target.checked })} className="rounded text-primary-500 focus:ring-primary-500" />
+                      <span>Custom Widget Branding</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Quota & Limit Overrides */}
+                <div className="rounded-xl border border-base-c p-4 space-y-3 bg-slate-50/50 dark:bg-ink-850/40">
+                  <p className="text-xs font-bold text-primary-c flex items-center gap-1.5">
+                    <Layers className="h-4 w-4 text-emerald-500" /> Custom Resource & Campaign Quotas
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-c block mb-1">Employee Seats</label>
+                      <input type="number" value={overrideForm.employeeLimit} onChange={(e) => setOverrideForm({ ...overrideForm, employeeLimit: Number(e.target.value) })} className="form-input text-xs" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-c block mb-1">Max Recipients / Campaign</label>
+                      <input type="number" value={overrideForm.maxRecipientsPerWhatsappCampaign} onChange={(e) => setOverrideForm({ ...overrideForm, maxRecipientsPerWhatsappCampaign: Number(e.target.value) })} className="form-input text-xs" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-c block mb-1">Monthly Custom Price (INR)</label>
+                      <input type="number" value={overrideForm.customMonthlyInr} onChange={(e) => setOverrideForm({ ...overrideForm, customMonthlyInr: Number(e.target.value) })} className="form-input text-xs" />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-medium text-muted-c block mb-1">Max Queue Priority Rank</label>
+                      <select value={overrideForm.maxAllowedPriority} onChange={(e) => setOverrideForm({ ...overrideForm, maxAllowedPriority: e.target.value as 'LOW' | 'MEDIUM' | 'HIGH' })} className="form-input text-xs">
+                        <option value="LOW">LOW Priority Only</option>
+                        <option value="MEDIUM">LOW & MEDIUM Priority</option>
+                        <option value="HIGH">LOW, MEDIUM & HIGH Priority</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reason string */}
+                <div>
+                  <label className="text-[11px] font-medium text-muted-c block mb-1">Audit Log Reason</label>
+                  <input type="text" value={overrideForm.reason} onChange={(e) => setOverrideForm({ ...overrideForm, reason: e.target.value })} placeholder="Enterprise contract modification reason…" className="form-input text-xs" />
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-between pt-2">
+                  <button
+                    type="button"
+                    onClick={handleResetOverrides}
+                    disabled={overrideSaving || !effectiveEntitlements?.isCustomized}
+                    className="rounded-xl border border-danger-500/30 bg-danger-500/10 px-3 py-2 text-xs font-bold text-danger-600 dark:text-danger-400 hover:bg-danger-500/20 disabled:opacity-40 transition-all"
+                  >
+                    Reset to Base Plan
+                  </button>
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => setOverrideModalTenant(null)} className="rounded-xl border border-base-c px-3 py-2 text-xs font-bold text-muted-c hover:text-primary-c">
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveOverrides}
+                      disabled={overrideSaving}
+                      className="rounded-xl bg-gradient-accent px-4 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all"
+                    >
+                      {overrideSaving ? 'Saving…' : 'Save Custom Overrides'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                {overrideAudits.length === 0 ? (
+                  <p className="text-center py-8 text-xs text-muted-c">No override audit logs recorded for this tenant yet.</p>
+                ) : (
+                  overrideAudits.map((audit) => (
+                    <div key={audit.id} className="rounded-xl border border-base-c p-3 space-y-1.5 text-xs bg-slate-50/50 dark:bg-ink-850/40">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-primary-500 uppercase text-[10px]">{audit.action}</span>
+                        <span className="text-[10px] text-muted-c">{new Date(audit.createdAt).toLocaleString()}</span>
+                      </div>
+                      <p className="text-secondary-c font-medium">{audit.reason}</p>
+                      <p className="text-[10px] text-muted-c">Changed by: {audit.changedBy} {audit.ipAddress ? `(${audit.ipAddress})` : ''}</p>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -519,6 +759,16 @@ export function AdminSubscriptions() {
                     required
                   />
                 </div>
+                <div>
+                  <label className="text-muted-c font-medium">WhatsApp Campaign Limit</label>
+                  <input
+                    type="number"
+                    value={planForm.whatsappCampaignLimit}
+                    onChange={(e) => setPlanForm({ ...planForm, whatsappCampaignLimit: Number(e.target.value) })}
+                    className="form-input mt-1"
+                    required
+                  />
+                </div>
               </div>
 
               {/* Toggles */}
@@ -531,6 +781,15 @@ export function AdminSubscriptions() {
                     className="rounded border-base-c"
                   />
                   <span>WhatsApp Business API</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.hasWhatsappCampaign}
+                    onChange={(e) => setPlanForm({ ...planForm, hasWhatsappCampaign: e.target.checked })}
+                    className="rounded border-base-c"
+                  />
+                  <span>WhatsApp Campaigns</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -618,18 +877,6 @@ export function AdminSubscriptions() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function SubKpi({ icon: Icon, label, value, color }: { icon: typeof DollarSign; label: string; value: string; color: string }) {
-  return (
-    <div className="rounded-xl2 border border-base-c bg-card-c p-4">
-      <div className="grid h-10 w-10 place-items-center rounded-xl2" style={{ backgroundColor: `${color}15` }}>
-        <Icon className="h-5 w-5" style={{ color }} />
-      </div>
-      <p className="mt-3 text-2xl font-bold tabular-nums text-primary-c">{value}</p>
-      <p className="text-[11px] text-muted-c">{label}</p>
     </div>
   );
 }

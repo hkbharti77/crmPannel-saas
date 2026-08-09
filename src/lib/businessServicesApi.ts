@@ -40,8 +40,8 @@ export async function createBusinessService(name: string, description?: string, 
     }
     const data = await res.json();
     return { data };
-  } catch (err: any) {
-    return { error: err.message || 'Network error' };
+  } catch (err: unknown) {
+    return { error: (err as Error).message || 'Network error' };
   }
 }
 
@@ -70,8 +70,8 @@ export async function updateBusinessService(id: string, name: string, descriptio
     }
     const data = await res.json();
     return { data };
-  } catch (err: any) {
-    return { error: err.message || 'Network error' };
+  } catch (err: unknown) {
+    return { error: (err as Error).message || 'Network error' };
   }
 }
 

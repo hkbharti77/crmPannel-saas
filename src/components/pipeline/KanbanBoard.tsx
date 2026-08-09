@@ -1,4 +1,4 @@
-import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
+import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { Lead } from './pipelineData';
 import { PRIORITY_STYLES } from './pipelineData';
@@ -7,7 +7,6 @@ import {
   ArrowRight,
   Phone,
   MessageSquare,
-  CalendarPlus,
   GripVertical,
   CircleDot,
   Globe,

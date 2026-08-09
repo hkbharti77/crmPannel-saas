@@ -61,29 +61,48 @@ export async function sendWhatsAppMessage(contactId: string, text: string): Prom
     method: 'POST',
     body: JSON.stringify({ text }),
   });
-  if (res.error) {
-    return { success: false, error: res.error };
-  }
-  return { success: true, error: null };
+  return { success: !res.error, error: res.error };
 }
 
-export async function sendTenantMenu(contactId: string): Promise<{ success: boolean; message?: string; error: string | null }> {
+export async function sendTenantMenu(contactId: string): Promise<{ success: boolean; error: string | null }> {
   const res = await apiFetch(`/api/v1/messages/${contactId}/menu`, {
     method: 'POST',
   });
-  if (res.error) {
-    return { success: false, error: res.error };
-  }
-  return { success: true, message: 'WhatsApp Menu sent successfully', error: null };
+  return { success: !res.error, error: res.error };
 }
 
 export async function toggleBotPaused(contactId: string, botPaused: boolean): Promise<{ success: boolean; error: string | null }> {
-  const res = await apiFetch(`/api/v1/contacts/${contactId}/toggle-bot`, {
-    method: 'PATCH',
+  const res = await apiFetch(`/api/v1/contacts/${contactId}/bot-paused`, {
+    method: 'PUT',
     body: JSON.stringify({ botPaused }),
   });
-  if (res.error) {
-    return { success: false, error: res.error };
-  }
-  return { success: true, error: null };
+  return { success: !res.error, error: res.error };
+}
+
+export async function takeoverLiveChat(contactId: string, reason?: string, forceTakeover?: boolean) {
+  const res = await apiFetch(`/api/livechat/contacts/${contactId}/takeover`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, forceTakeover }),
+  });
+  return { success: !res.error, error: res.error };
+}
+
+export async function transferLiveChat(contactId: string, targetUserId: string, reason?: string) {
+  const res = await apiFetch(`/api/livechat/contacts/${contactId}/transfer`, {
+    method: 'POST',
+    body: JSON.stringify({ targetUserId, reason }),
+  });
+  return { success: !res.error, error: res.error };
+}
+
+export async function resolveLiveChat(contactId: string) {
+  const res = await apiFetch(`/api/livechat/contacts/${contactId}/resolve`, {
+    method: 'POST',
+  });
+  return { success: !res.error, error: res.error };
+}
+
+export async function fetchLiveChatContacts() {
+  const res = await apiFetch<unknown[]>('/api/livechat/contacts');
+  return { data: res.data || [], error: res.error };
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { Search, Shield, UserCheck, UserX, Mail, Building2, RefreshCw } from 'lucide-react';
+import { Search, UserCheck, UserX, Mail, Building2, RefreshCw } from 'lucide-react';
 import { fetchAllUsers, enableUser, disableUser, type ApiUser } from '@/lib/platformApi';
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'DEACTIVATED';

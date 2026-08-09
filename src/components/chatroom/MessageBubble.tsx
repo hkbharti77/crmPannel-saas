@@ -8,18 +8,9 @@ import {
   Download,
   Play,
   Bot,
-  Phone,
   CalendarPlus,
-  ArrowLeft,
-  MoreVertical,
-  Paperclip,
-  Smile,
-  Image as ImageIcon,
-  Mic,
-  Send,
   Sparkles,
   UserCheck,
-  X,
 } from 'lucide-react';
 
 const STATUS_ICONS: Record<string, typeof Check> = {
@@ -156,4 +147,4 @@ function SystemMessage({ msg }: { msg: Message }) {
   );
 }
 
-export { ArrowLeft, MoreVertical, Paperclip, Smile, ImageIcon, Mic, Send, Phone, X };
+

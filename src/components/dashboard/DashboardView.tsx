@@ -3,7 +3,7 @@ import { KpiGrid } from '@/components/dashboard/KpiGrid';
 import { SalesChart } from '@/components/dashboard/SalesChart';
 import { LeadSummary } from '@/components/dashboard/LeadSummary';
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
-import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
+import { GlassCard, Badge } from '@/components/ui/primitives';
 import { CalendarClock, ArrowRight, Loader2, RefreshCw, Wallet, CheckCircle2, Clock } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { fetchDashboardAggregate, type DashboardAggregateDTO } from '@/lib/dashboardApi';

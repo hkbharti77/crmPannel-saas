@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import {
   MessageSquare, LayoutList, CheckCircle, AlertCircle, PencilLine,
-  Save, Loader2, Lock, ShoppingBag, ListTree, X, Smartphone,
-  Send, MoreVertical, Phone, Video, ArrowLeft, CheckCheck, Sparkles,
-  Bot, ShieldCheck, Eye, RefreshCw, Layers, ChevronRight,
+  Save, Loader2, Lock, ShoppingBag, ListTree, X,
+  Send, MoreVertical, Phone, Video, ArrowLeft, CheckCheck,
+  Bot, ShieldCheck, ChevronRight,
 } from 'lucide-react';
 import { PanelHeader, Toggle, SectionCard } from './_shared';
 import { apiFetch } from '@/lib/api';
@@ -393,14 +393,14 @@ export function MenuButtonsPanel() {
       if (d.interactiveMenuJson) {
         try {
           const parsed = JSON.parse(d.interactiveMenuJson);
-          const rows: any[] = parsed?.action?.sections?.[0]?.rows || parsed?.action?.buttons || [];
+          const rows: Record<string, unknown>[] = parsed?.action?.sections?.[0]?.rows || parsed?.action?.buttons || [];
           if (rows.length > 0) {
-            setMenuItems(rows.map((r: any, i: number) => ({
-              id: r.id || `slot_${i}`,
-              title: r.title || r.reply?.title || '',
-              desc: r.description || '',
+            setMenuItems(rows.map((r: Record<string, unknown>, i: number) => ({
+              id: (r.id as string) || `slot_${i}`,
+              title: (r.title as string) || (r.reply as { title?: string })?.title || '',
+              desc: (r.description as string) || '',
               isCatalog: false,
-              customListId: r.customListId || '',
+              customListId: (r.customListId as string) || '',
             })));
           }
         } catch { /* ignore */ }
@@ -946,6 +946,15 @@ export function MenuButtonsPanel() {
           )}
         </div>
         </SectionCard>
+
+        <WhatsAppPhonePreview
+          welcomeMessage={welcomeMessage}
+          returningMessage={returningMessage}
+          menuType={menuType}
+          activeFlows={activeFlows}
+          reservedFeatures={reservedFeatures}
+          menuItems={menuItems}
+        />
     </div>
   );
 }

@@ -109,5 +109,5 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
   );
 }
 
-export { type KPI };
+
 

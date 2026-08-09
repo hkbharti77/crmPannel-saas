@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { Search, Ticket as TicketIcon, Clock, Building2, RefreshCw, ChevronDown } from 'lucide-react';
+import { Search, Ticket as TicketIcon, Clock, Building2, RefreshCw } from 'lucide-react';
 import { fetchPlatformTickets, updateTicket, type ApiTicket } from '@/lib/platformApi';
 
 const PRIORITY_META: Record<string, { label: string; color: string }> = {
@@ -35,13 +35,14 @@ export function AdminTickets() {
     if (res.error) {
       setError(res.error);
     } else if (res.data) {
-      const list: ApiTicket[] = Array.isArray(res.data) ? res.data : (res.data as any).content ?? [];
+      const list: ApiTicket[] = Array.isArray(res.data) ? res.data : (res.data as { content?: ApiTicket[] }).content ?? [];
       setTickets(list);
     }
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load();  
+  }, []);
 
   const filtered = useMemo(() =>
     tickets.filter((t) => {

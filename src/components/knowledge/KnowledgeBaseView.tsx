@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { cx } from '@/lib/types';
 import {
-  Brain, Upload, Trash2, Download, Check, AlertCircle, Loader2,
-  FileText, Sparkles, Bot, RefreshCw, Layers, CheckCircle2, ShieldAlert, File, Info,
-  Wand2, Save, RotateCcw, HelpCircle, MessageSquare, Tag, Sliders, CheckCircle, Clock, User
+  Brain, Upload, Trash2, Download, AlertCircle, Loader2,
+  FileText, Sparkles, CheckCircle2, File,
+  Wand2, Save, RotateCcw, HelpCircle, Clock, User
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
@@ -55,8 +55,6 @@ export function KnowledgeBaseView() {
   const [documents, setDocuments] = useState<RagDocumentDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [trainingText, setTrainingText] = useState('');
-  const [training, setTraining] = useState(false);
 
   // ── AI Persona State ──
   const [personaPrompt, setPersonaPrompt] = useState('');
@@ -71,8 +69,6 @@ export function KnowledgeBaseView() {
   // Status & Notifications
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [planLocked, setPlanLocked] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -181,9 +177,9 @@ export function KnowledgeBaseView() {
         const errText = await res.text();
         setError(`Upload failed: ${errText}`);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setUploading(false);
-      setError(`Network error: ${err.message}`);
+      setError(`Network error: ${(err as Error).message}`);
     }
   };
 

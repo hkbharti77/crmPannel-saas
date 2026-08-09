@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { TYPE_CONFIG, type Appointment } from './appointmentData';
 import { AppointmentStats } from './AppointmentStats';
@@ -12,7 +11,7 @@ import {
 } from '@/lib/appointmentsApi';
 import { Plus, RefreshCw } from 'lucide-react';
 
-import { formatLocalDateStr, getTodayDateStr, parseDateStr } from '@/lib/dateUtils';
+import { getTodayDateStr, parseDateStr } from '@/lib/dateUtils';
 
 export function AppointmentsView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -45,8 +44,8 @@ export function AppointmentsView() {
           company: dto.source || 'Direct Inquiry',
           date: dateStr,
           time: timeStr,
-          type: (dto.source?.toLowerCase().includes('call') ? 'call' : 'site_visit') as any,
-          status: (dto.status === 'COMPLETED' ? 'COMPLETED' : dto.status === 'CANCELLED' ? 'CANCELLED' : 'SCHEDULED') as any,
+          type: (dto.source?.toLowerCase().includes('call') ? 'call' : 'site_visit') as Appointment['type'],
+          status: (dto.status === 'COMPLETED' ? 'COMPLETED' : dto.status === 'CANCELLED' ? 'CANCELLED' : 'SCHEDULED') as Appointment['status'],
           assignedTo: dto.ownerName || 'Agent',
           location: dto.meetingLink || 'Office / Online',
           collectedData: dto.collectedData,

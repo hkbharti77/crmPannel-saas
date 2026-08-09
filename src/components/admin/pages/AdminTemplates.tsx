@@ -4,13 +4,13 @@ import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
   Plus, Home, Building2, Crown, KeyRound, Map, Palmtree, TrendingUp,
-  Globe, Search, Copy, Trash2, Eye, RefreshCw, X, Loader2,
+  Globe, Search, Trash2, RefreshCw, X, Loader2,
   Car, GraduationCap, Stethoscope, Sparkles, Palette, Laptop, Dumbbell,
   Leaf, BookOpen, ShieldCheck, Music, HeartPulse, Scissors, Plane,
   Sun, Camera, UserCheck, Bot, Briefcase
 } from 'lucide-react';
 import {
-  fetchNicheTemplates, createNicheTemplate, updateNicheTemplate, deleteNicheTemplate,
+  fetchNicheTemplates, createNicheTemplate, deleteNicheTemplate,
   type ApiNicheTemplate
 } from '@/lib/platformApi';
 
@@ -30,8 +30,8 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   archived: { label: 'Archived', color: 'bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400' },
 };
 
-function parseStages(stagesRaw: any): string[] {
-  if (Array.isArray(stagesRaw)) return stagesRaw;
+function parseStages(stagesRaw: unknown): string[] {
+  if (Array.isArray(stagesRaw)) return stagesRaw as string[];
   if (typeof stagesRaw === 'string') {
     try { return JSON.parse(stagesRaw); } catch { return [stagesRaw]; }
   }
@@ -49,8 +49,6 @@ export function AdminTemplates() {
   // New template modal state
   const [newName, setNewName] = useState('');
   const [newNiche, setNewNiche] = useState('Real Estate');
-  const [newIcon, setNewIcon] = useState('home');
-  const [newColor, setNewColor] = useState('#2563EB');
   const [newDesc, setNewDesc] = useState('');
   const [newStagesStr, setNewStagesStr] = useState('New Lead, Contacted, Qualified, Closed');
   const [saving, setSaving] = useState(false);

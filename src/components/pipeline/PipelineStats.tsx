@@ -1,5 +1,4 @@
-import { GlassCard, Badge } from '@/components/ui/primitives';
-import { cx } from '@/lib/types';
+import { GlassCard } from '@/components/ui/primitives';
 import { TrendingUp, DollarSign, Target, Flame, BarChart3 } from 'lucide-react';
 import type { Lead } from './pipelineData';
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
-import { CreditCard, Loader2, CheckCircle2, AlertCircle, Crown, Zap, ShieldCheck, ArrowUpRight, Receipt, Users, Mail, Layers, Sparkles } from 'lucide-react';
+import { CreditCard, Loader2, CheckCircle2, AlertCircle, Zap, ShieldCheck, ArrowUpRight, Receipt, Mail, Layers } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import { fetchSubscriptionStatus, fetchBillingTransactions, fetchAvailablePlans, initiateCheckout, type SubscriptionData, type BillingTransaction, type SubscriptionPlanDto } from '@/lib/billingApi';
 
@@ -21,6 +21,7 @@ export function BillingPanel() {
 
   useEffect(() => {
     loadBillingData(currency);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currency]);
 
   const loadBillingData = async (curr: 'INR' | 'USD' = currency) => {

@@ -21,7 +21,7 @@ export function AreaChart({
   const padY = 16;
   const gid = useMemo(() => `g${Math.random().toString(36).slice(2, 9)}`, []);
 
-  const { path, area, points, max, min } = useMemo(() => {
+  const { path, area, points } = useMemo(() => {
     const max = Math.max(...data);
     const min = Math.min(...data);
     const range = max - min || 1;

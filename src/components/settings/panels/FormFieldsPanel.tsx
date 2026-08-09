@@ -10,7 +10,7 @@ import {
   type FlowFieldConfig, type FormFlowType,
 } from '@/lib/flowFieldsApi';
 
-const FLOW_TYPES: { id: FormFlowType; label: string; icon: any; desc: string }[] = [
+const FLOW_TYPES: { id: FormFlowType; label: string; icon: typeof FileText; desc: string }[] = [
   { id: 'lead', label: 'Lead Collection Form', icon: FileText, desc: 'Customize lead capture questions and qualification fields.' },
   { id: 'appointment', label: 'Appointment Form', icon: Calendar, desc: 'Fields asked when a lead schedules an appointment slot.' },
   { id: 'booking', label: 'Service Booking Form', icon: ShoppingBag, desc: 'Fields asked when a customer orders a catalog service.' },

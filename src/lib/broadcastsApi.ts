@@ -36,7 +36,7 @@ export type WhatsAppTemplateDto = {
   footerText?: string;
   rejectedReason?: string;
   buttons?: TemplateButtonDto[];
-  components?: any[];
+  components?: unknown[];
 };
 
 export type CampaignAnalyticsDto = {
@@ -293,8 +293,8 @@ export async function uploadCsvForBroadcast(
 
     const data: BroadcastCsvUploadResult = await res.json();
     return { data, error: null };
-  } catch (err: any) {
-    return { data: null, error: err?.message || 'Network error during file upload' };
+  } catch (err: unknown) {
+    return { data: null, error: (err as Error)?.message || 'Network error during file upload' };
   }
 }
 

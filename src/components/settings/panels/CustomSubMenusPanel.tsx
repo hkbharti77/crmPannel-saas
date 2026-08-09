@@ -62,7 +62,8 @@ export function CustomSubMenusPanel() {
   // Ref for hidden file inputs (one per item + one for header)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  useEffect(() => { loadSubMenus(); }, []);
+  useEffect(() => { loadSubMenus(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const toast = (msg: string, isErr = false) => {
     if (isErr) { setError(msg); setMessage(null); }

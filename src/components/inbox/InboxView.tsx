@@ -1,4 +1,5 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useWebSocket, type WsIncomingMessage } from '@/hooks/useWebSocket';
 import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -11,6 +12,7 @@ import {
   sendWhatsAppMessage,
   sendTenantMenu,
   toggleBotPaused,
+  resolveLiveChat,
   type ApiMessage,
 } from '@/lib/messagesApi';
 import {
@@ -55,26 +57,26 @@ export function InboxView() {
   // WhatsApp states
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState<string | null>(null);
 
   // WebChat states
   const [webSessions, setWebSessions] = useState<WebChatSession[]>([]);
   const [loadingWeb, setLoadingWeb] = useState(false);
-  const [webError, setWebError] = useState<string | null>(null);
 
   const loadChats = async () => {
     setLoading(true);
-    setApiError(null);
-    const { data, error } = await fetchActiveChats();
+    const { data } = await fetchActiveChats();
     setLoading(false);
 
-    if (error) {
-      setApiError(error);
-    } else if (data && data.length > 0) {
+    if (data) {
       const now = Date.now();
       const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
 
-      const mapped: Conversation[] = data.map((c) => {
+      // Only include contacts with actual messages / active chat history
+      const activeData = data.filter(
+        (c) => c.lastMessage && c.lastMessage !== 'No messages yet' && c.time
+      );
+
+      const mapped: Conversation[] = activeData.map((c) => {
         const lastMsgTime = c.time ? new Date(c.time).getTime() : 0;
         const isWithin24h = lastMsgTime > 0 && (now - lastMsgTime) < TWENTY_FOUR_HOURS;
 
@@ -82,7 +84,7 @@ export function InboxView() {
           id: String(c.id),
           name: c.name || 'WhatsApp Contact',
           phone: String(c.id),
-          lastMessage: c.lastMessage || 'No messages yet',
+          lastMessage: c.lastMessage,
           lastMessageSender: 'them',
           timestamp: c.time ? timeAgo(new Date(c.time)) : 'Just now',
           lastMessageTime: c.time || undefined,
@@ -97,6 +99,8 @@ export function InboxView() {
       setConversations(mapped);
       if (!selectedId && mapped.length > 0) {
         setSelectedId(mapped[0].id);
+      } else if (mapped.length === 0) {
+        setSelectedId(null);
       }
     }
   };
@@ -123,7 +127,77 @@ export function InboxView() {
     } else {
       loadWebSessions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel]);
+
+  // ── Real-time WebSocket integration ──────────────────────────────
+  // Tracks messages pushed via WS so ChatPreview can display them instantly
+  const [wsMessages, setWsMessages] = useState<Record<string, ApiMessage[]>>({});
+
+  const handleWsMessage = useCallback((msg: WsIncomingMessage) => {
+    if (channel !== 'whatsapp') return;
+
+    const contactId = msg.contactId;
+    if (!contactId) return;
+
+    const now = new Date();
+
+    // 1. Update the conversation list
+    setConversations((prev) => {
+      const exists = prev.find((c) => c.id === contactId);
+      if (exists) {
+        // Update existing conversation: bump lastMessage + move to top
+        const updated = prev.map((c) =>
+          c.id === contactId
+            ? {
+                ...c,
+                lastMessage: msg.content,
+                timestamp: 'Just now',
+                lastMessageTime: now.toISOString(),
+                status: 'online' as const,
+                unread: msg.direction === 'INCOMING' ? c.unread + 1 : c.unread,
+              }
+            : c
+        );
+        // Sort: the updated conversation goes to the top
+        return updated.sort((a, b) => {
+          if (a.id === contactId) return -1;
+          if (b.id === contactId) return 1;
+          return 0;
+        });
+      } else {
+        // New contact not yet in the list — prepend it
+        const newConv: Conversation = {
+          id: contactId,
+          name: msg.contactName || 'WhatsApp Contact',
+          phone: contactId,
+          lastMessage: msg.content,
+          lastMessageSender: msg.direction === 'INCOMING' ? 'them' : 'me',
+          timestamp: 'Just now',
+          lastMessageTime: now.toISOString(),
+          unread: msg.direction === 'INCOMING' ? 1 : 0,
+          status: 'online',
+          tags: ['NEW', 'HOT'],
+          isBotHandled: true,
+        };
+        return [newConv, ...prev];
+      }
+    });
+
+    // 2. Append to wsMessages so ChatPreview can pick it up
+    const apiMsg: ApiMessage = {
+      id: msg.id || 'ws-' + Date.now(),
+      content: msg.content,
+      direction: msg.direction || 'INCOMING',
+      timestamp: msg.timestamp || now.toISOString(),
+    };
+    setWsMessages((prev) => ({
+      ...prev,
+      [contactId]: [...(prev[contactId] || []), apiMsg],
+    }));
+  }, [channel]);
+
+  useWebSocket(handleWsMessage);
 
   const counts = useMemo(() => {
     const all = conversations.length;
@@ -295,6 +369,8 @@ export function InboxView() {
             selectedWa ? (
               <ChatPreview
                 conv={selectedWa}
+                wsMessages={wsMessages[selectedWa.id] || []}
+                onClearWsMessages={() => setWsMessages((prev) => ({ ...prev, [selectedWa.id]: [] }))}
                 onOpenChat={() => navigate(`/chatroom/${selectedWa.id}`)}
                 onBotToggle={async (newBotPaused) => {
                   await toggleBotPaused(selectedWa.id, newBotPaused);
@@ -348,8 +424,10 @@ function EmptyState() {
   );
 }
 
-function ChatPreview({ conv, onOpenChat, onBotToggle }: {
+function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotToggle }: {
   conv: Conversation;
+  wsMessages: ApiMessage[];
+  onClearWsMessages: () => void;
   onOpenChat: () => void;
   onBotToggle: (newBotPaused: boolean) => Promise<void>;
 }) {
@@ -369,7 +447,19 @@ function ChatPreview({ conv, onOpenChat, onBotToggle }: {
 
   useEffect(() => {
     loadHistory();
+    onClearWsMessages(); // Clear buffered WS messages on conversation switch (we just loaded full history)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv.id]);
+
+  // Append real-time WebSocket messages to the chat preview
+  useEffect(() => {
+    if (wsMessages.length === 0) return;
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => m.id));
+      const newMsgs = wsMessages.filter((m) => !existingIds.has(m.id));
+      return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
+    });
+  }, [wsMessages]);
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -454,6 +544,23 @@ function ChatPreview({ conv, onOpenChat, onBotToggle }: {
               <><UserCheck className="h-3.5 w-3.5" />{togglingBot ? '…' : 'Human Mode'}</>
             )}
           </button>
+
+          {!conv.isBotHandled && (
+            <button
+              onClick={async () => {
+                setTogglingBot(true);
+                await resolveLiveChat(conv.id);
+                await onBotToggle(false); // Resumes bot
+                setTogglingBot(false);
+              }}
+              disabled={togglingBot}
+              title="Resolve support chat and resume bot"
+              className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" />
+              {togglingBot ? '…' : 'Resolve Chat'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -502,21 +609,48 @@ function ChatPreview({ conv, onOpenChat, onBotToggle }: {
 
       {/* Quick actions & input */}
       <div className="border-t border-base-c p-3">
-        <form onSubmit={handleSend} className="flex items-center gap-2 rounded-xl2 border border-base-c bg-card-c px-3 py-2">
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a WhatsApp message…"
-            className="flex-1 bg-transparent text-sm text-primary-c placeholder:text-muted-c focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={sending}
-            className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-accent text-white transition-transform hover:scale-105 disabled:opacity-50"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        </form>
+        {conv.isBotHandled ? (
+          /* Bot active — lock input */
+          <div className="flex flex-col items-center gap-2 rounded-xl2 border border-secondary-500/20 bg-secondary-500/5 px-3 py-3">
+            <p className="text-[11px] font-semibold text-secondary-600 dark:text-secondary-400">
+              🤖 Bot is handling this chat
+            </p>
+            <p className="text-[10px] text-muted-c text-center">
+              Switch to Human Mode to reply manually
+            </p>
+            <button
+              onClick={async () => {
+                setTogglingBot(true);
+                await onBotToggle(true); // botPaused = true → human mode
+                setTogglingBot(false);
+              }}
+              disabled={togglingBot}
+              className="flex items-center gap-1.5 rounded-lg bg-success-500/15 px-3 py-1.5 text-xs font-semibold text-success-600 dark:text-success-400 ring-1 ring-success-500/30 hover:bg-success-500/25 transition-all disabled:opacity-50"
+            >
+              <UserCheck className="h-3 w-3" />
+              {togglingBot ? 'Switching…' : 'Take Over'}
+            </button>
+          </div>
+        ) : (
+          /* Human mode — show input */
+          <>
+            <form onSubmit={handleSend} className="flex items-center gap-2 rounded-xl2 border border-base-c bg-card-c px-3 py-2">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type a WhatsApp message…"
+                className="flex-1 bg-transparent text-sm text-primary-c placeholder:text-muted-c focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={sending}
+                className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-accent text-white transition-transform hover:scale-105 disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </form>
+          </>
+        )}
 
         <button
           onClick={onOpenChat}
@@ -550,6 +684,7 @@ function WebChatPreview({
 
   useEffect(() => {
     loadDetails();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id]);
 
   return (

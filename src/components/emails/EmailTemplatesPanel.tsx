@@ -2,15 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import {
-  Mail, Plus, Trash2, Edit3, ArrowLeft, Save, Copy,
+  Plus, Trash2, Edit3, ArrowLeft, Save, Copy,
   Loader2, CheckCircle, AlertCircle, Code, Eye, Monitor, Smartphone,
-  Palette, Search, Sparkles, Send, Layers, Filter, Check, ExternalLink, HelpCircle,
-  LayoutGrid, List, MoreVertical, RotateCcw, AlertTriangle, Play, Wand2, FileCode, Sliders, CheckSquare
+  Search, Sparkles, Layers, Filter,
+  LayoutGrid, List, MoreVertical, RotateCcw, AlertTriangle, Play, Wand2
 } from 'lucide-react';
 import { SectionCard } from '@/components/settings/panels/_shared';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
-import { generateAiEmailContent } from '@/lib/emailsApi';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 interface EmailTemplate {
@@ -253,6 +252,7 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
       setIsEditing(false);
       setShowEditor(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialCreateOpen]);
 
   useEffect(() => {
@@ -374,7 +374,7 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
 
   const formatHtmlCode = () => {
     if (!form.content) return;
-    let formatted = form.content
+    const formatted = form.content
       .replace(/></g, '>\n<')
       .replace(/\n\s*\n/g, '\n')
       .trim();
@@ -411,7 +411,7 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
 
   // Filtered & Sorted Templates
   const filteredTemplates = useMemo(() => {
-    let list = templates.filter((t) => {
+    const list = templates.filter((t) => {
       const matchesCat = selectedCategory === 'All' || (t.interestCategory || 'General').toLowerCase() === selectedCategory.toLowerCase();
       const matchesSearch = !searchQuery.trim() || t.name.toLowerCase().includes(searchQuery.toLowerCase()) || t.subject.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCat && matchesSearch;
@@ -798,7 +798,7 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
                   <span className="text-xs font-medium text-secondary-c hidden sm:inline">Sort:</span>
                   <select
                     value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
+                    onChange={(e) => setSortBy(e.target.value as 'newest' | 'oldest' | 'name-asc' | 'name-desc')}
                     className="form-input text-xs py-1.5 px-2.5 bg-card-c cursor-pointer"
                   >
                     <option value="newest">Newest First</option>

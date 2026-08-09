@@ -11,7 +11,6 @@ import {
   Sun,
   Moon,
   ArrowLeft,
-  Shield,
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 

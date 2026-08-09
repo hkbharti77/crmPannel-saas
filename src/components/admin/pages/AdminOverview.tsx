@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { GlassCard, Badge, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { PLAN_META, STATUS_META, REVENUE_DATA } from '@/components/admin/adminData';
+import { REVENUE_DATA } from '@/components/admin/adminData';
 import {
   Building2, Users, TrendingUp, AlertCircle, ArrowUpRight, ArrowDownRight,
-  CheckCircle2, Clock, Server, Activity, DollarSign, UserPlus, RefreshCw,
+  CheckCircle2, Server, Activity, DollarSign, UserPlus, RefreshCw,
 } from 'lucide-react';
 import {
   fetchAnalyticsOverview, fetchTenants, fetchPlatformHealth, fetchRecentActivity, normalizeHealthServices,
@@ -18,7 +18,7 @@ export function AdminOverview() {
   const [overview, setOverview] = useState<ApiAnalyticsOverview | null>(null);
   const [tenants, setTenants] = useState<ApiTenant[]>([]);
   const [health, setHealth] = useState<ApiHealthService[]>([]);
-  const [activity, setActivity] = useState<any[]>([]);
+  const [activity, setActivity] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,8 +151,8 @@ export function AdminOverview() {
             </div>
           ) : (
             <div className="space-y-3">
-              {activity.map((a: any, i: number) => (
-                <ActivityRow key={i} icon={CheckCircle2} color="#2563EB" text={a.action ?? a.message ?? JSON.stringify(a)} time={a.timestamp ?? a.time ?? ''} />
+              {activity.map((a: Record<string, unknown>, i: number) => (
+                <ActivityRow key={i} icon={CheckCircle2} color="#2563EB" text={(a.action as string) ?? (a.message as string) ?? JSON.stringify(a)} time={(a.timestamp as string) ?? (a.time as string) ?? ''} />
               ))}
             </div>
           )}

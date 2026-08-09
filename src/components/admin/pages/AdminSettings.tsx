@@ -179,7 +179,7 @@ function SecurityTab({ settings, onSave, saving, savedSuccess }: { settings: Rec
   );
 }
 
-function NotificationsTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
+function NotificationsTab({ onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
   const [prefs, setPrefs] = useState({ newTenant: true, tenantSuspended: true, paymentFailed: true, ticketUrgent: true, systemAlert: true, weeklyDigest: true });
   const toggle = (k: keyof typeof prefs) => setPrefs((p) => ({ ...p, [k]: !p[k] }));
 
@@ -213,7 +213,7 @@ function NotificationsTab({ settings, onSave, saving, savedSuccess }: { settings
 function FeaturesTab({ settings, onSave, saving, savedSuccess }: { settings: Record<string, string>; onSave: (s: Record<string, string>) => void; saving: boolean; savedSuccess: boolean }) {
   let initialFlags = { whatsapp: true, emailCampaigns: true, aiSuggestions: true, calendarSync: true, leadScoring: true, customDomains: false, apiAccess: true, sso: false };
   if (settings.feature_flags) {
-    try { initialFlags = { ...initialFlags, ...JSON.parse(settings.feature_flags) }; } catch {}
+    try { initialFlags = { ...initialFlags, ...JSON.parse(settings.feature_flags) }; } catch (e) { console.error(e); }
   }
   const [features, setFeatures] = useState(initialFlags);
   const toggle = (k: keyof typeof features) => setFeatures((f) => ({ ...f, [k]: !f[k] }));

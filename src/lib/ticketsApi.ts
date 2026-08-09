@@ -58,7 +58,7 @@ export async function fetchTickets(params?: {
   page?: number;
   size?: number;
 }): Promise<{ data: TicketDTO[] | null; error: string | null }> {
-  let queryParts: string[] = [];
+  const queryParts: string[] = [];
   if (params?.status && params.status !== 'ALL') {
     queryParts.push(`status=${encodeURIComponent(params.status)}`);
   }

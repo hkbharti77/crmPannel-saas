@@ -1,17 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
-import { Badge, Avatar } from '@/components/ui/primitives';
+import { Badge } from '@/components/ui/primitives';
 import {
-  Brain, HelpCircle, Zap, LifeBuoy,
-  Upload, FileText, Trash2, Plus, Check, Search,
+  Brain, LifeBuoy,
+  Upload, FileText, Trash2, Plus, Check,
   Server, Database, Cpu, HardDrive, Activity, RefreshCw,
-  Mail, MessageSquare, Phone, ExternalLink, BookOpen,
+  MessageSquare,
   ChevronUp, ChevronDown, Settings, Tag as TagIcon, MessageCircle, Sliders,
   ArrowUp, ArrowDown, User, AtSign, CheckCircle2, RotateCcw, Save, Loader2, AlertCircle,
-  ArrowLeft, X, Send, Calendar, Sparkles, Wand2
+  X, Send, Sparkles, Wand2
 } from 'lucide-react';
-import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, StatPill } from './_shared';
+import { PanelHeader, FieldRow, Toggle, SectionCard, StatPill } from './_shared';
 import { apiFetch } from '@/lib/api';
 import { fetchTickets, createTicket, type TicketDTO } from '@/lib/ticketsApi';
 
@@ -453,7 +453,7 @@ export function SupportCategoriesPanel() {
     setFlowFields(updated.map((f, i) => ({ ...f, order: i })));
   };
 
-  const updateField = (index: number, field: keyof FlowFieldItem, val: any) => {
+  const updateField = (index: number, field: keyof FlowFieldItem, val: unknown) => {
     setFlowFields(prev => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: val };

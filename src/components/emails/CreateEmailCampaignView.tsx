@@ -10,7 +10,7 @@ import {
 
 export interface AudienceFilterDTO {
   logicalOperator: 'AND' | 'OR';
-  rules: any[];
+  rules: unknown[];
 }
 import { apiFetch } from '@/lib/api';
 
@@ -24,7 +24,6 @@ import {
   Mail,
   Upload,
   Download,
-  Info,
   Sparkles,
   Loader2,
   AlertTriangle,
@@ -44,14 +43,11 @@ import {
   Monitor,
   Smartphone,
   Eye,
-  RefreshCw,
   ChevronRight,
   ShieldCheck,
   FileText,
   Clock,
   Sparkle,
-  EyeOff,
-  Wand2,
   Lock
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -180,7 +176,6 @@ export function CreateEmailCampaignView() {
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
   const [recipientMode, setRecipientMode] = useState<RecipientMode>('ALL');
-  const [audienceFilter, setAudienceFilter] = useState<AudienceFilterDTO>({ logicalOperator: 'AND', rules: [] });
   const [tagsFilter, setTagsFilter] = useState('');
   const [manualRecipients, setManualRecipients] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
@@ -206,7 +201,6 @@ export function CreateEmailCampaignView() {
 
   // Preview Mode State ('desktop' | 'mobile')
   const [previewDevice, setPreviewDevice] = useState<'desktop' | 'mobile'>('desktop');
-  const [tagSearchQuery, setTagSearchQuery] = useState('');
 
   // In-App Toast Alert State
   const [toast, setToast] = useState<{ message: string; isError?: boolean } | null>(null);
@@ -328,7 +322,7 @@ export function CreateEmailCampaignView() {
       setCsvHeaders(headers);
 
       // Detect email column automatically
-      let autoEmailCol = headers.find((h) => h.toLowerCase().includes('email')) || headers[headers.length - 1];
+      const autoEmailCol = headers.find((h) => h.toLowerCase().includes('email')) || headers[headers.length - 1];
 
       const rows: Record<string, string>[] = [];
       for (let i = 1; i < rawLines.length; i++) {
@@ -412,7 +406,7 @@ export function CreateEmailCampaignView() {
     ]);
   };
 
-  const updateFilterRule = (id: string, field: keyof FilterRule, val: any) => {
+  const updateFilterRule = (id: string, field: keyof FilterRule, val: string) => {
     setFilterRules((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: val } : r)));
   };
 
@@ -516,10 +510,6 @@ export function CreateEmailCampaignView() {
   const availableTags = csvHeaders.length > 0
     ? csvHeaders
     : ['Name', 'Email', 'Company', 'Role', 'Plan', 'City', 'Score', 'Industry'];
-
-  const filteredTagsList = availableTags.filter((t) =>
-    t.toLowerCase().includes(tagSearchQuery.toLowerCase().trim())
-  );
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-4 lg:p-8 animate-fade-in relative pb-16">
@@ -1049,7 +1039,7 @@ export function CreateEmailCampaignView() {
                           {/* Operator Dropdown */}
                           <select
                             value={rule.operator}
-                            onChange={(e) => updateFilterRule(rule.id, 'operator', e.target.value as any)}
+                            onChange={(e) => updateFilterRule(rule.id, 'operator', e.target.value)}
                             className="form-input text-xs h-9 bg-transparent py-0 font-medium"
                           >
                             <option value="equals">Equals (==)</option>
@@ -1637,19 +1627,19 @@ export function CreateEmailCampaignView() {
                         tagsFilter: recipientMode === 'TAGGED' ? tagsFilter : undefined,
                         manualRecipients: recipientMode === 'MANUAL' ? manualRecipients : undefined,
                       };
-                      const draftRes = await apiFetch<any>('/api/v1/custom-emails/draft', {
+                      const draftRes = await apiFetch<{ id: string }>('/api/v1/custom-emails/draft', {
                         method: 'POST',
                         body: JSON.stringify(req),
                       });
                       if (draftRes.error || !draftRes.data) throw new Error(draftRes.error || 'Failed to save draft');
-                      const testRes = await apiFetch<any>(`/api/v1/custom-emails/${draftRes.data.id}/test-send`, {
+                      const testRes = await apiFetch<unknown>(`/api/v1/custom-emails/${draftRes.data.id}/test-send`, {
                         method: 'POST',
                         body: JSON.stringify({ testEmail: el.value }),
                       });
                       if (testRes.error) throw new Error(testRes.error);
                       showToast('✅ Test email delivered successfully to ' + el.value);
-                    } catch (err: any) {
-                      showToast(err.message || 'Error sending test email', true);
+                    } catch (err: unknown) {
+                      showToast((err as Error).message || 'Error sending test email', true);
                     } finally {
                       btn.disabled = false;
                       btn.innerText = 'Send Test Email';

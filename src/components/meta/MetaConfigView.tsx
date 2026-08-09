@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { cx } from '@/lib/types';
 import {
   Plug, Check, Copy, AlertCircle, CheckCircle2,
-  ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, ShieldAlert, Eye, EyeOff, KeyRound,
-  FileCode2,
+  ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, Eye, EyeOff,
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
@@ -26,7 +24,7 @@ interface WhatsAppConfigDto {
 
 declare global {
   interface Window {
-    FB?: any;
+    FB?: unknown;
     fbAsyncInit?: () => void;
   }
 }
@@ -187,10 +185,11 @@ export function MetaConfigView() {
     setError(null);
 
     if (window.FB) {
-      window.FB.login(
-        async (response: any) => {
-          if (response.authResponse?.code) {
-            const oauthCode = response.authResponse.code;
+      (window.FB as { login: (cb: (res: Record<string, unknown>) => void, opts: unknown) => void }).login(
+        async (response: Record<string, unknown>) => {
+          const authResponse = response.authResponse as { code?: string } | undefined;
+          if (authResponse?.code) {
+            const oauthCode = authResponse.code;
             const res = await apiFetch('/api/v1/whatsapp-config/embedded-signup/callback', {
               method: 'POST',
               body: JSON.stringify({

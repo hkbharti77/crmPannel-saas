@@ -7,6 +7,8 @@ import { useAuth } from '@/context/AuthContext';
 import { fetchCurrentUserProfile, type UserProfileDto } from '@/lib/userApi';
 import { useNavigate, useLocation } from 'react-router-dom';
 
+import { usePermissions } from '@/hooks/usePermissions';
+
 export function Sidebar({
   collapsed,
   onToggleCollapse,
@@ -19,6 +21,7 @@ export function Sidebar({
   onCloseMobile: () => void;
 }) {
   const { user, signOut } = useAuth();
+  const { hasPermission } = usePermissions();
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
@@ -41,7 +44,8 @@ export function Sidebar({
   }, []);
 
   const displayName = profile?.displayName || user?.user_metadata?.name || user?.email?.split('@')[0] || 'User';
-  const roleLabel = profile?.role === 'OWNER' ? 'Tenant Owner' : profile?.role === 'ADMIN' ? 'Tenant Admin' : 'Agent';
+  const rawRole = (profile?.role || user?.role || '').toUpperCase();
+  const roleLabel = rawRole === 'OWNER' ? 'Tenant Owner' : rawRole === 'ADMIN' ? 'Tenant Admin' : (rawRole === 'SUPER_ADMIN' || rawRole === 'PLATFORM_ADMIN') ? 'Platform Owner' : 'Agent';
 
   const initials = displayName
     .split(' ')
@@ -50,11 +54,21 @@ export function Sidebar({
     .substring(0, 2)
     .toUpperCase();
 
-  // Dynamically filter navigation items based on backend module toggles
+  // Dynamically filter navigation items based on user permissions and module toggles
   const navItems = NAV_ITEMS.filter((item) => {
     if (item.id === 'pipeline' && profile?.forceShowLeads === false) return false;
     if (item.id === 'appointments' && profile?.forceShowAppointment === false) return false;
     if (item.id === 'booking' && profile?.forceShowBooking === false) return false;
+
+    // Granular Module Permission Checks
+    if (item.id === 'inbox' && !hasPermission('MODULE_INBOX')) return false;
+    if (item.id === 'pipeline' && !hasPermission('MODULE_LEADS')) return false;
+    if (item.id === 'broadcasts' && !hasPermission('MODULE_CAMPAIGNS')) return false;
+    if (item.id === 'meta-config' && !hasPermission('SETTINGS_WHATSAPP')) return false;
+    if (item.id === 'reports' && !hasPermission('MODULE_ANALYTICS')) return false;
+    if (item.id === 'team' && !hasPermission('MODULE_TEAM')) return false;
+    if (item.id === 'settings' && !hasPermission('MODULE_SETTINGS')) return false;
+
     return true;
   });
 

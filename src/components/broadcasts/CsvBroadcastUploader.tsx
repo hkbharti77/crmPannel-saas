@@ -1,16 +1,13 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
-import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
   uploadCsvForBroadcast,
   fetchBroadcastFilterConfig,
   type BroadcastCsvUploadResult,
   type BroadcastFilterConfig,
-  type FilterRuleDto,
 } from '@/lib/broadcastsApi';
 import {
   Upload,
-  FileSpreadsheet,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -246,7 +243,6 @@ export function CsvBroadcastUploader({ onComplete, onCancel }: Props) {
   const [appliedFilters, setAppliedFilters] = useState<AppliedFilter[]>([]);
   const [filterMatchLogic, setFilterMatchLogic] = useState<'AND' | 'OR'>('AND');
   const [showInvalidRows, setShowInvalidRows] = useState(false);
-  const [filterSearch, setFilterSearch] = useState('');
   const [showDataModal, setShowDataModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -370,7 +366,7 @@ export function CsvBroadcastUploader({ onComplete, onCancel }: Props) {
       appliedFilters,
       filterMatchLogic,
       filteredCount: filteredRows.length,
-    } as any);
+    });
   };
 
   // ─── Available filter columns ──────────────────────────────────────────
@@ -381,13 +377,6 @@ export function CsvBroadcastUploader({ onComplete, onCancel }: Props) {
     }
     return uploadResult?.detectedColumns || [];
   }, [filterConfig, uploadResult]);
-
-  const filteredColumnOptions = useMemo(() => {
-    if (!filterSearch) return availableFilterColumns;
-    return availableFilterColumns.filter((col) =>
-      col.toLowerCase().includes(filterSearch.toLowerCase())
-    );
-  }, [availableFilterColumns, filterSearch]);
 
   // ─── Render ────────────────────────────────────────────────────────────
 

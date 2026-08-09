@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { cx } from '@/lib/types';
 import {
-  MousePointerClick, Save, Loader2, CheckCircle, AlertCircle,
-  Plus, Trash2, Link as LinkIcon, Check, AlertCircle as RedDot,
+  Save, Loader2, CheckCircle, AlertCircle,
+  Plus, Trash2, Link as LinkIcon, Check,
 } from 'lucide-react';
-import { PanelHeader, SectionCard } from './_shared';
+import { SectionCard } from './_shared';
 import { apiFetch } from '@/lib/api';
 
 interface ButtonItem {
@@ -170,7 +169,7 @@ export function FlowCTAPanel() {
     section: 'cancel' | 'complete' | 'ai',
     idx: number,
     field: 'label' | 'linkType',
-    val: any
+    val: unknown
   ) => {
     const setter = section === 'cancel' ? setCancelConfig : section === 'complete' ? setCompleteConfig : setAiConfig;
     setter((prev) => {
