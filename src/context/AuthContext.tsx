@@ -23,6 +23,8 @@ export type AuthUser = {
   isSuperAdmin?: boolean;
   onboardingCompleted?: boolean;
   planType?: string;
+  permissions?: string[];
+  permissionVersion?: number;
   user_metadata?: {
     name?: string;
   };
@@ -38,6 +40,21 @@ type AuthContextValue = {
   signIn: (email: string, otpOrPassword?: string) => Promise<{ error: string | null; message?: string | null }>;
   signUp: (email: string, passwordOrOtp?: string, name?: string, businessName?: string) => Promise<{ error: string | null; message?: string | null }>;
   signOut: () => Promise<void>;
+  setOnboardingCompleted: (completed: boolean) => void;
+};
+
+type VerifyAuthResponse = {
+  token: string;
+  userId?: string;
+  email?: string;
+  tenantId?: string;
+  businessName?: string;
+  displayName?: string;
+  role?: string;
+  onboardingCompleted?: boolean;
+  planType?: string;
+  permissions?: string[];
+  permissionVersion?: number;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -45,7 +62,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(getAuthToken());
   const [tenantId, setTenantId] = useState<string | null>(getTenantId());
-  const [user, setUser] = useState<AuthUser | null>(getStoredUser());
+  const [user, setUser] = useState<AuthUser | null>(getStoredUser<AuthUser>());
   const [loading, setLoading] = useState(true);
 
   const checkIsSuper = (role?: string, emailStr?: string): boolean => {
@@ -64,25 +81,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check local storage session on initial render
     const storedToken = getAuthToken();
-    const storedUser = getStoredUser();
+    const storedUser = getStoredUser<AuthUser>();
     const storedTenant = getTenantId();
 
     if (storedToken && storedUser) {
       const isSuper = checkIsSuper(storedUser.role, storedUser.email);
-      const updatedUser = { ...storedUser, isSuperAdmin: isSuper };
+      const updatedUser: AuthUser = { ...storedUser, isSuperAdmin: isSuper };
       setToken(storedToken);
       setUser(updatedUser);
       setTenantId(storedTenant);
 
       // Silently fetch latest profile in background to update planType and other volatile fields
-      apiFetch('/api/v1/users/me').then(res => {
+      apiFetch<Partial<AuthUser>>('/api/v1/users/me').then(res => {
         if (!res.error && res.data) {
           const freshData = res.data;
-          const freshUser = {
+          const freshUser: AuthUser = {
             ...updatedUser,
             planType: freshData.planType || 'FREE',
             role: freshData.role || updatedUser.role,
             businessName: freshData.businessName || updatedUser.businessName,
+            permissions: freshData.permissions || updatedUser.permissions,
+            permissionVersion: freshData.permissionVersion || updatedUser.permissionVersion,
           };
           setUser(freshUser);
           setAuthSession({ token: storedToken, tenantId: storedTenant, user: freshUser });
@@ -127,7 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requestOtp = async (email: string) => {
-    const res = await apiFetch('/api/v1/auth/login', {
+    const res = await apiFetch<{ message?: string }>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email: email.trim() }),
     });
@@ -139,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const verifyOtp = async (email: string, otp: string, displayName?: string, businessName?: string) => {
-    const res = await apiFetch('/api/v1/auth/verify', {
+    const res = await apiFetch<VerifyAuthResponse>('/api/v1/auth/verify', {
       method: 'POST',
       body: JSON.stringify({
         email: email.trim(),
@@ -149,8 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }),
     });
 
-    if (res.error) {
-      return { error: res.error };
+    if (res.error || !res.data) {
+      return { error: res.error || 'Verification failed' };
     }
 
     const data = res.data;
@@ -167,6 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isSuperAdmin: isSuper,
       onboardingCompleted: data.onboardingCompleted ?? false,
       planType: data.planType || 'FREE',
+      permissions: data.permissions,
+      permissionVersion: data.permissionVersion,
       user_metadata: {
         name: data.displayName || displayName || data.businessName || email.split('@')[0],
       },
@@ -217,6 +238,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setOnboardingCompleted = (completed: boolean) => {
+    if (user) {
+      const updatedUser = { ...user, onboardingCompleted: completed };
+      setUser(updatedUser);
+      setAuthSession({ token: token || '', tenantId, user: updatedUser });
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -229,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         signOut,
+        setOnboardingCompleted,
       }}
     >
       {children}

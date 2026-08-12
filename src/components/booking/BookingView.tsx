@@ -372,9 +372,9 @@ export function BookingView() {
           ) : (
             <div className="space-y-3">
               {filteredBookings.map((b) => {
-                const name = b.contactName || b.collectedData?.name || b.contactWaId || 'Anonymous Customer';
-                const phone = b.collectedData?.phone || b.contactWaId || 'N/A';
-                const email = b.collectedData?.email || '';
+                const name = String(b.contactName || b.collectedData?.name || b.contactWaId || 'Anonymous Customer');
+                const phone = String(b.collectedData?.phone || b.contactWaId || 'N/A');
+                const email = b.collectedData?.email ? String(b.collectedData?.email) : '';
                 const isPending = !b.status || b.status === 'PENDING';
                 const isCompleted = b.status === 'COMPLETED';
                 const isCancelled = b.status === 'CANCELLED';
@@ -925,9 +925,9 @@ export function BookingDetailModal({
   onComplete: (id: string) => void;
   onCancel: (id: string) => void;
 }) {
-  const name = booking.contactName || booking.collectedData?.name || booking.contactWaId || 'Customer';
-  const phone = booking.collectedData?.phone || booking.contactWaId || 'N/A';
-  const email = booking.collectedData?.email || 'N/A';
+  const name = String(booking.contactName || booking.collectedData?.name || booking.contactWaId || 'Customer');
+  const phone = String(booking.collectedData?.phone || booking.contactWaId || 'N/A');
+  const email = String(booking.collectedData?.email || 'N/A');
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>

@@ -13,6 +13,7 @@ export interface UserTeamMemberDTO {
   city?: string;
   permissions?: string[];
   permissionVersion?: number;
+  dailyLeadLimit?: number;
 }
 
 export interface AgentPerformanceDTO {
@@ -93,4 +94,11 @@ export async function updateAgentPermissions(
 
 export async function fetchAgentPermissionAudits(agentId: string) {
   return apiFetch<PermissionAuditLogDTO[]>(`/api/v1/users/staff/${agentId}/permissions/audits`);
+}
+
+export async function updateAgentDailyLimit(agentId: string, limit: number | null) {
+  const query = limit !== null ? `?limit=${limit}` : '';
+  return apiFetch<{ success: boolean; dailyLeadLimit: number | string }>(`/api/v1/users/staff/${agentId}/daily-limit${query}`, {
+    method: 'PATCH',
+  });
 }

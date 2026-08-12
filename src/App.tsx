@@ -39,8 +39,17 @@ import { AdminUsers } from '@/components/admin/pages/AdminUsers';
 import { AdminSearch } from '@/components/admin/pages/AdminSearch';
 import { AdminSettings } from '@/components/admin/pages/AdminSettings';
 import { AdminTemplates } from '@/components/admin/pages/AdminTemplates';
+import { OnboardingScreen } from '@/components/onboarding/OnboardingScreen';
 
-function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
+function ProtectedRoute({
+  children,
+  adminOnly = false,
+  allowPendingOnboarding = false,
+}: {
+  children: React.ReactNode;
+  adminOnly?: boolean;
+  allowPendingOnboarding?: boolean;
+}) {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -56,28 +65,50 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
     return <Navigate to="/login" replace />;
   }
 
+  const roleUpper = (user?.role || '').toUpperCase();
+  const isSuperAdmin =
+    user?.isSuperAdmin === true ||
+    roleUpper === 'SUPER_ADMIN' ||
+    roleUpper === 'PLATFORM_ADMIN' ||
+    user?.email?.toLowerCase() === 'gyanvaniai@gmail.com' ||
+    user?.email?.toLowerCase().startsWith('superadmin');
+
   if (adminOnly) {
-    const roleUpper = (user?.role || '').toUpperCase();
-    const isSuperAdmin =
-      user?.isSuperAdmin === true ||
-      roleUpper === 'SUPER_ADMIN' ||
-      roleUpper === 'PLATFORM_ADMIN' ||
-      user?.email?.toLowerCase() === 'gyanvaniai@gmail.com' ||
-      user?.email?.toLowerCase().startsWith('superadmin');
-      
     if (!isSuperAdmin) {
       return <Navigate to="/" replace />;
     }
+    return <>{children}</>;
+  }
+
+  // If user is a regular tenant user and onboarding is pending, redirect to /onboarding
+  if (!isSuperAdmin && user.onboardingCompleted === false && !allowPendingOnboarding) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
 }
 
 function AppContent() {
+  const { user } = useAuth();
+
   return (
     <Routes>
       <Route path="/login" element={<AuthScreen initialMode="login" />} />
       <Route path="/signup" element={<AuthScreen initialMode="signup" />} />
+
+      {/* 5-Step Onboarding Route */}
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute allowPendingOnboarding>
+            {user && !user.isSuperAdmin && user.onboardingCompleted === true ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <OnboardingScreen />
+            )}
+          </ProtectedRoute>
+        }
+      />
       
       {/* Admin Routes */}
       <Route 

@@ -15,4 +15,6 @@ export type Conversation = {
   tags: ConversationTag[];
   assignedTo?: string;
   isBotHandled: boolean;   // false = human (bot paused), true = bot active
+  leadId?: string;
+  leadStatus?: string;
 };

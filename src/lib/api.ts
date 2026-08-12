@@ -8,10 +8,12 @@ export function getTenantId(): string | null {
   return localStorage.getItem('crmlite_tenant_id');
 }
 
-export function setAuthSession(data: { token: string; tenantId?: string; user?: unknown }) {
+export function setAuthSession(data: { token: string; tenantId?: string | null; user?: unknown }) {
   localStorage.setItem('crmlite_token', data.token);
   if (data.tenantId) {
     localStorage.setItem('crmlite_tenant_id', data.tenantId);
+  } else {
+    localStorage.removeItem('crmlite_tenant_id');
   }
   if (data.user) {
     localStorage.setItem('crmlite_user', JSON.stringify(data.user));
@@ -24,11 +26,11 @@ export function clearAuthSession() {
   localStorage.removeItem('crmlite_user');
 }
 
-export function getStoredUser(): unknown | null {
+export function getStoredUser<T = unknown>(): T | null {
   const raw = localStorage.getItem('crmlite_user');
   if (!raw) return null;
   try {
-    return JSON.parse(raw);
+    return JSON.parse(raw) as T;
   } catch {
     return null;
   }
@@ -75,7 +77,7 @@ export async function apiFetch<T = unknown>(
     }
 
     if (!res.ok) {
-      if (res.status === 401) {
+      if (res.status === 401 || res.status === 403) {
         // Dispatch global event for auth context to pick up
         window.dispatchEvent(new CustomEvent('session-expired'));
       }
@@ -88,3 +90,79 @@ export async function apiFetch<T = unknown>(
     return { error: (err as Error)?.message || 'Network error. Please check backend connection.' };
   }
 }
+
+export interface OnboardingData {
+  displayName: string;
+  phone: string;
+  businessName?: string;
+  businessType?: string;
+  businessSubType?: string;
+  phoneNumberId?: string;
+  accessToken?: string;
+  verifyToken?: string;
+  wabaId?: string;
+  consentAccepted: boolean;
+  address?: string;
+  logoUrl?: string;
+}
+
+export const onboardingApi = {
+  submit: (data: OnboardingData) =>
+    apiFetch<string>('/api/v1/onboarding/submit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  skip: () =>
+    apiFetch<string>('/api/v1/onboarding/skip', {
+      method: 'POST',
+    }),
+};
+
+export const categoryApi = {
+  getAll: () => apiFetch<Record<string, string[]>>('/api/v1/categories'),
+};
+
+export const metaGatewayApi = {
+  getSession: () =>
+    apiFetch<{
+      appId: string;
+      configId: string;
+      state: string;
+      verifyToken: string;
+      coexistenceEnabled: boolean;
+      sessionInfoVersion: string;
+    }>('/api/v1/integrations/meta/gateway/session'),
+
+  getLaunchUrl: (token?: string, theme?: string) => {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    const authToken = token || getAuthToken() || '';
+    const activeTheme = theme || (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+    return `${baseUrl}/api/v1/integrations/meta/gateway/launch?token=${encodeURIComponent(authToken)}&theme=${encodeURIComponent(activeTheme)}`;
+  },
+
+  exchangeCode: (code: string) =>
+    apiFetch<{
+      success: boolean;
+      phoneNumberId?: string;
+      displayPhoneNumber?: string;
+      verifiedName?: string;
+      wabaId?: string;
+      connectionType?: string;
+    }>('/api/v1/integrations/meta/gateway/exchange', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
+  getStatus: () =>
+    apiFetch<{
+      connected: boolean;
+      phoneNumberId?: string;
+      displayPhoneNumber?: string;
+      verifiedName?: string;
+      qualityRating?: string;
+      wabaId?: string;
+      connectionType?: string;
+    }>('/api/v1/integrations/meta/gateway/status'),
+};
+
+

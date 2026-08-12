@@ -2,10 +2,35 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { CreditCard, Loader2, CheckCircle2, AlertCircle, Zap, ShieldCheck, ArrowUpRight, Receipt, Mail, Layers } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
-import { fetchSubscriptionStatus, fetchBillingTransactions, fetchAvailablePlans, initiateCheckout, type SubscriptionData, type BillingTransaction, type SubscriptionPlanDto } from '@/lib/billingApi';
+import {
+  fetchSubscriptionStatus,
+  fetchBillingTransactions,
+  fetchAvailablePlans,
+  initiateCheckout,
+  verifyRazorpayPayment,
+  type SubscriptionData,
+  type BillingTransaction,
+  type SubscriptionPlanDto
+} from '@/lib/billingApi';
+import { useAuth } from '@/context/AuthContext';
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve(false);
+    if ((window as any).Razorpay) return resolve(true);
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 /* ─── Subscription & Billing Panel (100% Backend REST API Driven Prices) ─── */
 export function BillingPanel() {
+  const { user } = useAuth();
   const [subData, setSubData] = useState<SubscriptionData | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlanDto[]>([]);
   const [transactions, setTransactions] = useState<BillingTransaction[]>([]);
@@ -139,17 +164,93 @@ export function BillingPanel() {
     setSuccessMsg(null);
 
     const gateway = currency === 'INR' ? 'RAZORPAY' : 'STRIPE';
-    const res = await initiateCheckout(targetPlanId, billingCycle, gateway);
-    setUpgrading(false);
+    const targetPlan = plans.find(p => p.id.toUpperCase() === targetPlanId.toUpperCase());
+    const planDisplayName = targetPlan?.name || targetPlanId;
+
+    const res = await initiateCheckout(targetPlanId, billingCycle, gateway, currency);
 
     if (res.error) {
+      setUpgrading(false);
       setError(`Checkout initialization failed: ${res.error}`);
-    } else if (res.data?.checkoutUrl) {
-      window.location.href = res.data.checkoutUrl;
-    } else {
-      setSuccessMsg(`Subscription upgrade request submitted for ${targetPlanId} plan!`);
-      loadBillingData();
+      return;
     }
+
+    // 1. Stripe redirect flow
+    if (res.data?.checkoutUrl) {
+      setUpgrading(false);
+      window.location.href = res.data.checkoutUrl;
+      return;
+    }
+
+    // 2. Razorpay interactive modal flow
+    if (res.data?.orderId) {
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        setUpgrading(false);
+        setError('Failed to load Razorpay payment gateway SDK. Please check your internet connection and try again.');
+        return;
+      }
+
+      const options = {
+        key: res.data.keyId || '',
+        amount: res.data.amount,
+        currency: res.data.currency || 'INR',
+        name: 'GyanVaniAI Connect',
+        description: `${planDisplayName} Subscription (${billingCycle})`,
+        order_id: res.data.orderId,
+        prefill: {
+          name: user?.user_metadata?.name || user?.businessName || '',
+          email: user?.email || '',
+        },
+        theme: {
+          color: '#0d9488', // Emerald/teal theme
+        },
+        modal: {
+          ondismiss: () => {
+            setUpgrading(false);
+          },
+        },
+        handler: async (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) => {
+          setUpgrading(true);
+          const verifyRes = await verifyRazorpayPayment({
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+            planId: targetPlanId,
+            billingCycle: billingCycle,
+          });
+          setUpgrading(false);
+
+          if (verifyRes.error) {
+            setError(`Payment verification failed: ${verifyRes.error}`);
+          } else {
+            setSuccessMsg(`🎉 Successfully upgraded to ${planDisplayName}! Your new limits and features are now active.`);
+            loadBillingData(currency);
+          }
+        },
+      };
+
+      try {
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', (response: any) => {
+          setUpgrading(false);
+          setError(`Payment failed: ${response.error?.description || 'Transaction was declined'}`);
+        });
+        rzp.open();
+      } catch (err: any) {
+        setUpgrading(false);
+        setError(`Failed to launch Razorpay checkout: ${err?.message || 'Unknown error'}`);
+      }
+      return;
+    }
+
+    setUpgrading(false);
+    setSuccessMsg(`Subscription upgrade request submitted for ${planDisplayName}!`);
+    loadBillingData(currency);
   };
 
   if (loading) {
@@ -444,33 +545,50 @@ export function BillingPanel() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-base-c">
-                {transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-ink-850">
-                    <td className="py-3 px-3 font-mono text-[11px] text-primary-c">
-                      {new Date(tx.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="py-3 px-3 font-bold text-primary-c">
-                      {tx.currency} {tx.amount}
-                    </td>
-                    <td className="py-3 px-3 uppercase text-[10px] font-bold text-secondary-c">
-                      {tx.gateway}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                        {tx.status}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      {tx.invoiceUrl ? (
-                        <a href={tx.invoiceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary-500 font-bold hover:underline">
-                          Download <ArrowUpRight className="h-3 w-3" />
-                        </a>
-                      ) : (
-                        <span className="text-muted-c text-[11px]">Paid ✓</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {transactions.map((tx) => {
+                  const gatewayName = tx.paymentGateway || tx.gateway || 'RAZORPAY';
+                  const isSuccess = tx.status === 'SUCCESS';
+                  const isPending = tx.status === 'PENDING';
+
+                  return (
+                    <tr key={tx.id} className="hover:bg-slate-50 dark:hover:bg-ink-850">
+                      <td className="py-3 px-3 font-mono text-[11px] text-primary-c">
+                        {new Date(tx.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 px-3 font-bold text-primary-c">
+                        {tx.currency} {tx.amount}
+                      </td>
+                      <td className="py-3 px-3 uppercase text-[10px] font-bold text-secondary-c">
+                        {gatewayName}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={cx(
+                          'rounded-full px-2 py-0.5 text-[10px] font-bold border',
+                          isSuccess
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                            : isPending
+                            ? 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                            : 'bg-danger-500/15 border-danger-500/30 text-danger-600 dark:text-danger-400'
+                        )}>
+                          {tx.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        {tx.invoiceUrl ? (
+                          <a href={tx.invoiceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary-500 font-bold hover:underline">
+                            Download <ArrowUpRight className="h-3 w-3" />
+                          </a>
+                        ) : isSuccess ? (
+                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">Paid ✓</span>
+                        ) : isPending ? (
+                          <span className="text-amber-600 dark:text-amber-400 text-[11px] font-semibold">Pending —</span>
+                        ) : (
+                          <span className="text-danger-600 dark:text-danger-400 text-[11px] font-semibold">Failed ✕</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           ) : (

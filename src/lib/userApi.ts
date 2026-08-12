@@ -28,6 +28,8 @@ export interface UserProfileDto {
   accountStatus?: string;
   planType?: string;
   tenantId?: string;
+  defaultDailyLeadLimit?: number;
+  autoAssignmentDelayMinutes?: number;
 }
 
 export async function fetchCurrentUserProfile() {
@@ -45,6 +47,15 @@ export async function uploadWidgetIcon(file: File) {
   const formData = new FormData();
   formData.append('file', file);
   return apiFetch<{ message: string; widgetIconUrl: string }>('/api/v1/users/me/widget-icon', {
+    method: 'POST',
+    body: formData,
+  });
+}
+
+export async function uploadCompanyLogo(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return apiFetch<{ message: string; logoUrl: string }>('/api/v1/users/me/logo', {
     method: 'POST',
     body: formData,
   });

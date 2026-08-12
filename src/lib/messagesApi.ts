@@ -30,6 +30,9 @@ export type ContactDTO = {
   tags?: string[];
   source?: string;
   botPaused?: boolean;
+  leadId?: string;
+  leadStatus?: string;
+  assignedAgentName?: string;
 };
 
 export async function fetchActiveChats(): Promise<{ data: ApiChat[]; error: string | null }> {

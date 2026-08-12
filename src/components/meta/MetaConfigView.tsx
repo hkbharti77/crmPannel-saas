@@ -253,7 +253,8 @@ export function MetaConfigView() {
     }
   };
 
-  const webhookUrl = 'http://localhost:8080/api/v1/webhook/whatsapp';
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const webhookUrl = `${apiBaseUrl}/api/v1/webhook/whatsapp`;
 
   const copyWebhookUrl = () => {
     navigator.clipboard.writeText(webhookUrl);

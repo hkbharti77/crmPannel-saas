@@ -64,9 +64,30 @@ export interface BillingTransaction {
   amount: number;
   currency: string;
   status: string;
-  gateway: string;
+  gateway?: string;
+  paymentGateway?: string;
+  gatewayTransactionId?: string;
   createdAt: string;
   invoiceUrl?: string;
+}
+
+export interface CheckoutResponse {
+  checkoutUrl?: string;
+  orderId?: string;
+  amount?: number;
+  currency?: string;
+  gateway?: 'STRIPE' | 'RAZORPAY';
+  keyId?: string;
+  planId?: string;
+  planName?: string;
+}
+
+export interface VerifyRazorpayPayload {
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+  planId: string;
+  billingCycle: 'MONTHLY' | 'YEARLY';
 }
 
 export interface EffectiveEntitlementsDto {
@@ -170,9 +191,21 @@ export async function fetchBillingTransactions() {
   return apiFetch<BillingTransaction[]>('/api/v1/billing/transactions');
 }
 
-export async function initiateCheckout(planId: string, billingCycle: 'MONTHLY' | 'YEARLY', gateway: 'STRIPE' | 'RAZORPAY') {
-  return apiFetch<{ checkoutUrl?: string; orderId?: string }>('/api/v1/billing/checkout', {
+export async function initiateCheckout(
+  planId: string,
+  billingCycle: 'MONTHLY' | 'YEARLY',
+  gateway: 'STRIPE' | 'RAZORPAY',
+  currency: 'INR' | 'USD' = 'INR'
+) {
+  return apiFetch<CheckoutResponse>('/api/v1/billing/checkout', {
     method: 'POST',
-    body: JSON.stringify({ planId, billingCycle, gateway }),
+    body: JSON.stringify({ planId, billingCycle, gateway, currency }),
+  });
+}
+
+export async function verifyRazorpayPayment(payload: VerifyRazorpayPayload) {
+  return apiFetch<{ success: boolean; message: string; planId: string }>('/api/v1/billing/verify-razorpay', {
+    method: 'POST',
+    body: JSON.stringify(payload),
   });
 }

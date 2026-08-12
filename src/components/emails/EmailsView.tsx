@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { fetchEmailCampaigns, fetchEmailTemplates } from '@/lib/emailsApi';
-import { Campaign } from './emailData';
+import { fetchEmailCampaigns } from '@/lib/emailsApi';
+import { Campaign, CAMPAIGN_STATUS_META } from './emailData';
 import { GlassCard } from '@/components/ui/primitives';
+import { cx } from '@/lib/types';
 import { CampaignDetailsPanel } from './CampaignDetailsPanel';
 import { EmailTemplatesPanel } from './EmailTemplatesPanel';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import {
-  Mail, LayoutTemplate, Search, Filter, MousePointerClick, MailOpen, BarChart3, AlertCircle, Plus
+  Mail, LayoutTemplate, Search, Filter, MousePointerClick, MailOpen, BarChart3, AlertCircle, Plus, ArrowRight
 } from 'lucide-react';
 
 export function EmailsView() {
@@ -23,57 +24,48 @@ export function EmailsView() {
   const [error, setError] = useState<string | null>(null);
 
   const loadData = async () => {
+    if (activeTab !== 'campaigns') {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      if (activeTab === 'campaigns') {
-        const res = await fetchEmailCampaigns(0, 100);
-        if (res.error) throw new Error(res.error);
-        if (res.data) {
-          const mapped: Campaign[] = (res.data.content as Record<string, unknown>[]).map(dto => {
-            let status: Campaign['status'] = 'draft';
-            if (dto.status === 'SENT') status = 'sent';
-            else if (dto.status === 'SCHEDULED') status = 'scheduled';
-            else if (dto.status === 'SENDING') status = 'sending';
-            else if (dto.status === 'PAUSED') status = 'paused';
-            else if (dto.status === 'CANCELLED') status = 'cancelled';
-            else if (dto.status === 'COMPLETED') status = 'completed';
-            else if (dto.status === 'FAILED') status = 'failed';
-            return {
-              id: String(dto.id),
-              name: String(dto.name || dto.subject || ''),
-              subject: String(dto.subject || ''),
-              status,
-              recipients: Number(dto.totalRecipients || 0),
-              totalRecipients: Number(dto.totalRecipients || 0),
-              processedRecipients: Number(dto.processedRecipients || 0),
-              totalSent: Number(dto.totalSent || 0),
-              totalFailed: Number(dto.totalFailed || 0),
-              openRate: Number(dto.openRate || 0),
-              clickRate: Number(dto.clickRate || 0),
-              uniqueOpens: Number(dto.uniqueOpens || 0),
-              uniqueClicks: Number(dto.uniqueClicks || 0),
-              bounces: Number(dto.bounces || 0),
-              unsubscribes: Number(dto.unsubscribes || 0),
-              createdAt: String(dto.createdAt || ''),
-              sentAt: dto.sentAt ? String(dto.sentAt) : undefined,
-              template: String(dto.recipientMode || 'Manual')
-            };
-          });
-          setCampaigns(mapped);
-        }
-      } else {
-        const res = await fetchEmailTemplates();
-        if (res.error) throw new Error(res.error);
-        if (res.data) {
-          setTemplates(res.data.map((t: Record<string, unknown>) => ({
-            id: t.id,
-            name: t.name,
-            subject: t.subject,
-            body: t.content,
-            category: t.interestCategory || 'announcement'
-          })));
-        }
+      const res = await fetchEmailCampaigns(0, 100);
+      if (res.error) throw new Error(res.error);
+      if (res.data) {
+        const mapped: Campaign[] = (res.data.content as Record<string, unknown>[]).map(dto => {
+          let status: Campaign['status'] = 'draft';
+          if (dto.status === 'SENT') status = 'sent';
+          else if (dto.status === 'SCHEDULED') status = 'scheduled';
+          else if (dto.status === 'SENDING') status = 'sending';
+          else if (dto.status === 'PAUSED') status = 'paused';
+          else if (dto.status === 'CANCELLED') status = 'cancelled';
+          else if (dto.status === 'COMPLETED') status = 'completed';
+          else if (dto.status === 'FAILED') status = 'failed';
+          return {
+            id: String(dto.id),
+            name: String(dto.name || dto.subject || ''),
+            subject: String(dto.subject || ''),
+            status,
+            recipients: Number(dto.totalRecipients || 0),
+            totalRecipients: Number(dto.totalRecipients || 0),
+            processedRecipients: Number(dto.processedRecipients || 0),
+            totalSent: Number(dto.totalSent || 0),
+            totalFailed: Number(dto.totalFailed || 0),
+            openRate: Number(dto.openRate || 0),
+            clickRate: Number(dto.clickRate || 0),
+            uniqueOpens: Number(dto.uniqueOpens || 0),
+            uniqueClicks: Number(dto.uniqueClicks || 0),
+            bounces: Number(dto.bounces || 0),
+            unsubscribes: Number(dto.unsubscribes || 0),
+            createdAt: String(dto.createdAt || ''),
+            sentAt: dto.sentAt ? String(dto.sentAt) : undefined,
+            template: String(dto.recipientMode || 'Manual')
+          };
+        });
+        setCampaigns(mapped);
       }
     } catch (err: unknown) {
       setError((err as Error).message || 'Failed to load data');
@@ -101,7 +93,7 @@ export function EmailsView() {
       ? Math.round(validRateCampaigns.reduce((acc, c) => acc + (c.clickRate || 0), 0) / validRateCampaigns.length)
       : 0;
 
-    return { totalSent, avgOpenRate, avgClickRate };
+    return { totalSent, avgOpenRate, avgClickRate, avgOpen: avgOpenRate, avgClick: avgClickRate };
   }, [campaigns]);
 
   if (selectedCampaignId) {

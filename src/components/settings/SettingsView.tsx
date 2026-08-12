@@ -7,6 +7,7 @@ import {
   Plug, LayoutList, ShoppingBag, FormInput, ListTree,
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, ChevronRight,
+  Mail, Bot, SlidersHorizontal,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -68,7 +69,7 @@ const NAV: NavGroup[] = [
   {
     section: 'Appearance',
     items: [
-      { id: 'branding', label: 'Custom Branding', desc: 'Bot logo and colors', icon: Paintbrush },
+      { id: 'branding', label: 'Brand & Identity', desc: 'Logo, theme, widget & emails', icon: Paintbrush },
       { id: 'dark-mode', label: 'Dark Mode', desc: 'Toggle light and dark', icon: Moon },
     ],
   },
@@ -87,7 +88,7 @@ const NAV: NavGroup[] = [
       { id: 'form-fields', label: 'Form Fields', desc: 'WhatsApp form fields', icon: FormInput },
       { id: 'custom-submenus', label: 'Custom Sub-Menus', desc: 'Create custom lists', icon: ListTree },
       { id: 'email-providers', label: 'Email Providers', desc: 'AWS SES, SMTP, Brevo', icon: Plug },
-      { id: 'email-branding', label: 'Email Branding', desc: 'Logo, colors & footer', icon: Paintbrush },
+      { id: 'broadcast-filter-config', label: 'Broadcast CSV Filters', desc: 'Audience column filters', icon: SlidersHorizontal },
       { id: 'quick-responses', label: 'Quick Responses', desc: 'Text & image replies', icon: MessageSquare },
       { id: 'flow-cta', label: 'Flow CTA Buttons', desc: 'Cancel & complete buttons', icon: MousePointerClick },
     ],
@@ -117,7 +118,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'security': SecurityPanel,
   'google-calendar': GoogleCalendarPanel,
   'billing': BillingPanel,
-  'branding': CustomBrandingPanel,
+  'branding': () => <CustomBrandingPanel defaultTab="global" />,
   'dark-mode': DarkModePanel,
   'notifications': NotificationsPanel,
   'menu-buttons': MenuButtonsPanel,
@@ -127,7 +128,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'custom-submenus': CustomSubMenusPanel,
   'email-templates': () => <Navigate to="/emails?tab=templates" replace />,
   'email-providers': EmailProvidersPanel,
-  'email-branding': EmailBrandingPanel,
+  'email-branding': () => <CustomBrandingPanel defaultTab="email" />,
   'quick-responses': QuickResponsesPanel,
   'flow-cta': FlowCTAPanel,
   'broadcast-filter-config': BroadcastFilterConfigPanel,

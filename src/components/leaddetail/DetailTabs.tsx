@@ -22,16 +22,16 @@ export function ActivityTimeline({
   enquiries = [],
   activities = [],
 }: {
-  enquiries?: Record<string, unknown>[];
+  enquiries?: Array<Record<string, any>>;
   activities?: LeadActivityDTO[];
 }) {
   const combined = [
     ...enquiries.map((e) => ({
-      id: e.id || Math.random().toString(),
-      type: e.type || 'Enquiry Received',
-      message: e.message || e.requirement || 'Enquiry logged for this lead.',
-      author: e.name || e.source || 'Customer',
-      createdAt: e.createdAt,
+      id: (e?.id as string) || Math.random().toString(),
+      type: (e?.type as string) || 'Enquiry Received',
+      message: (e?.message || e?.requirement || 'Enquiry logged for this lead.') as string,
+      author: (e?.name || e?.source || 'Customer') as string,
+      createdAt: e?.createdAt as string | number | Date | undefined,
       icon: MessageSquare,
     })),
     ...activities.map((a) => {
@@ -67,7 +67,7 @@ export function ActivityTimeline({
         type: title,
         message: msg,
         author: a.actorName,
-        createdAt: a.createdAt,
+        createdAt: a.createdAt as string | number | Date | undefined,
         icon,
       };
     }),

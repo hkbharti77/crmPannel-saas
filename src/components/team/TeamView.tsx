@@ -16,6 +16,7 @@ import {
   updateAgentAvailability,
   updateStaffRole,
   updateAgentPermissions,
+  updateAgentDailyLimit,
   type UserTeamMemberDTO,
   type AgentPerformanceDTO,
 } from '@/lib/teamApi';
@@ -643,6 +644,7 @@ function ManagePermissionsModal({
       : ['MODULE_INBOX', 'MODULE_LEADS', 'MODULE_SETTINGS', 'SETTINGS_PROFILE']
   );
   const [reason, setReason] = useState('');
+  const [dailyLeadLimit, setDailyLeadLimit] = useState<number | ''>(user.dailyLeadLimit ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -671,6 +673,10 @@ function ManagePermissionsModal({
       user.permissionVersion,
       reason.trim() || undefined
     );
+
+    if (dailyLeadLimit !== user.dailyLeadLimit) {
+      await updateAgentDailyLimit(user.id, dailyLeadLimit === '' ? null : dailyLeadLimit);
+    }
 
     setSubmitting(false);
 
