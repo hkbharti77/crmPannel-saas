@@ -64,14 +64,14 @@ export async function sendWhatsAppMessage(contactId: string, text: string): Prom
     method: 'POST',
     body: JSON.stringify({ text }),
   });
-  return { success: !res.error, error: res.error };
+  return { success: !res.error, error: res.error || null };
 }
 
 export async function sendTenantMenu(contactId: string): Promise<{ success: boolean; error: string | null }> {
   const res = await apiFetch(`/api/v1/messages/${contactId}/menu`, {
     method: 'POST',
   });
-  return { success: !res.error, error: res.error };
+  return { success: !res.error, error: res.error || null };
 }
 
 export async function toggleBotPaused(contactId: string, botPaused: boolean): Promise<{ success: boolean; error: string | null }> {
@@ -79,7 +79,7 @@ export async function toggleBotPaused(contactId: string, botPaused: boolean): Pr
     method: 'PUT',
     body: JSON.stringify({ botPaused }),
   });
-  return { success: !res.error, error: res.error };
+  return { success: !res.error, error: res.error || null };
 }
 
 export async function takeoverLiveChat(contactId: string, reason?: string, forceTakeover?: boolean) {

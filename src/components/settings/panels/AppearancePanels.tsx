@@ -85,6 +85,7 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
     if (res.error) {
       setErrorMsg(`❌ ${res.error}`);
     } else if (res.data) {
+      console.log('✅ [Cloudinary Upload Success] Logo URL:', res.data.logoUrl);
       setLogoUrl(res.data.logoUrl);
       setSuccessMsg('✅ Master brand logo uploaded successfully! Click Save to apply across all channels.');
       setTimeout(() => setSuccessMsg(null), 4000);
@@ -115,8 +116,9 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
     if (res.error) {
       setErrorMsg(`❌ ${res.error}`);
     } else if (res.data) {
+      console.log('✅ [Cloudinary Upload Success] Widget Icon URL:', res.data.widgetIconUrl);
       setWidgetIconUrl(res.data.widgetIconUrl);
-      setSuccessMsg('✅ Widget PNG launcher icon uploaded and saved successfully!');
+      setSuccessMsg('✅ Widget launcher icon uploaded successfully!');
       setTimeout(() => setSuccessMsg(null), 4000);
     }
   };

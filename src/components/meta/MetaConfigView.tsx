@@ -177,51 +177,65 @@ export function MetaConfigView() {
     setShowTermsModal(true);
   };
 
-  // Launch FB.login Embedded Signup Popup after Terms Agreement
+  // Launch Secure Backend Gateway Embedded Signup Popup after Terms Agreement
   const launchMetaFbLogin = async () => {
     setShowTermsModal(false);
     setSaving(true);
     setMessage(null);
     setError(null);
 
-    if (window.FB) {
-      (window.FB as { login: (cb: (res: Record<string, unknown>) => void, opts: unknown) => void }).login(
-        async (response: Record<string, unknown>) => {
-          const authResponse = response.authResponse as { code?: string } | undefined;
-          if (authResponse?.code) {
-            const oauthCode = authResponse.code;
-            const res = await apiFetch('/api/v1/whatsapp-config/embedded-signup/callback', {
-              method: 'POST',
-              body: JSON.stringify({
-                code: oauthCode,
-                wabaId: wabaId || '987654321098765',
-                phoneNumberId: phoneNumberId || '123456789012345',
-              }),
-            });
+    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
 
-            setSaving(false);
-            if (!res.error) {
-              setMessage('Meta Tech Provider Embedded Sign Up Coexistence connected successfully!');
-              fetchConfig();
-              setTimeout(() => setMessage(null), 4000);
-            } else {
-              setError(`Embedded Signup Callback Error: ${res.error}`);
-            }
-          } else {
-            // Fallback OAuth simulation if Meta App ID is in sandbox mode
-            simulateEmbeddedSignupCallback();
-          }
-        },
-        {
-          config_id: META_CONFIG_ID,
-          response_type: 'code',
-          override_default_response_type: true,
-          extras: { setup: {} },
-        },
+    try {
+      // 1. Fetch Gateway session configuration (including secure public launcher URL)
+      const sessionRes = await apiFetch<{ launcherUrl?: string; appId?: string; configId?: string }>(
+        '/api/v1/integrations/meta/gateway/session',
       );
-    } else {
+
+      let targetUrl = '';
+      if (sessionRes.data?.launcherUrl && sessionRes.data.launcherUrl.startsWith('http')) {
+        targetUrl = sessionRes.data.launcherUrl;
+      } else {
+        const backendBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+        targetUrl = `${backendBase}/api/v1/integrations/meta/gateway/launch`;
+      }
+
+      const fullLaunchUrl = `${targetUrl}?token=${encodeURIComponent(token)}&origin=${encodeURIComponent(window.location.origin)}`;
+
+      const width = 640;
+      const height = 780;
+      const left = window.screenX + (window.outerWidth - width) / 2;
+      const top = window.screenY + (window.outerHeight - height) / 2;
+
+      const popup = window.open(
+        fullLaunchUrl,
+        'MetaWhatsAppEmbeddedSignup',
+        `width=${width},height=${height},left=${left},top=${top},status=no,resizable=yes,scrollbars=yes`,
+      );
+
+      const handleMessage = (event: MessageEvent) => {
+        if (event.data && (event.data.type === 'META_WHATSAPP_CONNECTED' || event.data.type === 'META_GATEWAY_SUCCESS')) {
+          window.removeEventListener('message', handleMessage);
+          setSaving(false);
+          setMessage('✓ Meta WhatsApp Embedded Sign Up (Coexistence) connected successfully!');
+          fetchConfig();
+          setTimeout(() => setMessage(null), 5000);
+        } else if (event.data && event.data.type === 'META_GATEWAY_ERROR') {
+          window.removeEventListener('message', handleMessage);
+          setSaving(false);
+          setError(`Embedded Signup Error: ${event.data.error || 'Connection failed'}`);
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+        setSaving(false);
+        setError('Popup was blocked by your browser. Please allow popups for this site to complete Meta connection.');
+      }
+    } catch (err) {
       setSaving(false);
-      setError('Facebook SDK is not loaded. Please ensure your browser allows Facebook scripts or use manual WABA configuration.');
+      setError(`Failed to initiate gateway session: ${(err as Error).message}`);
     }
   };
 

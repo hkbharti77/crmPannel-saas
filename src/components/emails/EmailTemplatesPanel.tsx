@@ -10,6 +10,7 @@ import {
 import { SectionCard } from '@/components/settings/panels/_shared';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
+import { generateAiEmailTemplate } from '@/lib/emailsApi';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 interface EmailTemplate {
@@ -399,12 +400,12 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
     }
 
     if (res.data) {
-      const generatedBody = res.data.html || '';
-      if (res.data.subject) {
-        setForm((prev) => ({ ...prev, subject: res.data.subject! }));
+      const { html, subject } = res.data;
+      if (subject) {
+        setForm((prev) => ({ ...prev, subject }));
       }
 
-      setForm((prev) => ({ ...prev, content: generatedBody }));
+      setForm((prev) => ({ ...prev, content: html || '' }));
       toast('✨ AI successfully generated responsive HTML email template code!');
     }
   };
@@ -833,6 +834,16 @@ export function EmailTemplatesPanel({ initialCreateOpen, createTrigger, onEditor
                     <List className="h-4 w-4" />
                   </button>
                 </div>
+                
+                {/* Create Template Button */}
+                <div className="w-px h-6 bg-base-c mx-1 hidden sm:block" />
+                <button
+                  type="button"
+                  onClick={() => openNew()}
+                  className="flex items-center gap-1.5 rounded-xl bg-primary-600 hover:bg-primary-700 px-4 py-2 text-xs font-bold text-white shadow-md hover:-translate-y-0.5 transition-all ml-auto sm:ml-0"
+                >
+                  <Plus className="h-4 w-4" /> New Template
+                </button>
               </div>
             </div>
           </SectionCard>

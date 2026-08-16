@@ -8,6 +8,21 @@ export function getTenantId(): string | null {
   return localStorage.getItem('crmlite_tenant_id');
 }
 
+export function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  const tenantId = getTenantId();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  if (tenantId) {
+    headers['X-Tenant-ID'] = tenantId;
+  }
+  return headers;
+}
+
 export function setAuthSession(data: { token: string; tenantId?: string | null; user?: unknown }) {
   localStorage.setItem('crmlite_token', data.token);
   if (data.tenantId) {

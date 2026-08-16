@@ -442,29 +442,6 @@ export function AccountProfilePanel() {
         </div>
       </SectionCard>
 
-        {/* ─── Auto-Assignment Settings ─── */}
-        <SectionCard title="Lead Auto-Assignment" description="Configure automatic lead distribution to agents.">
-          <FieldRow label="Default Daily Agent Limit" desc="The maximum number of leads assigned per agent per day, unless overridden.">
-            <input
-              type="number"
-              min="1"
-              value={formData.defaultDailyLeadLimit || ''}
-              onChange={(e) => handleChange('defaultDailyLeadLimit', e.target.value ? parseInt(e.target.value) : undefined)}
-              className="w-full max-w-xs rounded-lg border border-base-c bg-white px-3 py-2 text-sm text-primary-c placeholder:text-muted-c focus:border-indigo-500 focus:outline-none dark:bg-ink-800"
-              placeholder="e.g. 20"
-            />
-          </FieldRow>
-          <FieldRow label="Auto-Assignment Delay (Minutes)" desc="Time before an unassigned lead is automatically dispatched.">
-            <input
-              type="number"
-              min="0"
-              value={formData.autoAssignmentDelayMinutes || ''}
-              onChange={(e) => handleChange('autoAssignmentDelayMinutes', e.target.value ? parseInt(e.target.value) : undefined)}
-              className="w-full max-w-xs rounded-lg border border-base-c bg-white px-3 py-2 text-sm text-primary-c placeholder:text-muted-c focus:border-indigo-500 focus:outline-none dark:bg-ink-800"
-              placeholder="e.g. 5"
-            />
-          </FieldRow>
-        </SectionCard>
 
       {/* App Modules Section Card with Instant Auto-Save */}
       <SectionCard>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ADMIN_NAV_ITEMS, ADMIN_TITLES } from '@/lib/adminNavigation';
 import { cx } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
@@ -13,15 +13,47 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { fetchAnalyticsOverview } from '@/lib/platformApi';
 
 export function AdminShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [dynamicCounts, setDynamicCounts] = useState<{
+    totalTenants?: number;
+    openTickets?: number;
+    totalUsers?: number;
+    totalSubscriptions?: number;
+  }>({});
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
+  useEffect(() => {
+    fetchAnalyticsOverview().then((res) => {
+      if (res.data) {
+        setDynamicCounts({
+          totalTenants: (res.data as any).totalTenants,
+          openTickets: (res.data as any).openTickets,
+          totalUsers: (res.data as any).totalUsers,
+          totalSubscriptions: (res.data as any).totalSubscriptions,
+        });
+      }
+    }).catch(() => {});
+  }, []);
+
   const currentPath = location.pathname.split('/')[2] || 'overview';
+
+  const getBadgeForItem = (id: string): string | undefined => {
+    if (id === 'tenants') {
+      return dynamicCounts.totalTenants !== undefined ? String(dynamicCounts.totalTenants) : undefined;
+    }
+    if (id === 'tickets') {
+      return dynamicCounts.openTickets !== undefined && dynamicCounts.openTickets > 0
+        ? String(dynamicCounts.openTickets)
+        : undefined;
+    }
+    return undefined;
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-base-c">
@@ -71,6 +103,7 @@ export function AdminShell() {
           {ADMIN_NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = currentPath === item.id;
+            const badge = getBadgeForItem(item.id);
             return (
               <button
                 key={item.id}
@@ -87,12 +120,12 @@ export function AdminShell() {
                 {active && <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-rose-500 to-orange-500" />}
                 <Icon className={cx('h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110', active && 'text-rose-500')} />
                 {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
-                {!collapsed && item.badge && (
+                {!collapsed && badge && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gradient-to-br from-rose-500 to-orange-500 px-1.5 text-[10px] font-bold text-white">
-                    {item.badge}
+                    {badge}
                   </span>
                 )}
-                {collapsed && item.badge && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />}
+                {collapsed && badge && <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-rose-500" />}
               </button>
             );
           })}

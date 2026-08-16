@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
-  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle
+  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle, History, Laptop
 } from 'lucide-react';
 import { SectionCard, PanelHeader, FieldRow, Toggle } from './_shared';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
@@ -22,9 +22,11 @@ export function SecurityPanel() {
   // Load real values from backend on mount
   useEffect(() => {
     fetchSecurityDashboard()
-      .then((data) => {
-        setBiometricAuth(data.biometricsEnabled);
-        setLoginAlerts(data.loginAlertsEnabled);
+      .then((res) => {
+        if (res.data) {
+          setBiometricAuth(res.data.biometricsEnabled);
+          setLoginAlerts(res.data.loginAlertsEnabled);
+        }
       })
       .catch(() => {
         // keep defaults if fetch fails

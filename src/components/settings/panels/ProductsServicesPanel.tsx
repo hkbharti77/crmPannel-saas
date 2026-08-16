@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   ShoppingBag, Plus, Trash2, Edit3, Loader2,
   CheckCircle, AlertCircle, Search, Image as ImageIcon, X, Upload,
+  FileText, Video, File, ExternalLink,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
@@ -9,6 +10,17 @@ import {
   fetchBusinessServices, createBusinessService, updateBusinessService, deleteBusinessService,
   type BusinessServiceItem,
 } from '@/lib/businessServicesApi';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+export function resolveMediaUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const base = API_BASE_URL.replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 
 export function ProductsServicesPanel() {
   const [items, setItems] = useState<BusinessServiceItem[]>([]);
@@ -62,15 +74,15 @@ export function ProductsServicesPanel() {
     setName(item.name);
     setDescription(item.description || '');
     setSelectedFile(null);
-    setPreviewUrl(item.imageUrl || null);
+    setPreviewUrl(item.imageUrl ? resolveMediaUrl(item.imageUrl) : null);
     setShowModal(true);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image file size must be less than 5 MB');
+    if (file.size > 50 * 1024 * 1024) {
+      setError('Media / Document file size must be less than 50 MB');
       return;
     }
     setSelectedFile(file);
@@ -94,6 +106,9 @@ export function ProductsServicesPanel() {
 
     setSaving(false);
     if (!res.error) {
+      if (res.data?.imageUrl) {
+        console.log('✅ [Cloudinary Upload Success] Product/Service Media URL:', res.data.imageUrl);
+      }
       setMessage(editingItem ? 'Product/Service updated successfully!' : 'New Product/Service added successfully!');
       setShowModal(false);
       loadServices();
@@ -195,11 +210,21 @@ export function ProductsServicesPanel() {
               >
                 <div className="flex items-start gap-3">
                   {item.imageUrl ? (
-                    <img
-                      src={item.imageUrl}
-                      alt={item.name}
-                      className="h-16 w-16 rounded-lg object-cover border border-base-c shrink-0"
-                    />
+                    item.imageUrl.match(/\.(mp4|webm|mov|avi|3gp)($|\?)/i) ? (
+                      <div className="grid h-16 w-16 place-items-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400 border border-indigo-500/20 shrink-0">
+                        <Video className="h-7 w-7" />
+                      </div>
+                    ) : item.imageUrl.match(/\.(pdf|doc|docx|xls|xlsx|txt)($|\?)/i) ? (
+                      <div className="grid h-16 w-16 place-items-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                        <FileText className="h-7 w-7" />
+                      </div>
+                    ) : (
+                      <img
+                        src={resolveMediaUrl(item.imageUrl)}
+                        alt={item.name}
+                        className="h-16 w-16 rounded-lg object-cover border border-base-c shrink-0"
+                      />
+                    )
                   ) : (
                     <div className="grid h-16 w-16 place-items-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
                       <ShoppingBag className="h-7 w-7" />
@@ -276,11 +301,11 @@ export function ProductsServicesPanel() {
               </div>
 
               <div>
-                <label className="mb-1 block text-xs font-semibold text-secondary-c">Product Image (Optional, Max 5MB)</label>
+                <label className="mb-1 block text-xs font-semibold text-secondary-c">Media / Document Attachment (Image, Video, PDF, Docs - Max 50MB)</label>
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept="image/*"
+                  accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -288,18 +313,47 @@ export function ProductsServicesPanel() {
                   onClick={() => fileInputRef.current?.click()}
                   className="cursor-pointer flex flex-col items-center justify-center rounded-xl2 border border-dashed border-base-c bg-slate-50 p-4 text-center hover:border-emerald-500/40 dark:bg-ink-850"
                 >
-                  {previewUrl ? (
-                    <div className="relative group">
-                      <img src={previewUrl} alt="Preview" className="h-24 w-24 rounded-lg object-cover border border-base-c" />
-                      <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="h-5 w-5 text-white" />
-                      </div>
+                  {selectedFile ? (
+                    <div className="flex flex-col items-center gap-1.5">
+                      {selectedFile.type.startsWith('image/') ? (
+                        <img src={previewUrl || ''} alt="Preview" className="h-20 w-20 rounded-lg object-cover border border-base-c" />
+                      ) : selectedFile.type.startsWith('video/') ? (
+                        <div className="grid h-16 w-16 place-items-center rounded-xl bg-indigo-500/10 text-indigo-500">
+                          <Video className="h-8 w-8" />
+                        </div>
+                      ) : (
+                        <div className="grid h-16 w-16 place-items-center rounded-xl bg-amber-500/10 text-amber-500">
+                          <FileText className="h-8 w-8" />
+                        </div>
+                      )}
+                      <p className="text-xs font-bold text-primary-c">{selectedFile.name}</p>
+                      <p className="text-[10px] text-muted-c">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB &bull; Click to change</p>
+                    </div>
+                  ) : previewUrl ? (
+                    <div className="relative group flex flex-col items-center gap-1">
+                      {previewUrl.match(/\.(mp4|webm|mov|avi|3gp)($|\?)/i) ? (
+                        <div className="grid h-16 w-16 place-items-center rounded-xl bg-indigo-500/10 text-indigo-500">
+                          <Video className="h-8 w-8" />
+                        </div>
+                      ) : previewUrl.match(/\.(pdf|doc|docx|xls|xlsx|txt)($|\?)/i) ? (
+                        <div className="grid h-16 w-16 place-items-center rounded-xl bg-amber-500/10 text-amber-500">
+                          <FileText className="h-8 w-8" />
+                        </div>
+                      ) : (
+                        <img src={previewUrl} alt="Preview" className="h-20 w-20 rounded-lg object-cover border border-base-c" />
+                      )}
+                      <p className="text-[11px] text-secondary-c truncate max-w-xs">{previewUrl}</p>
+                      <p className="text-[10px] text-primary-600 font-medium">Click to replace file</p>
                     </div>
                   ) : (
                     <>
-                      <ImageIcon className="h-8 w-8 text-muted-c mb-1" />
-                      <p className="text-xs font-semibold text-primary-c">Click to upload product image</p>
-                      <p className="text-[10px] text-muted-c">PNG, JPG, WEBP up to 5MB</p>
+                      <div className="flex items-center gap-2 mb-1.5 text-muted-c">
+                        <ImageIcon className="h-6 w-6" />
+                        <Video className="h-6 w-6" />
+                        <FileText className="h-6 w-6" />
+                      </div>
+                      <p className="text-xs font-semibold text-primary-c">Click to upload Image, Video, or Document</p>
+                      <p className="text-[10px] text-muted-c">Supports JPG, PNG, WebP, MP4, PDF, DOCX up to 50MB</p>
                     </>
                   )}
                 </div>

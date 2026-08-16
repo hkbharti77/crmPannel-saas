@@ -32,23 +32,33 @@ export type ApiUser = {
   tenant?: { id: string; businessName: string };
 };
 
-export type ApiTicket = {
-  id: string;
-  subject: string;
-  status: string;
-  priority: string;
-  category?: string;
-  tenantId?: string;
-  createdByEmail?: string;
-  createdAt: string;
-  updatedAt?: string;
-};
-
 export type ApiTicketMessage = {
   id: string;
-  body: string;
-  authorEmail: string;
+  ticketId?: string;
+  senderType?: string;
+  senderEmail?: string;
+  message?: string;
+  body?: string;
+  authorEmail?: string;
   createdAt: string;
+};
+
+export type ApiTicket = {
+  id: string;
+  title?: string;
+  subject?: string;
+  description?: string;
+  status: string;
+  priority?: string;
+  category?: string;
+  tenantId?: string;
+  tenantName?: string;
+  submittedByEmail?: string;
+  createdByEmail?: string;
+  response?: string;
+  createdAt: string;
+  updatedAt?: string;
+  messages?: ApiTicketMessage[];
 };
 
 export type ApiAuditEntry = {
@@ -230,7 +240,7 @@ export async function sendTicketMessage(id: string, body: string) {
   return apiFetch<ApiTicketMessage>(`/api/v1/platform/tickets/${id}/messages`, {
     method: 'POST',
     headers: authHeaders(),
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ message: body, body }),
   });
 }
 
@@ -388,4 +398,294 @@ export async function deleteNicheTemplate(id: string) {
     headers: authHeaders(),
   });
 }
+
+/* ────────────────────────────────────────────────────────────────
+   TENANT ENTITLEMENTS MATRIX & PRESETS (PLATFORM OWNER)
+──────────────────────────────────────────────────────────────── */
+export type OverrideAction = 'INHERIT' | 'ALLOW' | 'DENY';
+
+export type EntitlementDefinition = {
+  key: string;
+  type: 'PAGE' | 'SETTING' | 'SERVICE';
+  label: string;
+  category: string;
+  description: string;
+  dependencies: string[];
+  mutability: 'ALWAYS_ENABLED' | 'OVERRIDABLE' | 'PLAN_ONLY';
+};
+
+export type PlatformTenantEntitlementMatrix = {
+  tenantId: string;
+  businessName: string;
+  planId: string;
+  planName: string;
+  entitlementVersion: number;
+  pageOverrides: Record<string, OverrideAction>;
+  settingOverrides: Record<string, OverrideAction>;
+  serviceOverrides: Record<string, OverrideAction>;
+  effectivePages: Record<string, boolean>;
+  effectiveSettings: Record<string, boolean>;
+  effectiveServices: Record<string, boolean>;
+  catalog: EntitlementDefinition[];
+};
+
+export type EntitlementPreset = {
+  id: string;
+  name: string;
+  description: string;
+  pageOverrides: Record<string, OverrideAction>;
+  settingOverrides: Record<string, OverrideAction>;
+  serviceOverrides: Record<string, OverrideAction>;
+};
+
+export async function fetchEntitlementPresets() {
+  return apiFetch<EntitlementPreset[]>('/api/v1/platform/entitlement-presets', {
+    headers: authHeaders(),
+  });
+}
+
+export async function fetchTenantEntitlementsMatrix(tenantId: string) {
+  return apiFetch<PlatformTenantEntitlementMatrix>(`/api/v1/platform/tenants/${tenantId}/entitlements-matrix`, {
+    headers: authHeaders(),
+  });
+}
+
+export async function updateTenantEntitlementsMatrix(
+  tenantId: string,
+  payload: {
+    pageOverrides: Record<string, OverrideAction>;
+    settingOverrides: Record<string, OverrideAction>;
+    serviceOverrides: Record<string, OverrideAction>;
+    reason?: string;
+  }
+) {
+  return apiFetch<PlatformTenantEntitlementMatrix>(`/api/v1/platform/tenants/${tenantId}/entitlements-matrix`, {
+    method: 'PUT',
+    headers: authHeaders(),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function applyEntitlementPreset(tenantId: string, presetId: string) {
+  return apiFetch<PlatformTenantEntitlementMatrix>(
+    `/api/v1/platform/tenants/${tenantId}/entitlements/apply-preset?presetId=${encodeURIComponent(presetId)}`,
+    {
+      method: 'POST',
+      headers: authHeaders(),
+    }
+  );
+}
+
+/* ────────────────────────────────────────────────────────────────
+   360° TENANT & USER PROFILES & ANALYTICS
+──────────────────────────────────────────────────────────────── */
+export type TenantProfileSummary = {
+  id: string;
+  businessName: string;
+  businessType?: string;
+  businessSubType?: string;
+  address?: string;
+  aboutUs?: string;
+  logoUrl?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  country?: string;
+  currency?: string;
+  timezone?: string;
+  planType: string;
+  planName: string;
+  lifecycleStatus: string;
+  suspensionReason?: string;
+  suspendedAt?: string;
+  onboardingCompleted?: boolean;
+  createdAt: string;
+  billingCycle: string;
+  subscriptionStatus: string;
+  currentPeriodStart?: string;
+  currentPeriodEnd?: string;
+  monthlyAmount?: number;
+  totalUsers: number;
+  activeUsers: number;
+  totalLeads: number;
+  totalTickets: number;
+  totalAppointments: number;
+};
+
+export type TenantMultiChannelAnalytics = {
+  range: string;
+  timezone: string;
+  fromDate: string;
+  toDate: string;
+  leads: {
+    totalCreated: number;
+    wonCount: number;
+    lostCount: number;
+    activeCount: number;
+    conversionRate: number;
+    stageDistribution: Record<string, number>;
+  };
+  emails: {
+    totalSent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+    failed: number;
+    deliveryRate: number;
+    openRate: number;
+    bounceRate: number;
+    campaignsCount: number;
+  };
+  whatsapp: {
+    campaignsCount: number;
+    totalAttempted: number;
+    totalSent: number;
+    delivered: number;
+    read: number;
+    failed: number;
+    deliveryRate: number;
+    readRate: number;
+  };
+  tickets: {
+    totalTickets: number;
+    openTickets: number;
+    pendingTickets: number;
+    resolvedTickets: number;
+    closedTickets: number;
+    resolutionRate: number;
+    avgResolutionTimeHours: number;
+  };
+  appointments: {
+    totalBooked: number;
+    completed: number;
+    upcoming: number;
+    cancelled: number;
+  };
+  knowledgeBase: {
+    totalDocuments: number;
+    readyDocuments: number;
+    processingDocuments: number;
+    failedDocuments: number;
+    totalChunks: number;
+    embeddingStatus: string;
+  };
+  quotas: {
+    employeeQuota: QuotaItem;
+    leadQuota: QuotaItem;
+    emailQuota: QuotaItem;
+    whatsappQuota: QuotaItem;
+    ticketQuota: QuotaItem;
+  };
+};
+
+export type QuotaItem = {
+  name: string;
+  used: number;
+  limit: number;
+  percentage: number;
+  healthStatus: 'HEALTHY' | 'WARNING' | 'CRITICAL' | 'EXHAUSTED' | 'SERVICE_DISABLED';
+  serviceEnabled: boolean;
+};
+
+export type TenantMemberRoster = {
+  summary: {
+    totalMembers: number;
+    ownersCount: number;
+    adminsCount: number;
+    agentsCount: number;
+    viewersCount: number;
+    activeCount: number;
+    suspendedCount: number;
+  };
+  members: {
+    id: string;
+    displayName: string;
+    email: string;
+    role: string;
+    accountStatus: string;
+    phone?: string;
+    createdAt?: string;
+    lastActiveAt?: string;
+    assignedLeadsCount: number;
+    assignedTicketsCount: number;
+    resolvedTicketsCount: number;
+  }[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
+export type UserDetailedProfile = {
+  id: string;
+  displayName: string;
+  email: string;
+  role: string;
+  accountStatus: string;
+  phone?: string;
+  createdAt?: string;
+  lastActiveAt?: string;
+  tenantId?: string;
+  tenantBusinessName?: string;
+  tenantPlanType?: string;
+  metricsPeriod: string;
+  assignedLeadsCount: number;
+  wonLeadsCount: number;
+  leadConversionRate: number;
+  assignedTicketsCount: number;
+  resolvedTicketsCount: number;
+  directChatsHandled: number;
+  permissions: string[];
+  isSuperAdmin: boolean;
+};
+
+export async function fetchTenantProfile(tenantId: string) {
+  return apiFetch<TenantProfileSummary>(`/api/v1/platform/tenants/${tenantId}/profile`, {
+    headers: authHeaders(),
+  });
+}
+
+export async function fetchTenantAnalytics(tenantId: string, range = 'CURRENT_MONTH') {
+  return apiFetch<TenantMultiChannelAnalytics>(
+    `/api/v1/platform/tenants/${tenantId}/analytics?range=${encodeURIComponent(range)}`,
+    {
+      headers: authHeaders(),
+    }
+  );
+}
+
+export async function fetchTenantMembers(
+  tenantId: string,
+  params?: { page?: number; size?: number; role?: string; search?: string }
+) {
+  const q = new URLSearchParams();
+  if (params?.page !== undefined) q.set('page', String(params.page));
+  if (params?.size !== undefined) q.set('size', String(params.size));
+  if (params?.role) q.set('role', params.role);
+  if (params?.search) q.set('search', params.search);
+  return apiFetch<TenantMemberRoster>(`/api/v1/platform/tenants/${tenantId}/members?${q}`, {
+    headers: authHeaders(),
+  });
+}
+
+export async function fetchUserDetailedProfile(userId: string) {
+  return apiFetch<UserDetailedProfile>(`/api/v1/platform/users/${userId}/profile`, {
+    headers: authHeaders(),
+  });
+}
+
+export async function suspendPlatformUser(userId: string) {
+  return apiFetch(`/api/v1/platform/users/${userId}/suspend`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+}
+
+export async function activatePlatformUser(userId: string) {
+  return apiFetch(`/api/v1/platform/users/${userId}/activate`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+}
+
 

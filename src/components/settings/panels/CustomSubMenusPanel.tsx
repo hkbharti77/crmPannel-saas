@@ -3,11 +3,21 @@ import { cx } from '@/lib/types';
 import {
   ListTree, CheckCircle, AlertCircle, Save, Loader2,
   ChevronUp, ChevronDown, Plus, Trash2, Image as ImageIcon, X, Upload,
+  FileText, Video,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import { apiFetch } from '@/lib/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+function resolveMediaUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const base = API_BASE.replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 
 interface CustomItem {
   title: string;
@@ -29,21 +39,24 @@ interface WhatsAppMenuConfig {
   customSubMenusJson?: string;
 }
 
-/* ── Helper: upload image to backend ── */
-async function uploadImage(file: File): Promise<string | null> {
+/* ── Helper: upload media to Cloudinary backend ── */
+async function uploadMedia(file: File): Promise<string | null> {
   const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('folder', 'custom-menus');
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/whatsapp-config/upload-media`, {
+    const res = await fetch(`${API_BASE}/api/v1/upload`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
-      // NOTE: do NOT set Content-Type — browser sets it with boundary
     });
     if (!res.ok) return null;
     const json = await res.json();
+    if (json.url) {
+      console.log('✅ [Cloudinary Upload Success] Custom Menu Media URL:', json.url);
+    }
     return json.url || null;
   } catch {
     return null;
@@ -144,28 +157,36 @@ export function CustomSubMenusPanel() {
     updateCurrentMenu({ items: next });
   };
 
-  /* ── Image upload handlers ── */
-  const handleHeaderImageUpload = async (file: File) => {
+  /* ── Media upload handlers ── */
+  const handleHeaderMediaUpload = async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) {
+      toast('Media file size must be less than 50 MB.', true);
+      return;
+    }
     setUploadingIdx('header');
-    const url = await uploadImage(file);
+    const url = await uploadMedia(file);
     setUploadingIdx(null);
     if (url) {
       updateCurrentMenu({ headerImageUrl: url });
-      toast('Header image uploaded!');
+      toast('Header media uploaded!');
     } else {
-      toast('Image upload failed. Max 5 MB, JPG/PNG/WebP.', true);
+      toast('Media upload failed. Max 50 MB.', true);
     }
   };
 
-  const handleItemImageUpload = async (itemIdx: number, file: File) => {
+  const handleItemMediaUpload = async (itemIdx: number, file: File) => {
+    if (file.size > 50 * 1024 * 1024) {
+      toast('Media file size must be less than 50 MB.', true);
+      return;
+    }
     setUploadingIdx(itemIdx);
-    const url = await uploadImage(file);
+    const url = await uploadMedia(file);
     setUploadingIdx(null);
     if (url) {
       updateItem(itemIdx, 'imageUrl', url);
-      toast('Item image uploaded!');
+      toast('Item media uploaded!');
     } else {
-      toast('Image upload failed. Max 5 MB, JPG/PNG/WebP.', true);
+      toast('Media upload failed. Max 50 MB.', true);
     }
   };
 
@@ -248,17 +269,28 @@ export function CustomSubMenusPanel() {
                 <textarea value={currentMenu.bodyText} onChange={(e) => updateCurrentMenu({ bodyText: e.target.value })} rows={2} placeholder="Select an option below to learn more:" className="form-input resize-none" />
               </div>
 
-              {/* Header Image Upload */}
+              {/* Header Media Upload */}
               <div>
-                <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Sub-Menu Header Image (optional)</label>
+                <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Sub-Menu Header Media / Document (optional)</label>
                 {currentMenu.headerImageUrl ? (
-                  <div className="relative inline-block">
-                    <img
-                      src={currentMenu.headerImageUrl}
-                      alt="Header"
-                      className="h-24 w-auto rounded-xl2 border border-base-c object-cover shadow-sm"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
+                  <div className="relative inline-flex items-center gap-2 p-2 rounded-xl2 border border-base-c bg-card-c shadow-sm">
+                    {currentMenu.headerImageUrl.match(/\.(mp4|webm|mov|avi|3gp)($|\?)/i) ? (
+                      <div className="grid h-16 w-16 place-items-center rounded-xl bg-indigo-500/10 text-indigo-500">
+                        <Video className="h-8 w-8" />
+                      </div>
+                    ) : currentMenu.headerImageUrl.match(/\.(pdf|doc|docx|xls|xlsx|txt)($|\?)/i) ? (
+                      <div className="grid h-16 w-16 place-items-center rounded-xl bg-amber-500/10 text-amber-500">
+                        <FileText className="h-8 w-8" />
+                      </div>
+                    ) : (
+                      <img
+                        src={resolveMediaUrl(currentMenu.headerImageUrl)}
+                        alt="Header"
+                        className="h-20 w-auto rounded-xl object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    )}
+                    <span className="text-[11px] font-mono text-secondary-c max-w-[200px] truncate">{currentMenu.headerImageUrl}</span>
                     <button
                       onClick={() => updateCurrentMenu({ headerImageUrl: undefined })}
                       className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-danger-500 text-white shadow hover:bg-danger-600"
@@ -274,17 +306,17 @@ export function CustomSubMenusPanel() {
                   >
                     {uploadingIdx === 'header'
                       ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
-                      : <><ImageIcon className="h-3.5 w-3.5" /> Add Header Image</>}
+                      : <><Upload className="h-3.5 w-3.5" /> Add Header Media / Document (Max 50MB)</>}
                   </button>
                 )}
                 <input
                   ref={(el) => { fileInputRefs.current[`header_${currentMenu.id}`] = el; }}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp"
+                  accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) handleHeaderImageUpload(f);
+                    if (f) handleHeaderMediaUpload(f);
                     e.target.value = '';
                   }}
                 />
@@ -325,16 +357,27 @@ export function CustomSubMenusPanel() {
                       </div>
                     </div>
 
-                    {/* Image Preview or Upload Button */}
+                    {/* Media Preview or Upload Button */}
                     <div>
                       {item.imageUrl ? (
-                        <div className="relative inline-block">
-                          <img
-                            src={item.imageUrl}
-                            alt={`Option ${idx + 1}`}
-                            className="h-20 w-auto rounded-xl border border-base-c object-cover shadow-sm"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                          />
+                        <div className="relative inline-flex items-center gap-2 p-2 rounded-xl border border-base-c bg-card-c shadow-sm">
+                          {item.imageUrl.match(/\.(mp4|webm|mov|avi|3gp)($|\?)/i) ? (
+                            <div className="grid h-12 w-12 place-items-center rounded-lg bg-indigo-500/10 text-indigo-500">
+                              <Video className="h-6 w-6" />
+                            </div>
+                          ) : item.imageUrl.match(/\.(pdf|doc|docx|xls|xlsx|txt)($|\?)/i) ? (
+                            <div className="grid h-12 w-12 place-items-center rounded-lg bg-amber-500/10 text-amber-500">
+                              <FileText className="h-6 w-6" />
+                            </div>
+                          ) : (
+                            <img
+                              src={resolveMediaUrl(item.imageUrl)}
+                              alt={`Option ${idx + 1}`}
+                              className="h-16 w-auto rounded-lg border border-base-c object-cover shadow-sm"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                          )}
+                          <span className="text-[11px] font-mono text-secondary-c max-w-[150px] truncate">{item.imageUrl}</span>
                           <button
                             onClick={() => updateItem(idx, 'imageUrl', '')}
                             className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-danger-500 text-white shadow hover:bg-danger-600"
@@ -350,17 +393,17 @@ export function CustomSubMenusPanel() {
                         >
                           {uploadingIdx === idx
                             ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading…</>
-                            : <><Upload className="h-3.5 w-3.5" /> Add Item Image</>}
+                            : <><Upload className="h-3.5 w-3.5" /> Attach Media / Doc</>}
                         </button>
                       )}
                       <input
                         ref={(el) => { fileInputRefs.current[`item_${currentMenu.id}_${idx}`] = el; }}
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                         className="hidden"
                         onChange={(e) => {
                           const f = e.target.files?.[0];
-                          if (f) handleItemImageUpload(idx, f);
+                          if (f) handleItemMediaUpload(idx, f);
                           e.target.value = '';
                         }}
                       />

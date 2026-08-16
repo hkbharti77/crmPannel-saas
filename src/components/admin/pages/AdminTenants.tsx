@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { PLAN_META, STATUS_META, type TenantStatus, type PlanTier } from '@/components/admin/adminData';
-import { Search, Building2, Users, Plus, RefreshCw, Ban, CheckCircle2, Lock } from 'lucide-react';
+import { Search, Building2, Users, Plus, RefreshCw, Ban, CheckCircle2, Lock, SlidersHorizontal, Eye, ArrowUpRight } from 'lucide-react';
 import { fetchTenants, suspendTenant, activateTenant, lockTenant, type ApiTenant } from '@/lib/platformApi';
 
 type FilterPlan = PlanTier | 'ALL';
@@ -25,6 +26,7 @@ function mapPlan(t: ApiTenant): PlanTier {
 }
 
 export function AdminTenants() {
+  const navigate = useNavigate();
   const [tenants, setTenants] = useState<ApiTenant[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -99,14 +101,22 @@ export function AdminTenants() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search tenants…" className="form-input pl-9" />
         </div>
-        <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value as FilterPlan)} className="rounded-lg border border-base-c bg-card-c px-3 py-2 text-xs text-secondary-c focus:border-primary-500/40 focus:outline-none">
-          <option value="ALL">All Plans</option>
-          {(Object.keys(PLAN_META) as PlanTier[]).map((p) => <option key={p} value={p}>{PLAN_META[p].label}</option>)}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FilterStatus)} className="rounded-lg border border-base-c bg-card-c px-3 py-2 text-xs text-secondary-c focus:border-primary-500/40 focus:outline-none">
-          <option value="ALL">All Statuses</option>
-          {(Object.keys(STATUS_META) as TenantStatus[]).map((s) => <option key={s} value={s}>{STATUS_META[s].label}</option>)}
-        </select>
+        <div className="flex items-center gap-2">
+          <select value={planFilter} onChange={(e) => setPlanFilter(e.target.value as FilterPlan)} className="form-select text-xs">
+            <option value="ALL">All Plans</option>
+            <option value="starter">Starter</option>
+            <option value="growth">Growth</option>
+            <option value="scale">Scale</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as FilterStatus)} className="form-select text-xs">
+            <option value="ALL">All Statuses</option>
+            <option value="active">Active</option>
+            <option value="trial">Trial</option>
+            <option value="suspended">Suspended</option>
+            <option value="churned">Churned</option>
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -140,13 +150,16 @@ export function AdminTenants() {
                   return (
                     <tr key={t.id} className="border-b border-base-c transition-colors hover:bg-slate-50 dark:hover:bg-ink-850/50">
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        <Link to={`/admin/tenants/${t.id}`} className="flex items-center gap-3 group">
                           <Avatar name={t.businessName} size={36} />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-primary-c">{t.businessName}</p>
+                            <p className="truncate text-sm font-semibold text-primary-c group-hover:text-primary-500 transition-colors flex items-center gap-1">
+                              <span>{t.businessName}</span>
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </p>
                             <p className="truncate text-[10px] text-muted-c">{t.id.slice(0, 8)}… · {t.businessType ?? 'Business'}</p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-4 py-3"><span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold', pMeta.color)}>{pMeta.label}</span></td>
                       <td className="px-4 py-3">
@@ -165,6 +178,22 @@ export function AdminTenants() {
                       <td className="hidden px-4 py-3 lg:table-cell"><span className="text-[11px] text-muted-c">{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</span></td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <Link
+                            to={`/admin/tenants/${t.id}`}
+                            title="Open Full 360° Profile & Analytics Page"
+                            className="flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2 py-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-colors shadow-sm"
+                          >
+                            <Eye className="h-3 w-3" />
+                            <span>360° Profile</span>
+                          </Link>
+                          <Link
+                            to={`/admin/tenants/${t.id}/entitlements`}
+                            title="Manage Services, Settings, & Page Entitlements Page"
+                            className="flex items-center gap-1 rounded-lg border border-primary-500/30 bg-primary-500/10 px-2 py-1 text-[11px] font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 transition-colors shadow-sm"
+                          >
+                            <SlidersHorizontal className="h-3 w-3" />
+                            <span>Entitlements</span>
+                          </Link>
                           {status !== 'active' && (
                             <button onClick={() => handleAction(t.id, 'activate')} disabled={!!isLoading} title="Activate" className="grid h-7 w-7 place-items-center rounded-lg text-success-500 hover:bg-success-50 dark:hover:bg-success-500/10 transition-colors">
                               <CheckCircle2 className="h-4 w-4" />
