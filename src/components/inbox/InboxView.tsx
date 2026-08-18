@@ -91,9 +91,12 @@ export function InboxView() {
           unread: c.unread || 0,
           // Green dot only if last message was within 24h (active WhatsApp session)
           status: isWithin24h ? 'online' : 'offline',
-          tags: c.status === 'NEW' ? ['NEW', 'HOT'] : ['VIP'],
+          tags: (c.tags || []) as ('NEW' | 'HOT' | 'VIP' | 'RETURNING' | 'BOT')[],
           // botPaused=true means human took over; botPaused=false means bot is active
-          isBotHandled: !c.botPaused,
+          isBotHandled: c.botPaused === false,
+          leadId: c.leadId,
+          leadStatus: c.leadStatus,
+          assignedTo: c.assignedAgentName,
         };
       });
       setConversations(mapped);
@@ -205,7 +208,9 @@ export function InboxView() {
     const bot = conversations.filter((c) => c.isBotHandled).length;
     const vip = conversations.filter((c) => c.tags.includes('VIP')).length;
     const mine = conversations.filter((c) => c.assignedTo === 'Arjun').length;
-    return { all, unread, bot, vip, mine };
+    const unassigned = conversations.filter((c) => c.status === 'UNASSIGNED' || !c.assignedTo).length;
+
+    return { all, unread, bot, vip, mine, unassigned };
   }, [conversations]);
 
   const filteredWhatsApp = useMemo(() => {
@@ -214,6 +219,7 @@ export function InboxView() {
       if (filter === 'bot' && !c.isBotHandled) return false;
       if (filter === 'vip' && !c.tags.includes('VIP')) return false;
       if (filter === 'mine' && c.assignedTo !== 'Arjun') return false;
+      if (filter === 'unassigned' && c.status !== 'UNASSIGNED' && c.assignedTo) return false;
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -520,6 +526,32 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
             <MenuSquare className="h-3.5 w-3.5" />
             {menuSending ? 'Sending…' : 'Send Menu'}
           </button>
+          
+          {conv.leadStatus === 'UNASSIGNED' && conv.leadId && (
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/v1/leads/${conv.leadId}/claim`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                  });
+                  if (res.ok) {
+                    // Update state or refresh
+                    window.location.reload();
+                  } else {
+                    alert('Could not claim lead. Perhaps you reached your limit?');
+                  }
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+              className="flex items-center gap-1 rounded-lg bg-gradient-accent px-3 py-1.5 text-xs font-bold text-white shadow-soft hover:shadow-glow transition-all"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Claim Lead
+            </button>
+          )}
+
           {/* Bot / Human mode toggle */}
           <button
             onClick={async () => {

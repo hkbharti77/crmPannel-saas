@@ -107,11 +107,24 @@ export function PipelineView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
+  const currentUser = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('crmlite_user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
   const filtered = useMemo(() => {
+    const currentName = currentUser?.name || currentUser?.email || '';
     return leads.filter((l) => {
       if (filter === 'hot' && !l.tags.includes('HOT')) return false;
       if (filter === 'vip' && !l.tags.includes('VIP')) return false;
-      if (filter === 'mine' && l.assignedTo !== 'Arjun') return false;
+      if (filter === 'mine' && currentName) {
+        const isMine = l.assignedTo.toLowerCase().includes(currentName.toLowerCase()) || l.assignedTo === 'Agent';
+        if (!isMine) return false;
+      }
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -122,7 +135,7 @@ export function PipelineView() {
       }
       return true;
     });
-  }, [leads, filter, query]);
+  }, [leads, filter, query, currentUser]);
 
   const handleDrop = async (stage: string) => {
     if (!dragStage) return;
@@ -217,13 +230,16 @@ export function PipelineView() {
   };
 
   const counts = useMemo(() => {
+    const currentName = currentUser?.name || currentUser?.email || '';
     return {
       all: leads.length,
       hot: leads.filter((l) => l.tags.includes('HOT')).length,
       vip: leads.filter((l) => l.tags.includes('VIP')).length,
-      mine: leads.filter((l) => l.assignedTo === 'Arjun').length,
+      mine: currentName
+        ? leads.filter((l) => l.assignedTo.toLowerCase().includes(currentName.toLowerCase()) || l.assignedTo === 'Agent').length
+        : leads.length,
     };
-  }, [leads]);
+  }, [leads, currentUser]);
 
   const filters: { id: FilterId; label: string; count: number }[] = [
     { id: 'all', label: 'All Leads', count: counts.all },

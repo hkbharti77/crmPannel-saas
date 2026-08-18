@@ -1,12 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
-import { Search, UserCheck, UserX, Mail, Building2, RefreshCw } from 'lucide-react';
+import { Search, UserCheck, UserX, Mail, Building2, RefreshCw, Eye, ArrowUpRight } from 'lucide-react';
 import { fetchAllUsers, enableUser, disableUser, type ApiUser } from '@/lib/platformApi';
 
 type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'DEACTIVATED';
 
 export function AdminUsers() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -100,7 +102,7 @@ export function AdminUsers() {
                 <th className="hidden px-4 py-3 md:table-cell">Role</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="hidden px-4 py-3 lg:table-cell">Phone</th>
-                <th className="px-4 py-3">Action</th>
+                <th className="px-4 py-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -116,13 +118,16 @@ export function AdminUsers() {
                   return (
                     <tr key={u.id} className="border-b border-base-c transition-colors hover:bg-slate-50 dark:hover:bg-ink-850/50">
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        <Link to={`/admin/users/${u.id}`} className="flex items-center gap-3 group">
                           <Avatar name={u.displayName || u.email} size={36} />
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-primary-c">{u.displayName || '—'}</p>
+                            <p className="truncate text-sm font-semibold text-primary-c group-hover:text-primary-500 transition-colors flex items-center gap-1">
+                              <span>{u.displayName || '—'}</span>
+                              <ArrowUpRight className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </p>
                             <p className="truncate text-[10px] text-muted-c">{u.email}</p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="hidden px-4 py-3 sm:table-cell">
                         <span className="flex items-center gap-1 text-xs text-secondary-c">
@@ -144,18 +149,28 @@ export function AdminUsers() {
                       </td>
                       <td className="hidden px-4 py-3 lg:table-cell"><span className="text-[11px] text-muted-c">{u.phone ?? '—'}</span></td>
                       <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleToggle(u)}
-                          disabled={actionLoading === u.id}
-                          className={cx(
-                            'rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors',
-                            isActive
-                              ? 'bg-danger-50 text-danger-600 hover:bg-danger-100 dark:bg-danger-500/10 dark:text-danger-400'
-                              : 'bg-success-50 text-success-600 hover:bg-success-100 dark:bg-success-500/10 dark:text-success-400',
-                          )}
-                        >
-                          {actionLoading === u.id ? '…' : isActive ? 'Disable' : 'Enable'}
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <Link
+                            to={`/admin/users/${u.id}`}
+                            title="View Comprehensive 360° User Profile Page"
+                            className="flex items-center gap-1 rounded-lg border border-primary-500/30 bg-primary-500/10 px-2.5 py-1 text-[11px] font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 transition-colors shadow-sm"
+                          >
+                            <Eye className="h-3 w-3" />
+                            <span>360° Profile</span>
+                          </Link>
+                          <button
+                            onClick={() => handleToggle(u)}
+                            disabled={actionLoading === u.id}
+                            className={cx(
+                              'rounded-lg px-2.5 py-1 text-[10px] font-semibold transition-colors',
+                              isActive
+                                ? 'bg-danger-50 text-danger-600 hover:bg-danger-100 dark:bg-danger-500/10 dark:text-danger-400'
+                                : 'bg-success-50 text-success-600 hover:bg-success-100 dark:bg-success-500/10 dark:text-success-400',
+                            )}
+                          >
+                            {actionLoading === u.id ? '…' : isActive ? 'Disable' : 'Enable'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -173,3 +188,4 @@ export function AdminUsers() {
     </div>
   );
 }
+

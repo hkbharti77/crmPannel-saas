@@ -8,6 +8,7 @@ import { fetchCurrentUserProfile, type UserProfileDto } from '@/lib/userApi';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAccess } from '@/context/TenantEntitlementsContext';
 
 export function Sidebar({
   collapsed,
@@ -22,6 +23,7 @@ export function Sidebar({
 }) {
   const { user, signOut } = useAuth();
   const { hasPermission } = usePermissions();
+  const { hasPageAccess } = useAccess();
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const navigate = useNavigate();
@@ -54,13 +56,16 @@ export function Sidebar({
     .substring(0, 2)
     .toUpperCase();
 
-  // Dynamically filter navigation items based on user permissions and module toggles
+  // Dynamically filter navigation items based on Tenant Entitlements and User RBAC permissions
   const navItems = NAV_ITEMS.filter((item) => {
+    // 1. Tenant Entitlement check (controlled by Platform Owner / Super Admin)
+    if (!hasPageAccess(item.id)) return false;
+
     if (item.id === 'pipeline' && profile?.forceShowLeads === false) return false;
     if (item.id === 'appointments' && profile?.forceShowAppointment === false) return false;
     if (item.id === 'booking' && profile?.forceShowBooking === false) return false;
 
-    // Granular Module Permission Checks
+    // 2. Granular User RBAC Module Permission Checks
     if (item.id === 'inbox' && !hasPermission('MODULE_INBOX')) return false;
     if (item.id === 'pipeline' && !hasPermission('MODULE_LEADS')) return false;
     if (item.id === 'broadcasts' && !hasPermission('MODULE_CAMPAIGNS')) return false;

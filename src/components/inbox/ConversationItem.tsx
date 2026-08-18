@@ -127,6 +127,16 @@ export function ConversationItem({
                 · {conv.assignedTo}
               </span>
             )}
+            {conv.leadStatus === 'LIMIT_REACHED' && (
+              <span className="inline-flex items-center rounded bg-danger-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-danger-700 dark:bg-danger-500/15 dark:text-danger-300">
+                LIMIT REACHED
+              </span>
+            )}
+            {conv.leadStatus === 'UNASSIGNED' && (
+              <span className="inline-flex items-center rounded bg-warning-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">
+                UNASSIGNED
+              </span>
+            )}
           </div>
 
           {conv.unread > 0 && (

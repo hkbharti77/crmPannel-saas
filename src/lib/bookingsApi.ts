@@ -7,7 +7,7 @@ export type BookingDto = {
   contactId?: string;
   service: string;
   preferredSlot?: string;
-  collectedData?: Record<string, unknown>;
+  collectedData?: Record<string, any>;
   status: 'PENDING' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED' | string;
   source?: string;
   createdAt?: string;
@@ -28,7 +28,7 @@ export type BookingRequestPayload = {
   contactId?: string;
   source?: string;
   notes?: string;
-  collectedData?: Record<string, unknown>;
+  collectedData?: Record<string, any>;
 };
 
 export async function fetchBusinessServices(): Promise<{ data: BusinessServiceDto[]; error: string | null }> {

@@ -92,37 +92,9 @@ export function TopBar({
         {TITLES[currentPath] ?? 'Dashboard'}
       </h1>
 
-      {/* Agent Availability Toggle */}
-      <div className="ml-4 flex items-center gap-1.5 rounded-full border border-base-c bg-card-c px-2 py-1 text-xs">
-        <span
-          className={`h-2.5 w-2.5 rounded-full ${
-            availability === 'AVAILABLE'
-              ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]'
-              : availability === 'BUSY'
-              ? 'bg-amber-500'
-              : 'bg-slate-400'
-          }`}
-        />
-        <select
-          value={availability}
-          onChange={(e) => handleStatusChange(e.target.value as 'AVAILABLE' | 'BUSY' | 'OFFLINE')}
-          className="bg-transparent font-medium text-primary-c focus:outline-none cursor-pointer text-xs"
-        >
-          <option value="AVAILABLE">Online (Available)</option>
-          <option value="BUSY">Busy</option>
-          <option value="OFFLINE">Offline</option>
-        </select>
-      </div>
+
 
       <div className="ml-auto flex items-center gap-1.5">
-        <button className="hidden items-center gap-2 rounded-lg border border-base-c bg-card-c px-3 py-2 text-sm text-muted-c transition-colors hover:border-primary-500/40 hover:text-secondary-c sm:flex">
-          <Search className="h-4 w-4" />
-          <span>Search…</span>
-          <kbd className="ml-2 inline-flex items-center gap-0.5 rounded border border-base-c px-1.5 py-0.5 text-[10px] font-medium text-muted-c">
-            <Command className="h-3 w-3" />K
-          </kbd>
-        </button>
-
         <IconButton label="Toggle theme" onClick={toggleTheme}>
           {theme === 'dark' ? (
             <Sun className="h-[18px] w-[18px]" />
@@ -155,6 +127,32 @@ export function TopBar({
                   <p className="truncate text-sm font-semibold text-primary-c">{displayName}</p>
                   <p className="truncate text-[11px] text-muted-c">{user?.email}</p>
                 </div>
+                
+                {/* Status Options */}
+                <div className="border-b border-base-c py-1">
+                  <button
+                    onClick={() => handleStatusChange('AVAILABLE')}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-100 dark:hover:bg-ink-800"
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                    <span className={availability === 'AVAILABLE' ? 'text-primary-c' : 'text-muted-c'}>Online (Available)</span>
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('BUSY')}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-100 dark:hover:bg-ink-800"
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-500" />
+                    <span className={availability === 'BUSY' ? 'text-primary-c' : 'text-muted-c'}>Busy</span>
+                  </button>
+                  <button
+                    onClick={() => handleStatusChange('OFFLINE')}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-100 dark:hover:bg-ink-800"
+                  >
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-slate-400" />
+                    <span className={availability === 'OFFLINE' ? 'text-primary-c' : 'text-muted-c'}>Offline</span>
+                  </button>
+                </div>
+
                 <button
                   onClick={() => { setMenuOpen(false); signOut(); }}
                   className="flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-danger-600 transition-colors hover:bg-danger-500/5 dark:text-danger-400"

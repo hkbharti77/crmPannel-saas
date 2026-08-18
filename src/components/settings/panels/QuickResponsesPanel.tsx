@@ -2,12 +2,22 @@ import { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare, Save, Loader2,
   CheckCircle, AlertCircle, ChevronDown, ChevronUp, Camera, X,
+  FileText, Video, Upload,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import { apiFetch, getAuthToken, getTenantId } from '@/lib/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const MAX_SLOTS = 6;
+
+function resolveMediaUrl(url?: string): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const base = API_BASE_URL.replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 
 interface QuickResponseSlot {
   internalName: string;
@@ -85,13 +95,14 @@ export function QuickResponsesPanel() {
     setSlots((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
-  const handleImageUpload = async (idx: number, file: File) => {
-    if (file.size > 5 * 1024 * 1024) { toast('Image must be under 5 MB', true); return; }
+  const handleMediaUpload = async (idx: number, file: File) => {
+    if (file.size > 50 * 1024 * 1024) { toast('Media/Document file must be under 50 MB', true); return; }
     setUploadingIdx(idx);
     const token = getAuthToken();
     const tenantId = getTenantId();
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('folder', 'quick-responses');
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
     if (tenantId) headers['X-Tenant-ID'] = tenantId;
@@ -102,19 +113,21 @@ export function QuickResponsesPanel() {
         const next = slots.map((s, i) => i === idx ? { ...s, imageUrl: localUrl } : s);
         setSlots(next);
         setUploadingIdx(null);
-        toast('Image previewed locally (upload endpoint unavailable)', true);
+        toast('Media previewed locally (upload endpoint error)', true);
         return;
       }
       const data = await res.json();
       const url: string = data.url || data.imageUrl || data.fileUrl || '';
+      console.log('✅ [Cloudinary Upload Success] Quick Response Media URL:', url);
       const next = slots.map((s, i) => i === idx ? { ...s, imageUrl: url } : s);
       setSlots(next);
       await saveAll(next);
+      toast('Media uploaded and saved!');
     } catch {
       const localUrl = URL.createObjectURL(file);
       const next = slots.map((s, i) => i === idx ? { ...s, imageUrl: localUrl } : s);
       setSlots(next);
-      toast('Image previewed locally (network error)', true);
+      toast('Media previewed locally (network error)', true);
     }
     setUploadingIdx(null);
   };
@@ -213,18 +226,30 @@ export function QuickResponsesPanel() {
                       />
                     </div>
 
-                    {/* Optional Image */}
+                    {/* Optional Media / Document Attachment */}
                     <div>
                       <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-secondary-c">
-                        Optional Image
+                        Media / Document Attachment (Images, Videos, PDF, Docs)
                       </label>
                       {slot.imageUrl ? (
-                        <div className="relative inline-block">
-                          <img
-                            src={slot.imageUrl}
-                            alt="Attached"
-                            className="h-28 w-auto rounded-xl2 object-cover border border-base-c"
-                          />
+                        <div className="relative inline-flex items-center gap-2 p-2 rounded-xl2 border border-base-c bg-card-c shadow-sm">
+                          {slot.imageUrl.match(/\.(mp4|webm|mov|avi|3gp)($|\?)/i) ? (
+                            <div className="grid h-16 w-16 place-items-center rounded-xl bg-indigo-500/10 text-indigo-500">
+                              <Video className="h-8 w-8" />
+                            </div>
+                          ) : slot.imageUrl.match(/\.(pdf|doc|docx|xls|xlsx|txt)($|\?)/i) ? (
+                            <div className="grid h-16 w-16 place-items-center rounded-xl bg-amber-500/10 text-amber-500">
+                              <FileText className="h-8 w-8" />
+                            </div>
+                          ) : (
+                            <img
+                              src={resolveMediaUrl(slot.imageUrl)}
+                              alt="Attached"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                              className="h-20 w-auto rounded-xl object-cover border border-base-c"
+                            />
+                          )}
+                          <span className="text-[11px] font-mono text-secondary-c max-w-[200px] truncate">{slot.imageUrl}</span>
                           <button
                             onClick={() => removeImage(idx)}
                             className="absolute -right-2 -top-2 grid h-6 w-6 place-items-center rounded-full bg-danger-500 text-white shadow-md hover:bg-danger-600 transition-colors"
@@ -236,16 +261,16 @@ export function QuickResponsesPanel() {
                         <label className="flex cursor-pointer items-center justify-center gap-2 rounded-xl2 border-2 border-dashed border-base-c bg-slate-50 dark:bg-ink-900 px-4 py-5 text-sm text-muted-c hover:border-primary-400 hover:text-primary-600 transition-colors">
                           {uploadingIdx === idx
                             ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
-                            : <><Camera className="h-4 w-4" /> Upload Image</>}
+                            : <><Upload className="h-4 w-4" /> Upload Media / Document (Max 50MB)</>}
                           <input
                             ref={(el) => { fileRefs.current[idx] = el; }}
                             type="file"
-                            accept="image/*"
+                            accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
                             className="sr-only"
                             disabled={uploadingIdx !== null}
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleImageUpload(idx, file);
+                              if (file) handleMediaUpload(idx, file);
                             }}
                           />
                         </label>

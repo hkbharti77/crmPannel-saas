@@ -7,6 +7,7 @@ import {
   Plug, LayoutList, ShoppingBag, FormInput, ListTree,
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, ChevronRight,
+  Mail, Bot, SlidersHorizontal, Smartphone,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -24,6 +25,7 @@ import { CustomSubMenusPanel } from './panels/CustomSubMenusPanel';
 import { EmailProvidersPanel } from './panels/EmailProvidersPanel';
 import { QuickResponsesPanel } from './panels/QuickResponsesPanel';
 import { FlowCTAPanel } from './panels/FlowCTAPanel';
+import { WhatsAppFlowsPanel } from './panels/WhatsAppFlowsPanel';
 import { SupportCategoriesPanel } from './panels/AiSystemPanels';
 import { SystemHealthPanel } from './panels/AiSystemPanels';
 import { NeedHelpPanel } from './panels/AiSystemPanels';
@@ -35,7 +37,7 @@ export type SettingsSub =
   | 'account-profile' | 'security' | 'google-calendar' | 'billing'
   | 'branding' | 'dark-mode'
   | 'notifications'
-  | 'menu-buttons' | 'menu-builder'
+  | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
   | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'email-branding'
   | 'quick-responses' | 'flow-cta' | 'broadcast-filter-config'
   | 'support-categories'
@@ -68,7 +70,7 @@ const NAV: NavGroup[] = [
   {
     section: 'Appearance',
     items: [
-      { id: 'branding', label: 'Custom Branding', desc: 'Bot logo and colors', icon: Paintbrush },
+      { id: 'branding', label: 'Brand & Identity', desc: 'Logo, theme, widget & emails', icon: Paintbrush },
       { id: 'dark-mode', label: 'Dark Mode', desc: 'Toggle light and dark', icon: Moon },
     ],
   },
@@ -82,12 +84,13 @@ const NAV: NavGroup[] = [
     section: 'Configuration',
     items: [
       { id: 'menu-buttons', label: 'Menu & Buttons', desc: 'Customize UI buttons', icon: LayoutList },
+      { id: 'whatsapp-flows', label: 'WhatsApp Flows', desc: 'Native in-app forms', icon: Smartphone },
       { id: 'menu-builder', label: 'Menu Builder', desc: 'Main sidebar cards', icon: LayoutList },
       { id: 'products', label: 'Products & Services', desc: 'Manage catalog', icon: ShoppingBag },
       { id: 'form-fields', label: 'Form Fields', desc: 'WhatsApp form fields', icon: FormInput },
       { id: 'custom-submenus', label: 'Custom Sub-Menus', desc: 'Create custom lists', icon: ListTree },
       { id: 'email-providers', label: 'Email Providers', desc: 'AWS SES, SMTP, Brevo', icon: Plug },
-      { id: 'email-branding', label: 'Email Branding', desc: 'Logo, colors & footer', icon: Paintbrush },
+      { id: 'broadcast-filter-config', label: 'Broadcast CSV Filters', desc: 'Audience column filters', icon: SlidersHorizontal },
       { id: 'quick-responses', label: 'Quick Responses', desc: 'Text & image replies', icon: MessageSquare },
       { id: 'flow-cta', label: 'Flow CTA Buttons', desc: 'Cancel & complete buttons', icon: MousePointerClick },
     ],
@@ -117,17 +120,18 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'security': SecurityPanel,
   'google-calendar': GoogleCalendarPanel,
   'billing': BillingPanel,
-  'branding': CustomBrandingPanel,
+  'branding': () => <CustomBrandingPanel defaultTab="global" />,
   'dark-mode': DarkModePanel,
   'notifications': NotificationsPanel,
   'menu-buttons': MenuButtonsPanel,
+  'whatsapp-flows': WhatsAppFlowsPanel,
   'menu-builder': MenuBuilderPanel,
   'products': ProductsServicesPanel,
   'form-fields': FormFieldsPanel,
   'custom-submenus': CustomSubMenusPanel,
   'email-templates': () => <Navigate to="/emails?tab=templates" replace />,
   'email-providers': EmailProvidersPanel,
-  'email-branding': EmailBrandingPanel,
+  'email-branding': () => <CustomBrandingPanel defaultTab="email" />,
   'quick-responses': QuickResponsesPanel,
   'flow-cta': FlowCTAPanel,
   'broadcast-filter-config': BroadcastFilterConfigPanel,
@@ -137,11 +141,13 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
 };
 
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAccess } from '@/context/TenantEntitlementsContext';
 
 export function SettingsView() {
   const { tab } = useParams<{ tab: string }>();
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
+  const { hasSettingsAccess } = useAccess();
   const active = (tab as SettingsSub) || 'account-profile';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -160,10 +166,14 @@ export function SettingsView() {
     return () => window.removeEventListener('switchSettingsTab', handleSwitchTab);
   }, [setActive]);
 
-  // Filter NAV items dynamically based on permissions
+  // Filter NAV items dynamically based on Tenant Entitlements and User RBAC
   const filteredNav: NavGroup[] = NAV.map((group) => ({
     ...group,
     items: group.items.filter((item) => {
+      // 1. Tenant Entitlement check (Super Admin Platform-Level control)
+      if (!hasSettingsAccess(item.id)) return false;
+
+      // 2. User RBAC Permission checks
       if (item.id === 'billing' && !hasPermission('SETTINGS_BILLING')) return false;
       if (item.id === 'account-profile' && !hasPermission('SETTINGS_PROFILE')) return false;
       return true;

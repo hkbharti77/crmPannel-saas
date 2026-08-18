@@ -21,6 +21,8 @@ interface WhatsAppMenuConfig {
   menuType?: string;
 }
 
+import { fetchWhatsAppFlows, WhatsAppFlowItem } from '@/lib/whatsappFlowsApi';
+
 interface TriggerLabels {
   subCategory?: string;
   triggerButtonLabel?: string;
@@ -369,17 +371,26 @@ export function MenuButtonsPanel() {
   const [showAppointmentFlow, setShowAppointmentFlow] = useState(true);
   const [showBookingFlow, setShowBookingFlow] = useState(true);
 
+  const [customSubMenusList, setCustomSubMenusList] = useState<{ id: string; triggerLabel: string }[]>([]);
+  const [quickResponsesList, setQuickResponsesList] = useState<{ id: string; internalName: string }[]>([]);
+  const [publishedFlowsList, setPublishedFlowsList] = useState<WhatsAppFlowItem[]>([]);
+
   useEffect(() => { loadAll(); }, []);
 
   const loadAll = async () => {
     setLoading(true);
-    const [configRes, triggerRes, featureRes, profileRes] = await Promise.all([
-      apiFetch<WhatsAppMenuConfig>('/api/v1/whatsapp-config'),
+    const [configRes, triggerRes, featureRes, profileRes, flowsRes] = await Promise.all([
+      apiFetch<WhatsAppMenuConfig & { customSubMenusJson?: string; customMessagesJson?: string }>('/api/v1/whatsapp-config'),
       apiFetch<TriggerLabels>('/api/v1/flow-config/trigger-labels'),
       apiFetch<FeatureLabels>('/api/v1/whatsapp-config/feature-labels'),
       fetchCurrentUserProfile(),
+      fetchWhatsAppFlows(),
     ]);
     setLoading(false);
+
+    if (flowsRes.data) {
+      setPublishedFlowsList(flowsRes.data.filter(f => f.status === 'PUBLISHED'));
+    }
 
     if (profileRes.data) {
       setShowAppointmentFlow(profileRes.data.forceShowAppointment ?? true);
@@ -388,25 +399,75 @@ export function MenuButtonsPanel() {
 
     if (configRes.data) {
       const d = configRes.data;
-      setWelcomeMessage(d.welcomeMessage || '');
-      setReturningMessage(d.returningMessage || '');
-      setShowAboutContact(d.showAboutContact ?? false);
-      setShowSosButton(d.showSosButton ?? false);
-      setShowSupportFormButton(d.showSupportFormButton ?? false);
+      setWelcomeMessage(d.welcomeMessage || 'Hello {{name}}! Welcome to {{business}}. How can we assist you today?');
+      setReturningMessage(d.returningMessage || 'Welcome back {{name}}! Great to see you again at {{business}}. Choose an option below:');
+      setShowAboutContact(d.showAboutContact ?? true);
+      setShowSosButton(d.showSosButton ?? true);
+      setShowSupportFormButton(d.showSupportFormButton ?? true);
       setSosNote(d.sosNote || '');
       if (d.menuType === 'button' || d.menuType === 'list') setMenuType(d.menuType);
+
+      if (d.customSubMenusJson) {
+        try {
+          const parsed = JSON.parse(d.customSubMenusJson);
+          if (Array.isArray(parsed)) {
+            setCustomSubMenusList(parsed.map((s, i) => ({
+              id: s.id || `custom_list_${i + 1}`,
+              triggerLabel: s.triggerLabel || s.headerTitle || `Custom Menu ${i + 1}`,
+            })));
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (d.customMessagesJson) {
+        try {
+          const parsed = JSON.parse(d.customMessagesJson);
+          if (Array.isArray(parsed)) {
+            setQuickResponsesList(parsed.map((m, i) => ({
+              id: m.id || `custom_msg_${i + 1}`,
+              internalName: m.internalName || m.shortcut || `Quick Response ${i + 1}`,
+            })));
+          }
+        } catch { /* ignore */ }
+      }
+
       if (d.interactiveMenuJson) {
         try {
           const parsed = JSON.parse(d.interactiveMenuJson);
-          const rows: Record<string, unknown>[] = parsed?.action?.sections?.[0]?.rows || parsed?.action?.buttons || [];
-          if (rows.length > 0) {
-            setMenuItems(rows.map((r: Record<string, unknown>, i: number) => ({
-              id: (r.id as string) || `slot_${i}`,
-              title: (r.title as string) || (r.reply as { title?: string })?.title || '',
-              desc: (r.description as string) || '',
-              isCatalog: false,
-              customListId: (r.customListId as string) || '',
-            })));
+          if (parsed?.type === 'button' || parsed?.type === 'list') {
+            setMenuType(parsed.type);
+          }
+          const rawRows: Record<string, unknown>[] = 
+            parsed?.action?.sections?.[0]?.rows || 
+            parsed?.sections?.[0]?.rows || 
+            parsed?.action?.buttons || 
+            parsed?.buttons || [];
+          
+          if (rawRows.length > 0) {
+            const manualRows = rawRows.filter((r: Record<string, unknown>) => {
+              const id = (r.id as string) || (r.reply as { id?: string })?.id || '';
+              return !id.startsWith('trigger_');
+            });
+
+            const loadedSlots = Array.from({ length: 5 }, (_, i) => {
+              const r = manualRows[i];
+              if (!r) return { id: `slot_${i}`, title: '', desc: '', isCatalog: false, customListId: '' };
+              const replyObj = r.reply as { id?: string; title?: string } | undefined;
+              const slotId = (r.id as string) || replyObj?.id || `slot_${i}`;
+              const isCatalog = slotId === 'view_services' || (r.isCatalog as boolean) || false;
+              let customListId = (r.customListId as string) || '';
+              if (!isCatalog && (slotId.startsWith('custom_list_') || slotId.startsWith('custom_msg_'))) {
+                customListId = slotId;
+              }
+              return {
+                id: slotId,
+                title: (r.title as string) || replyObj?.title || '',
+                desc: (r.description as string) || '',
+                isCatalog: isCatalog,
+                customListId: customListId,
+              };
+            });
+            setMenuItems(loadedSlots);
           }
         } catch { /* ignore */ }
       }
@@ -460,14 +521,18 @@ export function MenuButtonsPanel() {
   };
 
   const buildMenuJson = () => {
-    const visible = menuItems.slice(0, maxManualSlots).filter(it => it.title.trim());
+    const visible = menuItems.slice(0, maxManualSlots).filter(it => it.title.trim() || it.isCatalog || it.customListId);
     if (menuType === 'button') {
       return JSON.stringify({
         type: 'button',
         action: {
           buttons: [
             ...activeFlows.map((f, i) => ({ type: 'reply', reply: { id: `trigger_${i}`, title: f.substring(0, 20) } })),
-            ...visible.map(it => ({ type: 'reply', reply: { id: it.id, title: it.title.substring(0, 20) } })),
+            ...visible.map(it => {
+              const rowId = it.isCatalog ? 'view_services' : (it.customListId || it.id || 'slot');
+              const rowTitle = (it.title.trim() || (it.isCatalog ? 'Our Services' : 'Option')).substring(0, 20);
+              return { type: 'reply', reply: { id: rowId, title: rowTitle } };
+            }),
           ],
         },
       });
@@ -480,12 +545,17 @@ export function MenuButtonsPanel() {
           title: 'Menu',
           rows: [
             ...activeFlows.map((f, i) => ({ id: `trigger_${i}`, title: f.substring(0, 24), description: 'Start booking/enquiry flow' })),
-            ...visible.map(it => ({
-              id: it.id,
-              title: it.title.substring(0, 24),
-              description: (it.desc || '').substring(0, 72),
-              ...(it.customListId ? { customListId: it.customListId } : {}),
-            })),
+            ...visible.map(it => {
+              const rowId = it.isCatalog ? 'view_services' : (it.customListId || it.id || 'slot');
+              const rowTitle = (it.title.trim() || (it.isCatalog ? 'Our Services' : 'Option')).substring(0, 24);
+              const rowDesc = (it.desc || (it.isCatalog ? 'Explore our catalog & services' : '')).substring(0, 72);
+              return {
+                id: rowId,
+                title: rowTitle,
+                description: rowDesc,
+                ...(it.customListId ? { customListId: it.customListId } : {}),
+              };
+            }),
           ],
         }],
       },
@@ -831,67 +901,129 @@ export function MenuButtonsPanel() {
                 <div className="grid grid-cols-2 gap-2">
                   {/* Link Catalog */}
                   <button
-                    onClick={() => editingLayout && updateItem(idx, { isCatalog: !item.isCatalog, customListId: '' })}
-                    disabled={!editingLayout}
+                    type="button"
+                    onClick={() => {
+                      setEditingLayout(true);
+                      const nextIsCatalog = !item.isCatalog;
+                      updateItem(idx, {
+                        isCatalog: nextIsCatalog,
+                        customListId: '',
+                        title: nextIsCatalog && !item.title.trim() ? '🛍️ Our Services' : item.title,
+                      });
+                    }}
                     className={cx(
-                      'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all disabled:opacity-50',
+                      'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all',
                       item.isCatalog
-                        ? 'border-primary-500/40 bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                        : 'border-base-c text-secondary-c hover:border-primary-500/20',
+                        ? 'border-primary-500 bg-primary-500/15 text-primary-600 dark:text-primary-400 shadow-sm ring-1 ring-primary-500/20'
+                        : 'border-base-c text-secondary-c hover:border-primary-500/30 hover:bg-slate-50 dark:hover:bg-ink-800',
                     )}
                   >
                     <ShoppingBag className="h-3.5 w-3.5" />
-                    {item.isCatalog ? 'Catalog' : 'Link Catalog'}
+                    {item.isCatalog ? 'Catalog Linked ✓' : 'Link Catalog'}
                   </button>
 
                   {/* Link Action dropdown */}
                   <div className="relative">
                     <button
-                      onClick={() => editingLayout && setActionMenuOpen(actionMenuOpen === idx ? null : idx)}
-                      disabled={!editingLayout}
+                      type="button"
+                      onClick={() => {
+                        setEditingLayout(true);
+                        setActionMenuOpen(actionMenuOpen === idx ? null : idx);
+                      }}
                       className={cx(
-                        'flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all disabled:opacity-50',
+                        'flex w-full items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition-all',
                         item.customListId
-                          ? 'border-primary-500/40 bg-primary-500/10 text-primary-600 dark:text-primary-400'
-                          : 'border-base-c text-secondary-c hover:border-primary-500/20',
+                          ? 'border-primary-500 bg-primary-500/15 text-primary-600 dark:text-primary-400 shadow-sm ring-1 ring-primary-500/20'
+                          : 'border-base-c text-secondary-c hover:border-primary-500/30 hover:bg-slate-50 dark:hover:bg-ink-800',
                       )}
                     >
                       <ListTree className="h-3.5 w-3.5" />
                       {item.customListId
-                        ? item.customListId.startsWith('custom_list') ? 'Linked List' : 'Quick Response'
+                        ? item.customListId.startsWith('flow_')
+                          ? `Flow: ${publishedFlowsList.find(f => f.id === item.customListId.replace('flow_', ''))?.name || 'WhatsApp Form'}`
+                          : item.customListId.startsWith('custom_list') 
+                            ? `Menu: ${customSubMenusList.find(s => s.id === item.customListId)?.triggerLabel || item.customListId.replace('custom_list_', 'Sub-Menu ')}` 
+                            : `Reply: ${quickResponsesList.find(q => q.id === item.customListId)?.internalName || item.customListId.replace('custom_msg_', 'Response ')}`
                         : 'Link Action'}
                     </button>
 
                     {actionMenuOpen === idx && (
-                      <div className="absolute left-0 top-full z-20 mt-1 w-52 overflow-hidden rounded-xl2 border border-base-c bg-card-c shadow-soft-lg">
+                      <div className="absolute left-0 top-full z-30 mt-1 max-h-64 w-64 overflow-y-auto rounded-xl2 border border-base-c bg-card-c shadow-soft-lg ring-1 ring-black/5">
                         <div className="p-1">
-                          <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-c">Custom Lists</p>
-                          {[1, 2, 3, 4].map(n => (
+                          {/* WhatsApp Flows */}
+                          {publishedFlowsList.length > 0 && (
+                            <>
+                              <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                WhatsApp Flows (Forms)
+                              </p>
+                              {publishedFlowsList.map(flow => (
+                                <button
+                                  key={flow.id}
+                                  type="button"
+                                  onClick={() => {
+                                    updateItem(idx, {
+                                      isCatalog: false,
+                                      customListId: `flow_${flow.id}`,
+                                      title: !item.title.trim() ? flow.name : item.title,
+                                    });
+                                    setActionMenuOpen(null);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-primary-c hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:bg-ink-800"
+                                >
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                  <span className="truncate">{flow.name}</span>
+                                </button>
+                              ))}
+                              <div className="my-1 border-t border-base-c" />
+                            </>
+                          )}
+
+                          <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-c">Custom Sub-Menus</p>
+                          {(customSubMenusList.length > 0 ? customSubMenusList : [1, 2, 3, 4].map(n => ({ id: `custom_list_${n}`, triggerLabel: `Custom Menu ${n}` }))).map(sub => (
                             <button
-                              key={n}
-                              onClick={() => { updateItem(idx, { isCatalog: false, customListId: `custom_list_${n}` }); setActionMenuOpen(null); }}
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-primary-c hover:bg-slate-50 dark:hover:bg-ink-800"
+                              key={sub.id}
+                              type="button"
+                              onClick={() => {
+                                updateItem(idx, {
+                                  isCatalog: false,
+                                  customListId: sub.id,
+                                  title: !item.title.trim() ? sub.triggerLabel : item.title,
+                                });
+                                setActionMenuOpen(null);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-primary-c hover:bg-primary-500/10 hover:text-primary-600 dark:hover:bg-ink-800"
                             >
-                              <ListTree className="h-3.5 w-3.5 text-muted-c" /> Custom Menu {n}
+                              <ListTree className="h-3.5 w-3.5 text-primary-500" />
+                              <span className="truncate">{sub.triggerLabel}</span>
                             </button>
                           ))}
                           <div className="my-1 border-t border-base-c" />
                           <p className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-c">Quick Responses</p>
-                          {[1, 2, 3, 4, 5, 6].map(n => (
+                          {(quickResponsesList.length > 0 ? quickResponsesList : [1, 2, 3, 4, 5, 6].map(n => ({ id: `custom_msg_${n}`, internalName: `Quick Response ${n}` }))).map(qr => (
                             <button
-                              key={n}
-                              onClick={() => { updateItem(idx, { isCatalog: false, customListId: `custom_msg_${n}` }); setActionMenuOpen(null); }}
-                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-primary-c hover:bg-slate-50 dark:hover:bg-ink-800"
+                              key={qr.id}
+                              type="button"
+                              onClick={() => {
+                                updateItem(idx, {
+                                  isCatalog: false,
+                                  customListId: qr.id,
+                                  title: !item.title.trim() ? qr.internalName : item.title,
+                                });
+                                setActionMenuOpen(null);
+                              }}
+                              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-primary-c hover:bg-primary-500/10 hover:text-primary-600 dark:hover:bg-ink-800"
                             >
-                              <MessageSquare className="h-3.5 w-3.5 text-muted-c" /> Quick Response {n}
+                              <MessageSquare className="h-3.5 w-3.5 text-primary-500" />
+                              <span className="truncate">{qr.internalName}</span>
                             </button>
                           ))}
                           <div className="my-1 border-t border-base-c" />
                           <button
+                            type="button"
                             onClick={() => { updateItem(idx, { customListId: '' }); setActionMenuOpen(null); }}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-danger-600 hover:bg-danger-500/10"
+                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-danger-600 hover:bg-danger-500/10"
                           >
-                            <X className="h-3.5 w-3.5" /> None
+                            <X className="h-3.5 w-3.5" /> Clear Link
                           </button>
                         </div>
                       </div>

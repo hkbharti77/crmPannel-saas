@@ -26,13 +26,13 @@ export type AdminViewId =
   | 'settings'
   | 'templates';
 
-export const ADMIN_NAV_ITEMS: { id: AdminViewId; label: string; icon: LucideIcon; badge?: string }[] = [
+export const ADMIN_NAV_ITEMS: { id: AdminViewId; label: string; icon: LucideIcon }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-  { id: 'tenants', label: 'Tenants', icon: Building2, badge: '24' },
+  { id: 'tenants', label: 'Tenants', icon: Building2 },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
   { id: 'health', label: 'Health', icon: HeartPulse },
   { id: 'audit', label: 'Audit Log', icon: Shield },
-  { id: 'tickets', label: 'Tickets', icon: Ticket, badge: '7' },
+  { id: 'tickets', label: 'Tickets', icon: Ticket },
   { id: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
   { id: 'users', label: 'Users', icon: Users },
   { id: 'search', label: 'Search', icon: Search },

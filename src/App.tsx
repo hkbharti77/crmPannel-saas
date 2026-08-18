@@ -1,5 +1,7 @@
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { TenantEntitlementsProvider } from '@/context/TenantEntitlementsContext';
+import { TenantRouteGuard } from '@/components/auth/TenantRouteGuard';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { SessionManager } from '@/components/auth/SessionManager';
@@ -30,17 +32,29 @@ import { NotFoundView } from '@/components/notfound/NotFoundView';
 import { AdminShell } from '@/components/admin/AdminShell';
 import { AdminOverview } from '@/components/admin/pages/AdminOverview';
 import { AdminTenants } from '@/components/admin/pages/AdminTenants';
+import { AdminTenantDetail } from '@/components/admin/pages/AdminTenantDetail';
+import { AdminTenantEntitlements } from '@/components/admin/pages/AdminTenantEntitlements';
 import { AdminAnalytics } from '@/components/admin/pages/AdminAnalytics';
 import { AdminHealth } from '@/components/admin/pages/AdminHealth';
 import { AdminAudit } from '@/components/admin/pages/AdminAudit';
 import { AdminTickets } from '@/components/admin/pages/AdminTickets';
 import { AdminSubscriptions } from '@/components/admin/pages/AdminSubscriptions';
 import { AdminUsers } from '@/components/admin/pages/AdminUsers';
+import { AdminUserDetail } from '@/components/admin/pages/AdminUserDetail';
 import { AdminSearch } from '@/components/admin/pages/AdminSearch';
 import { AdminSettings } from '@/components/admin/pages/AdminSettings';
 import { AdminTemplates } from '@/components/admin/pages/AdminTemplates';
+import { OnboardingScreen } from '@/components/onboarding/OnboardingScreen';
 
-function ProtectedRoute({ children, adminOnly = false }: { children: React.ReactNode; adminOnly?: boolean }) {
+function ProtectedRoute({
+  children,
+  adminOnly = false,
+  allowPendingOnboarding = false,
+}: {
+  children: React.ReactNode;
+  adminOnly?: boolean;
+  allowPendingOnboarding?: boolean;
+}) {
   const { user, loading } = useAuth();
   
   if (loading) {
@@ -56,28 +70,50 @@ function ProtectedRoute({ children, adminOnly = false }: { children: React.React
     return <Navigate to="/login" replace />;
   }
 
+  const roleUpper = (user?.role || '').toUpperCase();
+  const isSuperAdmin =
+    user?.isSuperAdmin === true ||
+    roleUpper === 'SUPER_ADMIN' ||
+    roleUpper === 'PLATFORM_ADMIN' ||
+    user?.email?.toLowerCase() === 'gyanvaniai@gmail.com' ||
+    user?.email?.toLowerCase().startsWith('superadmin');
+
   if (adminOnly) {
-    const roleUpper = (user?.role || '').toUpperCase();
-    const isSuperAdmin =
-      user?.isSuperAdmin === true ||
-      roleUpper === 'SUPER_ADMIN' ||
-      roleUpper === 'PLATFORM_ADMIN' ||
-      user?.email?.toLowerCase() === 'gyanvaniai@gmail.com' ||
-      user?.email?.toLowerCase().startsWith('superadmin');
-      
     if (!isSuperAdmin) {
       return <Navigate to="/" replace />;
     }
+    return <>{children}</>;
+  }
+
+  // If user is a regular tenant user and onboarding is pending, redirect to /onboarding
+  if (!isSuperAdmin && user.onboardingCompleted === false && !allowPendingOnboarding) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
 }
 
 function AppContent() {
+  const { user } = useAuth();
+
   return (
     <Routes>
       <Route path="/login" element={<AuthScreen initialMode="login" />} />
       <Route path="/signup" element={<AuthScreen initialMode="signup" />} />
+
+      {/* 5-Step Onboarding Route */}
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute allowPendingOnboarding>
+            {user && !user.isSuperAdmin && user.onboardingCompleted === true ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <OnboardingScreen />
+            )}
+          </ProtectedRoute>
+        }
+      />
       
       {/* Admin Routes */}
       <Route 
@@ -91,18 +127,21 @@ function AppContent() {
         <Route index element={<Navigate to="/admin/overview" replace />} />
         <Route path="overview" element={<AdminOverview />} />
         <Route path="tenants" element={<AdminTenants />} />
+        <Route path="tenants/:tenantId" element={<AdminTenantDetail />} />
+        <Route path="tenants/:tenantId/entitlements" element={<AdminTenantEntitlements />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="health" element={<AdminHealth />} />
         <Route path="audit" element={<AdminAudit />} />
         <Route path="tickets" element={<AdminTickets />} />
         <Route path="subscriptions" element={<AdminSubscriptions />} />
         <Route path="users" element={<AdminUsers />} />
+        <Route path="users/:userId" element={<AdminUserDetail />} />
         <Route path="search" element={<AdminSearch />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="templates" element={<AdminTemplates />} />
       </Route>
 
-      {/* CRM Routes */}
+      {/* CRM Routes with Tenant Entitlement & User Permission Guards */}
       <Route 
         path="/" 
         element={
@@ -112,33 +151,180 @@ function AppContent() {
         }
       >
         <Route index element={<Navigate to="/dashboard" replace />} />
-        <Route path="dashboard" element={<DashboardView />} />
-        <Route path="inbox" element={<InboxView />} />
-        <Route path="chatroom/:contactId?" element={<ChatRoomView />} />
-        <Route path="pipeline" element={<PipelineView />} />
-        <Route path="leaddetail/:leadId?" element={<LeadDetailView />} />
+        <Route
+          path="dashboard"
+          element={
+            <TenantRouteGuard pageKey="PAGE_DASHBOARD">
+              <DashboardView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="inbox"
+          element={
+            <TenantRouteGuard pageKey="PAGE_INBOX" userPerm="MODULE_INBOX">
+              <InboxView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="chatroom/:contactId?"
+          element={
+            <TenantRouteGuard pageKey="PAGE_CHATROOM" userPerm="MODULE_INBOX">
+              <ChatRoomView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="pipeline"
+          element={
+            <TenantRouteGuard pageKey="PAGE_PIPELINE" userPerm="MODULE_LEADS">
+              <PipelineView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="leaddetail/:leadId?"
+          element={
+            <TenantRouteGuard pageKey="PAGE_PIPELINE" userPerm="MODULE_LEADS">
+              <LeadDetailView />
+            </TenantRouteGuard>
+          }
+        />
         <Route path="broadcasts">
-          <Route index element={<BroadcastsView />} />
-          <Route path="create" element={<CreateBroadcastView />} />
-          <Route path="create-template" element={<CreateTemplateView />} />
+          <Route
+            index
+            element={
+              <TenantRouteGuard pageKey="PAGE_BROADCASTS" userPerm="MODULE_CAMPAIGNS">
+                <BroadcastsView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path="create"
+            element={
+              <TenantRouteGuard pageKey="PAGE_BROADCASTS" userPerm="MODULE_CAMPAIGNS">
+                <CreateBroadcastView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path="create-template"
+            element={
+              <TenantRouteGuard pageKey="PAGE_BROADCASTS" userPerm="MODULE_CAMPAIGNS">
+                <CreateTemplateView />
+              </TenantRouteGuard>
+            }
+          />
         </Route>
-        <Route path="meta-config" element={<MetaConfigView />} />
-        <Route path="knowledge-base" element={<KnowledgeBaseView />} />
-        <Route path="appointments" element={<AppointmentsView />} />
-        <Route path="booking" element={<BookingView />} />
-        <Route path="tickets" element={<TicketsView />} />
+        <Route
+          path="meta-config"
+          element={
+            <TenantRouteGuard pageKey="PAGE_META_CONFIG" userPerm="SETTINGS_WHATSAPP">
+              <MetaConfigView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="knowledge-base"
+          element={
+            <TenantRouteGuard pageKey="PAGE_KNOWLEDGE_BASE">
+              <KnowledgeBaseView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="appointments"
+          element={
+            <TenantRouteGuard pageKey="PAGE_APPOINTMENTS">
+              <AppointmentsView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="booking"
+          element={
+            <TenantRouteGuard pageKey="PAGE_BOOKING">
+              <BookingView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="tickets"
+          element={
+            <TenantRouteGuard pageKey="PAGE_TICKETS">
+              <TicketsView />
+            </TenantRouteGuard>
+          }
+        />
         <Route path="emails">
-          <Route index element={<EmailsView />} />
-          <Route path="create" element={<CreateEmailCampaignView />} />
+          <Route
+            index
+            element={
+              <TenantRouteGuard pageKey="PAGE_EMAILS">
+                <EmailsView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path="create"
+            element={
+              <TenantRouteGuard pageKey="PAGE_EMAILS">
+                <CreateEmailCampaignView />
+              </TenantRouteGuard>
+            }
+          />
         </Route>
-        <Route path="properties" element={<PropertiesView />} />
-        <Route path="reports" element={<ReportsView />} />
-        <Route path="team" element={<TeamView />} />
+        <Route
+          path="properties"
+          element={
+            <TenantRouteGuard pageKey="PAGE_PROPERTIES">
+              <PropertiesView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="reports"
+          element={
+            <TenantRouteGuard pageKey="PAGE_REPORTS" userPerm="MODULE_ANALYTICS">
+              <ReportsView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
+          path="team"
+          element={
+            <TenantRouteGuard pageKey="PAGE_TEAM" userPerm="MODULE_TEAM">
+              <TeamView />
+            </TenantRouteGuard>
+          }
+        />
         <Route path="contacts">
-          <Route index element={<ContactsView />} />
-          <Route path=":contactId" element={<ContactDetailView />} />
+          <Route
+            index
+            element={
+              <TenantRouteGuard pageKey="PAGE_CONTACTS">
+                <ContactsView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path=":contactId"
+            element={
+              <TenantRouteGuard pageKey="PAGE_CONTACTS">
+                <ContactDetailView />
+              </TenantRouteGuard>
+            }
+          />
         </Route>
-        <Route path="settings/:tab?" element={<SettingsView />} />
+        <Route
+          path="settings/:tab?"
+          element={
+            <TenantRouteGuard pageKey="SETTINGS_PROFILE" userPerm="MODULE_SETTINGS">
+              <SettingsView />
+            </TenantRouteGuard>
+          }
+        />
       </Route>
       
       {/* Catch all */}
@@ -151,10 +337,12 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <SessionManager />
-          <AppContent />
-        </BrowserRouter>
+        <TenantEntitlementsProvider>
+          <BrowserRouter>
+            <SessionManager />
+            <AppContent />
+          </BrowserRouter>
+        </TenantEntitlementsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

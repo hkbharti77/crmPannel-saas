@@ -160,8 +160,9 @@ export function KnowledgeBaseView() {
     try {
       const token = localStorage.getItem('crmlite_token') || '';
       const tenantId = localStorage.getItem('crmlite_tenant_id') || '';
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
-      const res = await fetch('http://localhost:8080/api/v1/rag/upload', {
+      const res = await fetch(`${baseUrl}/api/v1/rag/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -211,7 +212,8 @@ export function KnowledgeBaseView() {
 
   const handleDownloadDocument = (docId: string) => {
     const token = localStorage.getItem('crmlite_token') || '';
-    window.open(`http://localhost:8080/api/v1/rag/documents/${docId}/download?access_token=${token}`, '_blank');
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+    window.open(`${baseUrl}/api/v1/rag/documents/${docId}/download?access_token=${token}`, '_blank');
   };
 
   const personaDirty = personaPrompt !== savedPersona;

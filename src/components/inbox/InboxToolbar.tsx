@@ -13,7 +13,7 @@ import {
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
 export type ChannelId = 'whatsapp' | 'webchat';
-export type FilterId = 'all' | 'unread' | 'bot' | 'vip' | 'mine';
+export type FilterId = 'all' | 'unread' | 'unassigned' | 'bot' | 'vip' | 'mine';
 
 type FilterTab = {
   id: FilterId;
@@ -42,6 +42,7 @@ export function InboxToolbar({
   const filters: FilterTab[] = [
     { id: 'all', label: 'All', icon: InboxIcon, count: counts.all },
     { id: 'unread', label: 'Unread', icon: Filter, count: counts.unread },
+    { id: 'unassigned', label: 'Unassigned Pool', icon: Users, count: counts.unassigned || 0 },
     { id: 'bot', label: 'Bot Handled', icon: Bot, count: counts.bot },
     { id: 'vip', label: 'VIP', icon: Star, count: counts.vip },
     { id: 'mine', label: 'Assigned to me', icon: Users, count: counts.mine },

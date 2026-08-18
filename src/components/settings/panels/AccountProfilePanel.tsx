@@ -17,7 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 /* ─── Account Profile Panel ─── */
 export function AccountProfilePanel() {
   const { user } = useAuth();
-  
+
   // Profile fields
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,7 +36,7 @@ export function AccountProfilePanel() {
   // Business Information fields dropdown selection
   const [businessCategory, setBusinessCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
-  
+
   // App Modules Toggles
   const [forceShowLeads, setForceShowLeads] = useState(true);
   const [forceShowAppointment, setForceShowAppointment] = useState(true);
@@ -69,7 +69,7 @@ export function AccountProfilePanel() {
 
   useEffect(() => {
     setLoading(true);
-    
+
     // Fetch categories dropdown data, timezones, countries & profile from backend API in parallel
     Promise.all([
       fetchBusinessCategories(),
@@ -204,7 +204,7 @@ export function AccountProfilePanel() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
 
   const snippetCode = `<link rel="stylesheet" href="${apiBase}/styles.css">
 <script src="${apiBase}/chat-widget.js"
@@ -260,7 +260,7 @@ export function AccountProfilePanel() {
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <InputField label="Full Name" icon={User} value={name} onChange={setName} />
-          <InputField label="Email (Read-Only)" icon={Mail} value={email} onChange={() => {}} disabled />
+          <InputField label="Email (Read-Only)" icon={Mail} value={email} onChange={() => { }} disabled />
           <InputField label="Phone" icon={Phone} value={phone} onChange={setPhone} />
           <InputField label="City / Address" icon={MapPin} value={city} onChange={setCity} />
         </div>
@@ -442,6 +442,7 @@ export function AccountProfilePanel() {
         </div>
       </SectionCard>
 
+
       {/* App Modules Section Card with Instant Auto-Save */}
       <SectionCard>
         <PanelHeader
@@ -611,7 +612,7 @@ function WidgetDocModal({ businessId, onClose }: { businessId: string; onClose: 
   const [activeTab, setActiveTab] = useState<'html' | 'react' | 'cms' | 'attributes'>('html');
   const [copiedDocSnippet, setCopiedDocSnippet] = useState(false);
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
 
   const htmlSnippet = `<link rel="stylesheet" href="${apiBase}/styles.css">
 <script src="${apiBase}/chat-widget.js"
@@ -704,7 +705,7 @@ export default function RootLayout({ children }) {
 
         {/* Modal Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5 scrollbar-thin">
-          
+
           {/* TAB 1: HTML / JS */}
           {activeTab === 'html' && (
             <div className="space-y-4">

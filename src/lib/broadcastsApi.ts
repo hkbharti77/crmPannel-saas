@@ -270,7 +270,7 @@ export async function uploadCsvForBroadcast(
 ): Promise<{ data: BroadcastCsvUploadResult | null; error: string | null }> {
   const token = localStorage.getItem('crmlite_token');
   const tenantId = localStorage.getItem('crmlite_tenant_id');
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
 
   const formData = new FormData();
   formData.append('file', file);

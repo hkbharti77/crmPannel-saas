@@ -129,7 +129,7 @@ export async function updateLeadStatus(
   if (sendPaymentLink !== undefined) url += `&sendPaymentLink=${sendPaymentLink}`;
   if (paymentMethod !== undefined) url += `&paymentMethod=${encodeURIComponent(paymentMethod)}`;
   if (paymentLinkUrl !== undefined) url += `&paymentLinkUrl=${encodeURIComponent(paymentLinkUrl)}`;
-  
+
   const res = await apiFetch<LeadDTO>(url, {
     method: 'PATCH',
   });
@@ -148,7 +148,7 @@ export async function fetchRevenueReport(): Promise<{ data: RevenueReportDTO | n
 }
 
 export async function downloadLeadsExport(format: 'csv' | 'excel' = 'csv'): Promise<void> {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const token = getAuthToken();
   const tenantId = getTenantId();
 
@@ -202,7 +202,7 @@ export async function fetchLeadAttachments(leadId: string, page = 0, size = 20) 
 }
 
 export async function uploadLeadAttachment(leadId: string, file: File) {
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
   const token = getAuthToken();
   const tenantId = getTenantId();
 
