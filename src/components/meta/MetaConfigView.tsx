@@ -35,7 +35,7 @@ const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '1052344107323702'
 export function MetaConfigView() {
   const [activeTab, setActiveTab] = useState<'legacy' | 'embedded'>('legacy');
   const [config, setConfig] = useState<WhatsAppConfigDto | null>(null);
-  
+
   // Legacy Cloud API state
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [wabaId, setWabaId] = useState('');
@@ -196,7 +196,7 @@ export function MetaConfigView() {
       if (sessionRes.data?.launcherUrl && sessionRes.data.launcherUrl.startsWith('http')) {
         targetUrl = sessionRes.data.launcherUrl;
       } else {
-        const backendBase = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/$/, '');
+        const backendBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
         targetUrl = `${backendBase}/api/v1/integrations/meta/gateway/launch`;
       }
 
@@ -267,7 +267,7 @@ export function MetaConfigView() {
     }
   };
 
-  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+  const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '';
   const webhookUrl = `${apiBaseUrl}/api/v1/webhook/whatsapp`;
 
   const copyWebhookUrl = () => {

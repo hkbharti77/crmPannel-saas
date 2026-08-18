@@ -8,7 +8,7 @@ import {
 import { PanelHeader, SectionCard } from './_shared';
 import { apiFetch } from '@/lib/api';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 function resolveMediaUrl(url?: string): string {
   if (!url) return '';
@@ -75,7 +75,8 @@ export function CustomSubMenusPanel() {
   // Ref for hidden file inputs (one per item + one for header)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  useEffect(() => { loadSubMenus(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadSubMenus(); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toast = (msg: string, isErr = false) => {

@@ -7,7 +7,7 @@ import {
 import { PanelHeader, SectionCard } from './_shared';
 import { apiFetch, getAuthToken, getTenantId } from '@/lib/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 const MAX_SLOTS = 6;
 
 function resolveMediaUrl(url?: string): string {

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 export function getAuthToken(): string | null {
   return localStorage.getItem('crmlite_token');
@@ -149,7 +149,7 @@ export const metaGatewayApi = {
     }>('/api/v1/integrations/meta/gateway/session'),
 
   getLaunchUrl: (token?: string, theme?: string) => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
     const authToken = token || getAuthToken() || '';
     const activeTheme = theme || (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
     return `${baseUrl}/api/v1/integrations/meta/gateway/launch?token=${encodeURIComponent(authToken)}&theme=${encodeURIComponent(activeTheme)}`;

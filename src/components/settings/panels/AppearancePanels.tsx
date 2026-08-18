@@ -152,7 +152,7 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
   const getFullImageUrl = (url: string | null | undefined) => {
     if (!url) return '';
     if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) return url;
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
@@ -903,7 +903,7 @@ export function NotificationsPanel() {
         ))}
       </div>
 
-      <div className="mt-5"><SaveBar onSave={() => {}} /></div>
+      <div className="mt-5"><SaveBar onSave={() => { }} /></div>
     </SectionCard>
   );
 }

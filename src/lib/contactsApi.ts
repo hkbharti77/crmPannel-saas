@@ -133,9 +133,9 @@ export function getExportUrl(search?: string, source?: string, botStatus?: strin
   if (search) params.append('search', search);
   if (source && source !== 'ALL') params.append('source', source);
   if (botStatus && botStatus !== 'ALL') params.append('botStatus', botStatus);
-  
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
-  
+
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+
   // Since this is a direct download link, we can't easily pass the Authorization header via a normal <a> tag.
   // Instead, we can fetch it via apiFetch and trigger download from Blob.
   return `${baseUrl}/api/v1/contacts/export?${params.toString()}`;
@@ -147,11 +147,11 @@ export async function exportContacts(search?: string, source?: string, botStatus
     if (search) params.append('search', search);
     if (source && source !== 'ALL') params.append('source', source);
     if (botStatus && botStatus !== 'ALL') params.append('botStatus', botStatus);
-    
+
     const token = localStorage.getItem('token');
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
     const url = `${baseUrl}/api/v1/contacts/export?${params.toString()}`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -172,7 +172,7 @@ export async function exportContacts(search?: string, source?: string, botStatus
     link.click();
     link.remove();
     window.URL.revokeObjectURL(downloadUrl);
-    
+
     return { error: null };
   } catch (error: unknown) {
     console.error('Error exporting contacts:', error);
