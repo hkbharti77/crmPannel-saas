@@ -136,12 +136,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.location.replace('/login?reason=expired');
     };
 
+    const handleProfileUpdated = () => {
+      const storedToken = getAuthToken();
+      const storedTenant = getTenantId();
+      if (storedToken) {
+        apiFetch<Partial<AuthUser>>('/api/v1/users/me').then(res => {
+          if (!res.error && res.data) {
+            const freshData = res.data;
+            setUser(prev => {
+              if (!prev) return prev;
+              const updated: AuthUser = {
+                ...prev,
+                planType: freshData.planType || prev.planType || 'FREE',
+                role: freshData.role || prev.role,
+                businessName: freshData.businessName || prev.businessName,
+                permissions: freshData.permissions || prev.permissions,
+                permissionVersion: freshData.permissionVersion || prev.permissionVersion,
+              };
+              setAuthSession({ token: storedToken, tenantId: storedTenant, user: updated });
+              return updated;
+            });
+          }
+        });
+      }
+    };
+
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('session-expired', handleSessionExpired);
+    window.addEventListener('profileUpdated', handleProfileUpdated);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('session-expired', handleSessionExpired);
+      window.removeEventListener('profileUpdated', handleProfileUpdated);
     };
   }, []);
 

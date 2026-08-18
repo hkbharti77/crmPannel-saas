@@ -294,7 +294,7 @@ export function MenuBuilderPanel() {
   const loadMenu = async () => {
     setLoading(true);
     const [res, profRes] = await Promise.all([
-      apiFetch<WhatsAppMenuConfig>('/api/v1/whatsapp-config'),
+      apiFetch<{ cards: { title: string; subtitle?: string; icon?: string; actionType?: string; actionPayload?: string }[]; isCustom?: boolean }>('/api/v1/tenant/menu-builder'),
       fetchCurrentUserProfile(),
     ]);
     setLoading(false);
@@ -303,13 +303,15 @@ export function MenuBuilderPanel() {
       setBusinessId(profRes.data.id || profRes.data.tenantId || '');
     }
 
-    if (res.data?.customSubMenusJson) {
-      try {
-        const parsed = JSON.parse(res.data.customSubMenusJson);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setButtons(parsed);
-        }
-      } catch { /* ignore */ }
+    if (res.data?.cards && Array.isArray(res.data.cards) && res.data.cards.length > 0) {
+      setButtons(res.data.cards.map((c, i) => ({
+        id: `btn_${i + 1}`,
+        title: c.title,
+        subtitle: c.subtitle || '',
+        actionType: (c.actionType || 'CATALOG') as MenuBuilderButton['actionType'],
+        icon: c.icon || 'briefcase',
+        url: c.actionPayload || '',
+      })));
     }
   };
 
@@ -317,13 +319,23 @@ export function MenuBuilderPanel() {
     setSaving(true);
     setMessage(null);
     setError(null);
-    const res = await apiFetch('/api/v1/whatsapp-config', {
+    const payload = buttons.map((b, index) => ({
+      section: 'SERVICES',
+      title: b.title.trim() || 'Untitled Option',
+      subtitle: b.subtitle || '',
+      icon: b.icon || 'briefcase',
+      actionType: b.actionType || 'CATALOG',
+      actionPayload: b.url || '',
+      displayOrder: index,
+    }));
+
+    const res = await apiFetch('/api/v1/tenant/menu-builder', {
       method: 'POST',
-      body: JSON.stringify({ customSubMenusJson: JSON.stringify(buttons) }),
+      body: JSON.stringify(payload),
     });
     setSaving(false);
     if (!res.error) {
-      setMessage('Chat widget menu saved successfully!');
+      setMessage('Chat widget menu cards saved successfully!');
       setTimeout(() => setMessage(null), 3000);
     } else {
       setError(`Save failed: ${res.error}`);

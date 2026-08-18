@@ -6,7 +6,7 @@ import {
   FileText, Video,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getAuthToken } from '@/lib/api';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
@@ -41,7 +41,7 @@ interface WhatsAppMenuConfig {
 
 /* ── Helper: upload media to Cloudinary backend ── */
 async function uploadMedia(file: File): Promise<string | null> {
-  const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+  const token = getAuthToken() || '';
   const formData = new FormData();
   formData.append('file', file);
   formData.append('folder', 'custom-menus');

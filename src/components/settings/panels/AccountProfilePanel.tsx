@@ -129,6 +129,21 @@ export function AccountProfilePanel() {
         }
       }
     });
+
+    const handleProfileSync = () => {
+      fetchCurrentUserProfile().then((profRes) => {
+        if (profRes.data) {
+          if (profRes.data.forceShowLeads !== undefined) setForceShowLeads(profRes.data.forceShowLeads);
+          if (profRes.data.forceShowAppointment !== undefined) setForceShowAppointment(profRes.data.forceShowAppointment);
+          if (profRes.data.forceShowBooking !== undefined) setForceShowBooking(profRes.data.forceShowBooking);
+        }
+      });
+    };
+
+    window.addEventListener('profileUpdated', handleProfileSync);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileSync);
+    };
   }, [user]);
 
   // Available sub-categories for selected businessCategory
@@ -204,7 +219,8 @@ export function AccountProfilePanel() {
     setTimeout(() => setCopiedId(false), 2000);
   };
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+  const rawApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  const apiBase = rawApiBase || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? `${window.location.origin}` : 'http://localhost:8080');
 
   const snippetCode = `<link rel="stylesheet" href="${apiBase}/styles.css">
 <script src="${apiBase}/chat-widget.js"

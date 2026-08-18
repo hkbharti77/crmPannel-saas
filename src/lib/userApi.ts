@@ -112,3 +112,11 @@ export async function updateSecuritySettings(data: SecuritySettingsRequest) {
     body: JSON.stringify(data),
   });
 }
+
+export async function updateCurrentUserPassword(data: { currentPassword?: string; newPassword: string }) {
+  return apiFetch<{ message: string }>('/api/v1/users/me/password', {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+

@@ -368,6 +368,7 @@ export function MenuButtonsPanel() {
     SUPPORT_FORM: '🎫 Get Support',
   });
 
+  const [showLeadFlow, setShowLeadFlow] = useState(true);
   const [showAppointmentFlow, setShowAppointmentFlow] = useState(true);
   const [showBookingFlow, setShowBookingFlow] = useState(true);
 
@@ -375,7 +376,30 @@ export function MenuButtonsPanel() {
   const [quickResponsesList, setQuickResponsesList] = useState<{ id: string; internalName: string }[]>([]);
   const [publishedFlowsList, setPublishedFlowsList] = useState<WhatsAppFlowItem[]>([]);
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => {
+    loadAll();
+
+    const handleProfileSync = () => {
+      fetchCurrentUserProfile().then((profileRes) => {
+        if (profileRes.data) {
+          if (profileRes.data.forceShowLeads !== undefined) {
+            setShowLeadFlow(profileRes.data.forceShowLeads);
+          }
+          if (profileRes.data.forceShowAppointment !== undefined) {
+            setShowAppointmentFlow(profileRes.data.forceShowAppointment);
+          }
+          if (profileRes.data.forceShowBooking !== undefined) {
+            setShowBookingFlow(profileRes.data.forceShowBooking);
+          }
+        }
+      });
+    };
+
+    window.addEventListener('profileUpdated', handleProfileSync);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileSync);
+    };
+  }, []);
 
   const loadAll = async () => {
     setLoading(true);
@@ -393,6 +417,7 @@ export function MenuButtonsPanel() {
     }
 
     if (profileRes.data) {
+      setShowLeadFlow(profileRes.data.forceShowLeads ?? true);
       setShowAppointmentFlow(profileRes.data.forceShowAppointment ?? true);
       setShowBookingFlow(profileRes.data.forceShowBooking ?? true);
     }
@@ -478,7 +503,7 @@ export function MenuButtonsPanel() {
 
   // Derived slot capacity & active trigger flows
   const activeFlows: string[] = [];
-  activeFlows.push('💻 Enquire Now');
+  if (showLeadFlow) activeFlows.push('💻 Enquire Now');
   if (showAppointmentFlow) activeFlows.push(triggerLabels.triggerListLabel || '🗓️ Book Appointment');
   if (showBookingFlow) activeFlows.push(triggerLabels.triggerButtonLabel || '✂️ Book Service');
 
@@ -503,6 +528,24 @@ export function MenuButtonsPanel() {
     else setError(`Save failed: ${res.error}`);
   };
 
+  const handleToggleLeadFlow = async (val: boolean) => {
+    setShowLeadFlow(val);
+    await updateCurrentUserProfile({ forceShowLeads: val });
+    window.dispatchEvent(new Event('profileUpdated'));
+  };
+
+  const handleToggleAppointmentFlow = async (val: boolean) => {
+    setShowAppointmentFlow(val);
+    await updateCurrentUserProfile({ forceShowAppointment: val });
+    window.dispatchEvent(new Event('profileUpdated'));
+  };
+
+  const handleToggleBookingFlow = async (val: boolean) => {
+    setShowBookingFlow(val);
+    await updateCurrentUserProfile({ forceShowBooking: val });
+    window.dispatchEvent(new Event('profileUpdated'));
+  };
+
   const handleSaveFeatures = async () => {
     setSaving(true); setMessage(null); setError(null);
     const [res] = await Promise.all([
@@ -511,12 +554,18 @@ export function MenuButtonsPanel() {
         body: JSON.stringify({ showAboutContact, showSosButton, showSupportFormButton, sosNote, thirdButtonType }),
       }),
       updateCurrentUserProfile({
+        forceShowLeads: showLeadFlow,
         forceShowAppointment: showAppointmentFlow,
         forceShowBooking: showBookingFlow,
       }),
     ]);
     setSaving(false);
-    if (!res.error) { setMessage('Feature buttons & module settings saved!'); setEditingFeatures(false); setTimeout(() => setMessage(null), 3000); }
+    if (!res.error) {
+      window.dispatchEvent(new Event('profileUpdated'));
+      setMessage('Feature buttons & module settings saved!');
+      setEditingFeatures(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
     else setError(`Save failed: ${res.error}`);
   };
 
@@ -716,6 +765,17 @@ export function MenuButtonsPanel() {
             </div>
           </div>
 
+          {/* Lead Collection & Pipeline Flow Toggle */}
+          <div className="rounded-xl2 border border-base-c p-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-primary-c">🎯 Lead Collection & Pipeline Flow</p>
+                <p className="text-xs text-muted-c">Auto-reserves Fixed Trigger Slot for capturing customer inquiries and lead forms on WhatsApp.</p>
+              </div>
+              <Toggle checked={showLeadFlow} onChange={handleToggleLeadFlow} />
+            </div>
+          </div>
+
           {/* Appointment Flow Toggle */}
           <div className="rounded-xl2 border border-base-c p-3">
             <div className="flex items-start justify-between gap-3">
@@ -723,7 +783,7 @@ export function MenuButtonsPanel() {
                 <p className="text-sm font-bold text-primary-c">🗓️ Appointment Booking Flow</p>
                 <p className="text-xs text-muted-c">Auto-reserves Fixed Trigger Slot for scheduling appointments on WhatsApp.</p>
               </div>
-              <Toggle checked={showAppointmentFlow} onChange={v => { setShowAppointmentFlow(v); setEditingFeatures(true); }} />
+              <Toggle checked={showAppointmentFlow} onChange={handleToggleAppointmentFlow} />
             </div>
           </div>
 
@@ -734,7 +794,7 @@ export function MenuButtonsPanel() {
                 <p className="text-sm font-bold text-primary-c">✂️ Service Booking Flow</p>
                 <p className="text-xs text-muted-c">Auto-reserves Fixed Trigger Slot for booking catalog services on WhatsApp.</p>
               </div>
-              <Toggle checked={showBookingFlow} onChange={v => { setShowBookingFlow(v); setEditingFeatures(true); }} />
+              <Toggle checked={showBookingFlow} onChange={handleToggleBookingFlow} />
             </div>
           </div>
 
@@ -940,7 +1000,7 @@ export function MenuButtonsPanel() {
                       <ListTree className="h-3.5 w-3.5" />
                       {item.customListId
                         ? item.customListId.startsWith('flow_')
-                          ? `Flow: ${publishedFlowsList.find(f => f.id === item.customListId.replace('flow_', ''))?.name || 'WhatsApp Form'}`
+                          ? `Flow: ${publishedFlowsList.find(f => f.id === item.customListId?.replace('flow_', ''))?.name || 'WhatsApp Form'}`
                           : item.customListId.startsWith('custom_list') 
                             ? `Menu: ${customSubMenusList.find(s => s.id === item.customListId)?.triggerLabel || item.customListId.replace('custom_list_', 'Sub-Menu ')}` 
                             : `Reply: ${quickResponsesList.find(q => q.id === item.customListId)?.internalName || item.customListId.replace('custom_msg_', 'Response ')}`
