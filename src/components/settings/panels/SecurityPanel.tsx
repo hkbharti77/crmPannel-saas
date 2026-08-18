@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
-  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle, History, Laptop
+  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle, History, Laptop, Loader2
 } from 'lucide-react';
 import { SectionCard, PanelHeader, FieldRow, Toggle } from './_shared';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
-import { fetchSecurityDashboard, updateSecuritySettings } from '@/lib/userApi';
+import { fetchSecurityDashboard, updateSecuritySettings, updateCurrentUserPassword } from '@/lib/userApi';
 
 /* ─── Security & Privacy Panel ─── */
 export function SecurityPanel() {
@@ -62,21 +62,33 @@ export function SecurityPanel() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [pwdMsg, setPwdMsg] = useState<string | null>(null);
 
-  const handleUpdatePassword = (e: React.FormEvent) => {
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [updatingPwd, setUpdatingPwd] = useState(false);
+
+  const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    setPwdMsg(null);
+    setPwdError(null);
     if (!currentPwd || !newPwd || !confirmPwd) {
-      alert('Please fill out all password fields.');
+      setPwdError('Please fill out all password fields.');
       return;
     }
     if (newPwd !== confirmPwd) {
-      alert('New password and confirm password do not match.');
+      setPwdError('New password and confirm password do not match.');
       return;
     }
-    setPwdMsg('Password updated successfully!');
-    setCurrentPwd('');
-    setNewPwd('');
-    setConfirmPwd('');
-    setTimeout(() => setPwdMsg(null), 3000);
+    setUpdatingPwd(true);
+    const res = await updateCurrentUserPassword({ currentPassword: currentPwd, newPassword: newPwd });
+    setUpdatingPwd(false);
+    if (res.error) {
+      setPwdError(res.error);
+    } else {
+      setPwdMsg('Password updated successfully!');
+      setCurrentPwd('');
+      setNewPwd('');
+      setConfirmPwd('');
+      setTimeout(() => setPwdMsg(null), 3500);
+    }
   };
 
   return (
@@ -102,7 +114,7 @@ export function SecurityPanel() {
           { id: 'audit', label: 'Audit Log' }
         ]}
         activeTab={secTab}
-        onChange={(id) => setSecTab(id as 'overview' | 'sessions' | 'audit')}
+        onChange={(id: string) => setSecTab(id as 'overview' | 'sessions' | 'audit')}
       />
 
       {/* TAB 1: OVERVIEW */}
@@ -147,6 +159,13 @@ export function SecurityPanel() {
               </div>
             )}
 
+            {pwdError && (
+              <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-600 dark:text-rose-400 mb-3">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>{pwdError}</span>
+              </div>
+            )}
+
             <form onSubmit={handleUpdatePassword} className="space-y-3 pt-1">
               <InputField label="Current Password" type="password" value={currentPwd} onChange={setCurrentPwd} />
               <InputField label="New Password" type="password" value={newPwd} onChange={setNewPwd} />
@@ -154,9 +173,11 @@ export function SecurityPanel() {
               
               <button
                 type="submit"
-                className="mt-2 flex items-center gap-2 rounded-xl bg-gradient-accent px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105"
+                disabled={updatingPwd}
+                className="mt-2 flex items-center gap-2 rounded-xl bg-gradient-accent px-5 py-2.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 disabled:opacity-50"
               >
-                <Check className="h-4 w-4" /> Update Password
+                {updatingPwd ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                {updatingPwd ? 'Updating...' : 'Update Password'}
               </button>
             </form>
           </SectionCard>
