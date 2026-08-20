@@ -276,6 +276,14 @@ function AppContent() {
           />
         </Route>
         <Route
+          path="products"
+          element={
+            <TenantRouteGuard pageKey="PAGE_PRODUCTS">
+              <PropertiesView />
+            </TenantRouteGuard>
+          }
+        />
+        <Route
           path="properties"
           element={
             <TenantRouteGuard pageKey="PAGE_PROPERTIES">

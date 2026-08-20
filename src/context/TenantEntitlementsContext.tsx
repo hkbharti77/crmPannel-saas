@@ -40,6 +40,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   booking: 'PAGE_BOOKING',
   tickets: 'PAGE_TICKETS',
   emails: 'PAGE_EMAILS',
+  products: 'PAGE_PRODUCTS',
   properties: 'PAGE_PROPERTIES',
   reports: 'PAGE_REPORTS',
   team: 'PAGE_TEAM',
