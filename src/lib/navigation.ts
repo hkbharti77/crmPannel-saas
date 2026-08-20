@@ -10,7 +10,7 @@ import {
   Ticket,
   Mail,
   Settings,
-  Building2,
+  ShoppingBag,
   BarChart3,
   Users,
   Contact,
@@ -30,6 +30,7 @@ export type ViewId =
   | 'booking'
   | 'tickets'
   | 'emails'
+  | 'products'
   | 'properties'
   | 'reports'
   | 'team'
@@ -54,7 +55,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'booking', label: 'Booking', icon: CalendarCheck },
   { id: 'tickets', label: 'Tickets', icon: Ticket, badge: 2 },
   { id: 'emails', label: 'Emails', icon: Mail },
-  { id: 'properties', label: 'Properties', icon: Building2 },
+  { id: 'products', label: 'Products & Services', icon: ShoppingBag },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'contacts', label: 'Contacts', icon: Contact },
