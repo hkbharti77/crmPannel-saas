@@ -62,14 +62,32 @@ export function ChatRoomView() {
     }
 
     if (historyRes.data && historyRes.data.length > 0) {
-      const converted: Message[] = historyRes.data.map((m, index) => ({
-        id: m.id || `msg-${index}`,
-        sender: m.direction === 'OUTGOING' ? 'me' : 'them',
-        type: 'text',
-        text: m.content,
-        time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now',
-        status: 'read',
-      }));
+      const converted: Message[] = historyRes.data.map((m, index) => {
+        let type: 'text' | 'image' | 'video' | 'doc' | 'voice' | 'sticker' | 'system' = 'text';
+        const mediaType = (m.mediaType || '').toUpperCase();
+        if (mediaType === 'IMAGE' || mediaType === 'STICKER') {
+          type = mediaType === 'STICKER' ? 'sticker' : 'image';
+        } else if (mediaType === 'VIDEO') {
+          type = 'video';
+        } else if (mediaType === 'AUDIO' || mediaType === 'VOICE') {
+          type = 'voice';
+        } else if (mediaType === 'DOCUMENT' || mediaType === 'RAW') {
+          type = 'doc';
+        }
+
+        return {
+          id: m.id || `msg-${index}`,
+          sender: m.direction === 'OUTGOING' ? 'me' : 'them',
+          type,
+          text: m.content,
+          imageUrl: m.mediaUrl || m.thumbnailUrl,
+          mediaUrl: m.mediaUrl,
+          docName: m.fileName || 'Attachment',
+          docSize: m.fileSize ? (m.fileSize > 1024 * 1024 ? `${(m.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(m.fileSize / 1024)} KB`) : undefined,
+          time: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Now',
+          status: 'read',
+        };
+      });
       setMessages(converted);
     } else {
       setMessages([]);
@@ -94,11 +112,27 @@ export function ChatRoomView() {
     const isIncoming = msg.direction === 'INCOMING';
     const isOutgoing = msg.direction === 'OUTGOING';
 
+    let type: 'text' | 'image' | 'video' | 'doc' | 'voice' | 'sticker' | 'system' = 'text';
+    const mediaType = (msg.mediaType || '').toUpperCase();
+    if (mediaType === 'IMAGE' || mediaType === 'STICKER') {
+      type = mediaType === 'STICKER' ? 'sticker' : 'image';
+    } else if (mediaType === 'VIDEO') {
+      type = 'video';
+    } else if (mediaType === 'AUDIO' || mediaType === 'VOICE') {
+      type = 'voice';
+    } else if (mediaType === 'DOCUMENT' || mediaType === 'RAW') {
+      type = 'doc';
+    }
+
     const newMessage: Message = {
       id: msg.id || `ws-${Date.now()}-${Math.random()}`,
       sender: isIncoming ? 'them' : (isOutgoing ? 'me' : (botMode ? 'bot' : 'me')),
-      type: 'text',
+      type,
       text: msg.content,
+      imageUrl: msg.mediaUrl || msg.thumbnailUrl,
+      mediaUrl: msg.mediaUrl,
+      docName: msg.fileName || 'Attachment',
+      docSize: msg.fileSize ? (msg.fileSize > 1024 * 1024 ? `${(msg.fileSize / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(msg.fileSize / 1024)} KB`) : undefined,
       time: msg.timestamp
         ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),

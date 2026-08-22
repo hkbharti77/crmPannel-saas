@@ -61,6 +61,7 @@ export function InboxView() {
   // WebChat states
   const [webSessions, setWebSessions] = useState<WebChatSession[]>([]);
   const [loadingWeb, setLoadingWeb] = useState(false);
+  const [webError, setWebError] = useState<string | null>(null);
 
   const loadChats = async () => {
     setLoading(true);
@@ -117,9 +118,15 @@ export function InboxView() {
     if (error) {
       setWebError(error);
     } else {
-      setWebSessions(data || []);
-      if (!selectedId && data && data.length > 0) {
-        setSelectedId(data[0].id);
+      const list = data || [];
+      setWebSessions(list);
+      if (list.length > 0) {
+        setSelectedId((prev) => {
+          const exists = list.some((s) => s.id === prev);
+          return exists ? prev : list[0].id;
+        });
+      } else {
+        setSelectedId(null);
       }
     }
   };
@@ -129,6 +136,10 @@ export function InboxView() {
       loadChats();
     } else {
       loadWebSessions();
+      const interval = setInterval(() => {
+        loadWebSessions();
+      }, 5000);
+      return () => clearInterval(interval);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channel]);
@@ -705,19 +716,21 @@ function WebChatPreview({
   const [messages, setMessages] = useState<WebChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadDetails = async () => {
-    setLoading(true);
+  const loadDetails = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const { data } = await fetchWebChatSessionDetails(session.id);
-    setLoading(false);
-    if (data && data.messages) {
-      setMessages(data.messages);
-    }
-  };
+    if (showLoading) setLoading(false);
+    setMessages(data?.messages || []);
+  }, [session.id]);
 
   useEffect(() => {
-    loadDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.id]);
+    setMessages([]);
+    loadDetails(true);
+    const interval = setInterval(() => {
+      loadDetails(false);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [session.id, loadDetails]);
 
   return (
     <GlassCard className="flex h-full flex-col overflow-hidden">
