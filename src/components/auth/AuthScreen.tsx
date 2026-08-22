@@ -7,7 +7,8 @@ import { cx } from '@/lib/types';
 import {
   Mail, KeyRound, User, ArrowRight, Sun, Moon,
   Building2, MessageSquare, TrendingUp, Calendar, Shield, RefreshCw, Edit2,
-  Phone, Tag, Layers, CheckCircle2, ExternalLink, Key, Plug, Check, Sparkles
+  Phone, Tag, Layers, CheckCircle2, ExternalLink, Key, Plug, Check, Sparkles,
+  AlertCircle, UserPlus, LogIn
 } from 'lucide-react';
 
 type Mode = 'login' | 'signup';
@@ -72,6 +73,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
 
   // General state
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<'ACCOUNT_NOT_FOUND' | 'ACCOUNT_ALREADY_EXISTS' | string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sessionExpiredBanner, setSessionExpiredBanner] = useState(false);
@@ -178,6 +180,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
     setInfoMessage(null);
 
     if (!email || !email.includes('@')) {
@@ -197,13 +200,15 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
     }
 
     setLoading(true);
-    const { error, message } = await requestOtp(email);
+    const { error, message, code } = await requestOtp(email, mode);
     setLoading(false);
 
     if (error) {
       setError(error);
+      setErrorCode(code || null);
     } else {
       setStep(2);
+      setErrorCode(null);
       setInfoMessage(message || 'A 6-digit verification code has been sent to your email.');
       startResendTimer();
     }
@@ -213,6 +218,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
 
     if (!otp || !/^\d{6}$/.test(otp.trim())) {
       setError('Please enter a valid 6-digit OTP code');
@@ -221,12 +227,19 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
 
     setLoading(true);
     setInfoMessage('Verifying code & authenticating...');
-    const { error } = await verifyOtp(email, otp, mode === 'signup' ? name : undefined, mode === 'signup' ? businessName : undefined);
+    const { error, code } = await verifyOtp(
+      email,
+      otp,
+      mode === 'signup' ? name : undefined,
+      mode === 'signup' ? businessName : undefined,
+      mode
+    );
 
     if (error) {
       setLoading(false);
       setInfoMessage(null);
       setError(error);
+      setErrorCode(code || null);
     } else {
       setLoading(false);
       const storedUser = getStoredUser<any>();
@@ -300,13 +313,15 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
 
   const handleResendOtp = async () => {
     setError(null);
+    setErrorCode(null);
     setInfoMessage(null);
     setLoading(true);
-    const { error, message } = await requestOtp(email);
+    const { error, message, code } = await requestOtp(email, mode);
     setLoading(false);
 
     if (error) {
       setError(error);
+      setErrorCode(code || null);
     } else {
       setInfoMessage(message || 'A new verification code has been sent to your email.');
       startResendTimer();
@@ -318,6 +333,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
     setStep(1);
     setOtp('');
     setError(null);
+    setErrorCode(null);
     setInfoMessage(null);
   };
 
@@ -503,17 +519,79 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
             </div>
           )}
 
-          {/* Status Messages */}
+          {/* Status Messages & Interactive Guidance Banners */}
           {infoMessage && (
             <div className="mb-4 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3.5 py-2.5 text-xs font-medium text-primary-600 dark:text-primary-400 animate-slide-down">
               {infoMessage}
             </div>
           )}
-          {error && (
+
+          {errorCode === 'ACCOUNT_NOT_FOUND' ? (
+            <div className="mb-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 dark:border-amber-400/30 dark:bg-amber-950/30 animate-slide-down shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    No Workspace Found
+                  </h4>
+                  <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                    We couldn't find a CRM workspace associated with this email. Create an account to set up your business workspace and get started.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        switchMode('signup');
+                        setError(null);
+                        setErrorCode(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft transition-all cursor-pointer"
+                    >
+                      <UserPlus className="h-3.5 w-3.5" />
+                      <span>Create Account &rarr;</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : errorCode === 'ACCOUNT_ALREADY_EXISTS' ? (
+            <div className="mb-5 rounded-2xl border border-blue-500/40 bg-blue-500/10 p-4 dark:border-blue-400/30 dark:bg-blue-950/30 animate-slide-down shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200">
+                    Account Already Registered
+                  </h4>
+                  <p className="mt-1 text-xs text-blue-800/90 dark:text-blue-300/90 leading-relaxed">
+                    An active account is already registered with <strong className="font-semibold">{email || 'this email'}</strong>. Please sign in to access your CRM dashboard.
+                  </p>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        switchMode('login');
+                        setError(null);
+                        setErrorCode(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft transition-all cursor-pointer"
+                    >
+                      <LogIn className="h-3.5 w-3.5" />
+                      <span>Sign In to Your Account</span>
+                      <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : error ? (
             <div className="mb-4 rounded-xl border border-danger-500/30 bg-danger-500/10 px-3.5 py-2.5 text-xs font-medium text-danger-600 dark:text-danger-400 animate-slide-down">
               {error}
             </div>
-          )}
+          ) : null}
 
           {/* ───────────────────────────────────────────────────────────── */}
           {/* STEP 1 FORM: Email, Name, Business Name, Mobile */}

@@ -12,6 +12,11 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 interface WhatsAppConfigDto {
   id?: string;
   connectionType?: string;
+  connectionStatus?: string;
+  webhookSubscriptionStatus?: string;
+  webhookSubscriptionError?: string;
+  displayPhoneNumber?: string;
+  verifiedName?: string;
   phoneNumberId?: string;
   wabaId?: string;
   accessToken?: string;
@@ -187,8 +192,8 @@ export function MetaConfigView() {
     const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
 
     try {
-      // 1. Fetch Gateway session configuration (including secure public launcher URL)
-      const sessionRes = await apiFetch<{ launcherUrl?: string; appId?: string; configId?: string }>(
+      // 1. Fetch Gateway session configuration (including secure public launcher URL and single-use sessionId)
+      const sessionRes = await apiFetch<{ launcherUrl?: string; appId?: string; configId?: string; sessionId?: string }>(
         '/api/v1/integrations/meta/gateway/session',
       );
 
@@ -200,7 +205,8 @@ export function MetaConfigView() {
         targetUrl = `${backendBase}/api/v1/integrations/meta/gateway/launch`;
       }
 
-      const fullLaunchUrl = `${targetUrl}?token=${encodeURIComponent(token)}&origin=${encodeURIComponent(window.location.origin)}`;
+      const sessionIdParam = sessionRes.data?.sessionId ? `&sessionId=${encodeURIComponent(sessionRes.data.sessionId)}` : '';
+      const fullLaunchUrl = `${targetUrl}?token=${encodeURIComponent(token)}&origin=${encodeURIComponent(window.location.origin)}${sessionIdParam}`;
 
       const width = 640;
       const height = 780;
@@ -236,6 +242,29 @@ export function MetaConfigView() {
     } catch (err) {
       setSaving(false);
       setError(`Failed to initiate gateway session: ${(err as Error).message}`);
+    }
+  };
+
+  const [retryingWebhook, setRetryingWebhook] = useState(false);
+
+  const handleRetryWebhook = async () => {
+    setRetryingWebhook(true);
+    setError(null);
+    setMessage(null);
+
+    const res = await apiFetch<{ success: boolean; webhookSubscriptionStatus: string; webhookSubscriptionError?: string }>(
+      '/api/v1/integrations/meta/gateway/retry-webhook',
+      { method: 'POST' }
+    );
+
+    setRetryingWebhook(false);
+    if (!res.error && res.data?.success) {
+      setMessage('✓ Webhook subscription registered successfully with Meta!');
+      fetchConfig();
+      setTimeout(() => setMessage(null), 4000);
+    } else {
+      setError(`Webhook subscription retry failed: ${res.data?.webhookSubscriptionError || res.error || 'Unknown error'}`);
+      fetchConfig();
     }
   };
 
@@ -516,20 +545,51 @@ export function MetaConfigView() {
 
             {/* Connection Status Box */}
             {config?.connectionType === 'EMBEDDED_SIGNUP_COEXISTENCE' ? (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
-                <div className="flex items-center justify-between">
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
                     <ShieldCheck className="h-4 w-4" />
                     <span>WhatsApp Coexistence Embedded Signup Active</span>
                   </div>
-                  <span className="text-[10px] font-mono font-bold bg-emerald-500/20 px-2 py-0.5 rounded">
-                    COEXISTENCE MODE
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded">
+                      COEXISTENCE MODE
+                    </span>
+                    {config.webhookSubscriptionStatus === 'ACTIVE' ? (
+                      <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded flex items-center gap-1">
+                        <Check className="h-3 w-3" /> Webhook Active
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Webhook {config.webhookSubscriptionStatus || 'PENDING'}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-secondary-c pt-1 border-t border-emerald-500/20">
+
+                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-secondary-c pt-2 border-t border-emerald-500/20">
                   <p>WABA ID: {config.wabaId || '987654321098765'}</p>
                   <p>Phone ID: {config.phoneNumberId || '123456789012345'}</p>
+                  {config.verifiedName && <p className="col-span-2">Verified Name: {config.verifiedName}</p>}
                 </div>
+
+                {config.webhookSubscriptionStatus === 'FAILED' && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+                      <span>Webhook subscription failed: {config.webhookSubscriptionError || 'Could not subscribe to Meta webhooks'}.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRetryWebhook}
+                      disabled={retryingWebhook}
+                      className="rounded bg-amber-600 text-white font-bold px-3 py-1 text-xs hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1 shrink-0"
+                    >
+                      {retryingWebhook && <Loader2 className="h-3 w-3 animate-spin" />}
+                      <span>Retry Webhook Subscription</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-xl border border-base-c bg-card-c p-4 text-xs text-secondary-c space-y-2">

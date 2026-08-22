@@ -4,11 +4,12 @@ export type MessageSender = 'them' | 'me' | 'bot' | 'system';
 export type Message = {
   id: string;
   sender: MessageSender;
-  type: 'text' | 'image' | 'doc' | 'voice' | 'system';
+  type: 'text' | 'image' | 'video' | 'doc' | 'voice' | 'sticker' | 'system';
   text?: string;
   time: string;
   status?: MessageStatus;
   imageUrl?: string;
+  mediaUrl?: string;
   docName?: string;
   docSize?: string;
   voiceDuration?: string;

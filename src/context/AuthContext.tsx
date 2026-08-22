@@ -35,10 +35,10 @@ type AuthContextValue = {
   tenantId: string | null;
   user: AuthUser | null;
   loading: boolean;
-  requestOtp: (email: string) => Promise<{ error: string | null; message: string | null }>;
-  verifyOtp: (email: string, otp: string, displayName?: string, businessName?: string) => Promise<{ error: string | null }>;
-  signIn: (email: string, otpOrPassword?: string) => Promise<{ error: string | null; message?: string | null }>;
-  signUp: (email: string, passwordOrOtp?: string, name?: string, businessName?: string) => Promise<{ error: string | null; message?: string | null }>;
+  requestOtp: (email: string, mode?: 'login' | 'signup') => Promise<{ error: string | null; message: string | null; code?: string | null }>;
+  verifyOtp: (email: string, otp: string, displayName?: string, businessName?: string, mode?: 'login' | 'signup') => Promise<{ error: string | null; code?: string | null }>;
+  signIn: (email: string, otpOrPassword?: string) => Promise<{ error: string | null; message?: string | null; code?: string | null }>;
+  signUp: (email: string, passwordOrOtp?: string, name?: string, businessName?: string) => Promise<{ error: string | null; message?: string | null; code?: string | null }>;
   signOut: () => Promise<void>;
   setOnboardingCompleted: (completed: boolean) => void;
 };
@@ -172,31 +172,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const requestOtp = async (email: string) => {
-    const res = await apiFetch<{ message?: string }>('/api/v1/auth/login', {
+  const requestOtp = async (email: string, mode: 'login' | 'signup' = 'login') => {
+    const res = await apiFetch<{ message?: string; error?: string; code?: string }>('/api/v1/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email: email.trim() }),
+      body: JSON.stringify({ email: email.trim(), mode }),
     });
 
     if (res.error) {
-      return { error: res.error, message: null };
+      let code: string | null = null;
+      if (res.error.includes('No account found') || res.status === 404) {
+        code = 'ACCOUNT_NOT_FOUND';
+      } else if (res.error.includes('already exists') || res.status === 409) {
+        code = 'ACCOUNT_ALREADY_EXISTS';
+      }
+      return { error: res.error, message: null, code };
     }
-    return { error: null, message: res.data?.message || 'Verification code sent to your email.' };
+    return { error: null, message: res.data?.message || 'Verification code sent to your email.', code: null };
   };
 
-  const verifyOtp = async (email: string, otp: string, displayName?: string, businessName?: string) => {
-    const res = await apiFetch<VerifyAuthResponse>('/api/v1/auth/verify', {
+  const verifyOtp = async (email: string, otp: string, displayName?: string, businessName?: string, mode: 'login' | 'signup' = 'login') => {
+    const res = await apiFetch<VerifyAuthResponse & { code?: string }>('/api/v1/auth/verify', {
       method: 'POST',
       body: JSON.stringify({
         email: email.trim(),
         otp: otp.trim(),
         displayName: displayName?.trim() || undefined,
         businessName: businessName?.trim() || undefined,
+        mode,
       }),
     });
 
     if (res.error || !res.data) {
-      return { error: res.error || 'Verification failed' };
+      let code: string | null = null;
+      if (res.error?.includes('Account not registered') || res.status === 404 || res.status === 401) {
+        code = 'ACCOUNT_NOT_FOUND';
+      }
+      return { error: res.error || 'Verification failed', code };
     }
 
     const data = res.data;
@@ -231,23 +242,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTenantId(resolvedTenantId || null);
     setUser(newUser);
 
-    return { error: null };
+    return { error: null, code: null };
   };
 
   const signIn: AuthContextValue['signIn'] = async (email, otpOrPassword) => {
     if (otpOrPassword && /^\d{6}$/.test(otpOrPassword.trim())) {
-      return verifyOtp(email, otpOrPassword);
+      return verifyOtp(email, otpOrPassword, undefined, undefined, 'login');
     }
-    const res = await requestOtp(email);
-    return { error: res.error, message: res.message };
+    const res = await requestOtp(email, 'login');
+    return { error: res.error, message: res.message, code: res.code };
   };
 
   const signUp: AuthContextValue['signUp'] = async (email, passwordOrOtp, name, businessName) => {
     if (passwordOrOtp && /^\d{6}$/.test(passwordOrOtp.trim())) {
-      return verifyOtp(email, passwordOrOtp, name, businessName);
+      return verifyOtp(email, passwordOrOtp, name, businessName, 'signup');
     }
-    const res = await requestOtp(email);
-    return { error: res.error, message: res.message };
+    const res = await requestOtp(email, 'signup');
+    return { error: res.error, message: res.message, code: res.code };
   };
 
   const signOut = async () => {

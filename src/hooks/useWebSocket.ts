@@ -29,6 +29,12 @@ export type WsIncomingMessage = {
   sentiment?: string;
   escalated?: boolean;
   timestamp?: string;
+  mediaUrl?: string;
+  mediaType?: string;
+  mimeType?: string;
+  fileName?: string;
+  fileSize?: number;
+  thumbnailUrl?: string;
 };
 
 type MessageListener = (msg: WsIncomingMessage) => void;

@@ -19,6 +19,12 @@ export type ApiMessage = {
   sentiment?: string;
   sentimentScore?: number;
   tags?: string[];
+  mediaUrl?: string;
+  mediaType?: string;
+  mimeType?: string;
+  fileName?: string;
+  fileSize?: number;
+  thumbnailUrl?: string;
 };
 
 export type ContactDTO = {

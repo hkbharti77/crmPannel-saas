@@ -60,56 +60,80 @@ export function MessageBubble({ msg }: { msg: Message }) {
           </p>
         )}
 
-        {/* Image */}
-        {msg.type === 'image' && msg.imageUrl && (
+        {/* Image / Sticker */}
+        {(msg.type === 'image' || msg.type === 'sticker') && (msg.imageUrl || msg.mediaUrl) && (
           <div className="mb-1.5 overflow-hidden rounded-xl">
-            <img
-              src={msg.imageUrl}
-              alt={msg.text ?? ''}
-              className="max-h-48 w-full object-cover"
+            <a href={msg.mediaUrl || msg.imageUrl} target="_blank" rel="noopener noreferrer">
+              <img
+                src={msg.imageUrl || msg.mediaUrl}
+                alt={msg.text ?? ''}
+                className={msg.type === 'sticker' ? 'max-h-32 max-w-32 object-contain' : 'max-h-48 w-full object-cover hover:opacity-95 transition-opacity'}
+              />
+            </a>
+          </div>
+        )}
+
+        {/* Video */}
+        {msg.type === 'video' && (msg.mediaUrl || msg.imageUrl) && (
+          <div className="mb-1.5 overflow-hidden rounded-xl">
+            <video
+              src={msg.mediaUrl || msg.imageUrl}
+              controls
+              className="max-h-56 w-full rounded-xl object-contain bg-black/40"
             />
           </div>
         )}
 
         {/* Document */}
         {msg.type === 'doc' && (
-          <div className="flex items-center gap-3 rounded-xl bg-black/5 py-2 pl-2 pr-3 dark:bg-white/5">
+          <a
+            href={msg.mediaUrl || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={msg.docName}
+            className="flex items-center gap-3 rounded-xl bg-black/5 py-2 pl-2 pr-3 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+          >
             <div className="grid h-9 w-9 place-items-center rounded-lg bg-danger-500/15">
               <FileText className="h-5 w-5 text-danger-600 dark:text-danger-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold">{msg.docName}</p>
-              <p className="text-[10px] opacity-70">{msg.docSize}</p>
+              <p className="truncate text-xs font-semibold">{msg.docName || 'Document'}</p>
+              <p className="text-[10px] opacity-70">{msg.docSize || 'File'}</p>
             </div>
             <Download className="h-4 w-4 opacity-60" />
-          </div>
+          </a>
         )}
 
-        {/* Voice */}
+        {/* Voice / Audio */}
         {msg.type === 'voice' && (
-          <div className="flex items-center gap-2.5 py-0.5">
-            <button className="grid h-8 w-8 place-items-center rounded-full bg-white/20">
-              <Play className="h-4 w-4 fill-current" />
-            </button>
-            <div className="flex items-center gap-0.5">
-              {[4, 8, 14, 6, 12, 18, 8, 10, 16, 6, 12, 8, 14, 6, 10, 4].map((h, i) => (
-                <span
-                  key={i}
-                  className="w-0.5 rounded-full bg-current opacity-60"
-                  style={{ height: `${h}px` }}
-                />
-              ))}
-            </div>
-            <span className="text-[10px] opacity-70">{msg.voiceDuration}</span>
+          <div className="py-1">
+            {msg.mediaUrl ? (
+              <audio src={msg.mediaUrl} controls className="h-8 w-full max-w-[240px]" />
+            ) : (
+              <div className="flex items-center gap-2.5 py-0.5">
+                <button className="grid h-8 w-8 place-items-center rounded-full bg-white/20">
+                  <Play className="h-4 w-4 fill-current" />
+                </button>
+                <div className="flex items-center gap-0.5">
+                  {[4, 8, 14, 6, 12, 18, 8, 10, 16, 6, 12, 8, 14, 6, 10, 4].map((h, i) => (
+                    <span
+                      key={i}
+                      className="w-0.5 rounded-full bg-current opacity-60"
+                      style={{ height: `${h}px` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-[10px] opacity-70">{msg.voiceDuration || 'Voice Note'}</span>
+              </div>
+            )}
           </div>
         )}
 
         {/* Text */}
-        {msg.type === 'text' && msg.text && (
-          <p className="text-sm leading-relaxed">{msg.text}</p>
-        )}
-        {msg.type === 'image' && msg.text && (
-          <p className="text-xs leading-relaxed opacity-90">{msg.text}</p>
+        {msg.text && (
+          <p className={cx('leading-relaxed', msg.type === 'text' ? 'text-sm' : 'text-xs mt-1 opacity-90')}>
+            {msg.text}
+          </p>
         )}
 
         {/* Time + status */}

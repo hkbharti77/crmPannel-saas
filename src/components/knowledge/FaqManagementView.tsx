@@ -161,30 +161,73 @@ export function FaqManagementView() {
   };
 
   const parseCsvText = (text: string): Partial<FaqItemDto>[] => {
-    const lines = text.split(/\r?\n/).filter(line => line.trim().length > 0);
-    if (lines.length <= 1) return [];
+    const raw = text.trim();
+    if (!raw) return [];
+
+    // Try parsing as JSON first
+    if (raw.startsWith('[') && raw.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(item => item && (item.question || item.q)).map(item => ({
+            question: (item.question || item.q || '').trim(),
+            answer: (item.answer || item.a || '').trim(),
+            category: item.category || 'General',
+            keywords: item.keywords || '',
+            isActive: item.isActive !== false,
+          }));
+        }
+      } catch (e) {
+        // Fallback to CSV
+      }
+    }
+
+    const lines = raw.split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length === 0) return [];
 
     const items: Partial<FaqItemDto>[] = [];
-    // Skip header line
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      // Robust regex for CSV row parsing handling quotes
-      const matches = line.match(/(?:^|,)(?:"([^"]*)"|([^,]*))/g);
-      if (matches) {
-        const row = matches.map(cell => {
-          let val = cell.replace(/^,/, '').trim();
-          if (val.startsWith('"') && val.endsWith('"')) {
-            val = val.substring(1, val.length - 1);
-          }
-          return val;
-        });
+    
+    // Check if the first line is a header
+    const firstLineLower = lines[0].toLowerCase();
+    const hasHeader = firstLineLower.includes('question') && (firstLineLower.includes('answer') || firstLineLower.includes('category'));
+    const startIndex = hasHeader ? 1 : 0;
 
-        if (row[0] && row[1]) {
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i];
+      let row: string[] = [];
+      if (line.includes('\t')) {
+        row = line.split('\t').map(c => c.trim().replace(/^"|"$/g, ''));
+      } else if (line.includes(';') && !line.includes(',')) {
+        row = line.split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+      } else {
+        const matches = line.match(/(?:^|,)(?:"([^"]*)"|([^,]*))/g);
+        if (matches) {
+          row = matches.map(cell => {
+            let val = cell.replace(/^,/, '').trim();
+            if (val.startsWith('"') && val.endsWith('"')) {
+              val = val.substring(1, val.length - 1);
+            }
+            return val;
+          });
+        }
+      }
+
+      if (row.length >= 2 && row[0] && row[1]) {
+        items.push({
+          question: row[0].trim(),
+          answer: row[1].trim(),
+          category: row[2] ? row[2].trim() : 'General',
+          keywords: row[3] ? row[3].trim() : '',
+          isActive: true,
+        });
+      } else if (row.length === 1 && row[0]) {
+        const parts = row[0].split(/\s*->\s*|\s*\|\s*|\s*:\s*(?=A:)/i);
+        if (parts.length >= 2) {
           items.push({
-            question: row[0].trim(),
-            answer: row[1].trim(),
-            category: row[2] ? row[2].trim() : 'General',
-            keywords: row[3] ? row[3].trim() : '',
+            question: parts[0].replace(/^q:\s*/i, '').trim(),
+            answer: parts[1].replace(/^a:\s*/i, '').trim(),
+            category: 'General',
+            keywords: '',
             isActive: true,
           });
         }
