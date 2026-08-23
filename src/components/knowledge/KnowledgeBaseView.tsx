@@ -210,10 +210,31 @@ export function KnowledgeBaseView() {
     }
   };
 
-  const handleDownloadDocument = (docId: string) => {
+  const handleDownloadDocument = async (docId: string, docName?: string) => {
     const token = localStorage.getItem('crmlite_token') || '';
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-    window.open(`${baseUrl}/api/v1/rag/documents/${docId}/download?access_token=${token}`, '_blank');
+    try {
+      const response = await fetch(`${baseUrl}/api/v1/rag/documents/${docId}/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = docName ? (docName.endsWith('.txt') ? docName : `${docName}.txt`) : `document_${docId}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.warn('Blob download failed, falling back to direct window open:', err);
+      window.open(`${baseUrl}/api/v1/rag/documents/${docId}/download?access_token=${token}`, '_blank');
+    }
   };
 
   const personaDirty = personaPrompt !== savedPersona;
@@ -494,7 +515,7 @@ export function KnowledgeBaseView() {
                         </td>
                         <td className="px-4 py-3 text-right space-x-2">
                           <button
-                            onClick={() => handleDownloadDocument(doc.documentId)}
+                            onClick={() => handleDownloadDocument(doc.documentId, doc.name)}
                             className="p-1 text-slate-400 hover:text-indigo-600"
                             title="Download document"
                           >
