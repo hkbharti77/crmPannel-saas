@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import {
-  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle, History, Laptop, Loader2
+  Shield, Check, CheckCircle2, Sliders, ShieldAlert, Server, Download, RotateCcw, User, AlertTriangle, History, Laptop, Loader2, ExternalLink
 } from 'lucide-react';
 import { SectionCard, PanelHeader, FieldRow, Toggle } from './_shared';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
@@ -208,6 +208,66 @@ export function SecurityPanel() {
               <FieldRow label="Auto Session Timeout" desc="Sign out after 30 minutes of inactivity">
                 <Toggle checked={sessionTimeout} onChange={setSessionTimeout} />
               </FieldRow>
+            </div>
+          </SectionCard>
+
+          {/* Cookie & Privacy Preferences Card */}
+          <SectionCard>
+            <PanelHeader
+              title="Cookie Consent & Privacy Preferences"
+              desc="Manage your data collection settings, cookie preferences and legal documents"
+              icon={<Shield className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
+            />
+
+            <div className="divide-y divide-base-c pt-1">
+              <div className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                    <Sliders className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-primary-c">Manage Cookie Consent</h4>
+                    <p className="text-[11px] text-secondary-c">Re-configure functional, analytics, and marketing cookie preferences</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-preferences'))}
+                  className="rounded-lg border border-base-c bg-card-c px-3 py-1.5 text-xs font-semibold text-primary-600 dark:text-primary-400 hover:bg-primary-500/10 transition-colors"
+                >
+                  Manage Preferences
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between py-3">
+                <div className="flex items-center gap-3">
+                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <Shield className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-primary-c">Privacy Policy & Terms</h4>
+                    <p className="text-[11px] text-secondary-c">View official data handling policies and platform service terms</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="https://www.gyanvaniai.online/privacy"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-base-c bg-card-c px-3 py-1.5 text-xs font-semibold text-secondary-c hover:text-primary-c transition-colors"
+                  >
+                    Privacy Policy <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <a
+                    href="https://www.gyanvaniai.online/terms"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-base-c bg-card-c px-3 py-1.5 text-xs font-semibold text-secondary-c hover:text-primary-c transition-colors"
+                  >
+                    Terms & Conditions <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
             </div>
           </SectionCard>
 
