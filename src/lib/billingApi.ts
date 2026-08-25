@@ -240,3 +240,9 @@ export async function downloadInvoice(transactionId: string) {
     document.body.removeChild(a);
   }
 }
+
+export async function resendInvoiceEmailApi(transactionId: string) {
+  return apiFetch<{ success: boolean; message: string }>(`/api/v1/billing/invoice/${transactionId}/resend`, {
+    method: 'POST',
+  });
+}

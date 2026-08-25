@@ -9,6 +9,7 @@ import {
   initiateCheckout,
   verifyRazorpayPayment,
   downloadInvoice,
+  resendInvoiceEmailApi,
   type SubscriptionData,
   type BillingTransaction,
   type SubscriptionPlanDto
@@ -47,6 +48,8 @@ export function BillingPanel() {
   const [error, setError] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [emailSentNotice, setEmailSentNotice] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
 
   const handleDownloadInvoice = async (transactionId: string) => {
@@ -58,6 +61,25 @@ export function BillingPanel() {
       alert(msg);
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const handleResendInvoiceEmail = async (transactionId: string) => {
+    try {
+      setResendingId(transactionId);
+      setEmailSentNotice(null);
+      const res = await resendInvoiceEmailApi(transactionId);
+      if (res.data?.success) {
+        setEmailSentNotice('Invoice email successfully dispatched to your email address!');
+        setTimeout(() => setEmailSentNotice(null), 5000);
+      } else {
+        alert(res.error || 'Failed to resend invoice email');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to send invoice email';
+      alert(msg);
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -584,9 +606,16 @@ export function BillingPanel() {
       <SectionCard>
         <PanelHeader
           title="Payment History & Invoices"
-          desc="View past transactions and download official billing receipts"
+          desc="View past transactions, download official tax invoices, or send email receipts"
           icon={<Receipt className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
         />
+
+        {emailSentNotice && (
+          <div className="mb-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span>{emailSentNotice}</span>
+          </div>
+        )}
 
         <div className="pt-2 overflow-x-auto">
           {transactions.length > 0 ? (
@@ -597,7 +626,7 @@ export function BillingPanel() {
                   <th className="py-2.5 px-3">Amount</th>
                   <th className="py-2.5 px-3">Gateway</th>
                   <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3 text-right">Invoice</th>
+                  <th className="py-2.5 px-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-base-c">
@@ -629,11 +658,12 @@ export function BillingPanel() {
                           {tx.status}
                         </span>
                       </td>
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-3 px-3 text-right space-x-2">
                         <button
                           onClick={() => handleDownloadInvoice(tx.id)}
                           disabled={downloadingId === tx.id}
-                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold hover:bg-primary-500/20 transition-all text-xs border border-primary-500/20"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold hover:bg-primary-500/20 transition-all text-xs border border-primary-500/20"
+                          title="Download HTML Invoice"
                         >
                           {downloadingId === tx.id ? (
                             <>
@@ -644,6 +674,25 @@ export function BillingPanel() {
                             <>
                               <Download className="h-3.5 w-3.5" />
                               Invoice
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={() => handleResendInvoiceEmail(tx.id)}
+                          disabled={resendingId === tx.id}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-ink-800 text-secondary-c font-medium hover:bg-slate-200 dark:hover:bg-ink-700 transition-all text-xs border border-base-c"
+                          title="Send Email Receipt"
+                        >
+                          {resendingId === tx.id ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="h-3.5 w-3.5" />
+                              Email
                             </>
                           )}
                         </button>

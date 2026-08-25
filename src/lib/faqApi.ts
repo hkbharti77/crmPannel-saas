@@ -43,3 +43,16 @@ export async function createBatchFaqs(items: Partial<FaqItemDto>[]) {
     body: JSON.stringify(items),
   });
 }
+
+export async function deleteAllFaqs() {
+  return apiFetch<{ success: boolean; deletedCount: number; message: string }>('/api/v1/faq/all', {
+    method: 'DELETE',
+  });
+}
+
+export async function batchDeleteFaqs(ids: string[]) {
+  return apiFetch<{ success: boolean; deletedCount: number; message: string }>('/api/v1/faq/batch-delete', {
+    method: 'POST',
+    body: JSON.stringify({ ids }),
+  });
+}
