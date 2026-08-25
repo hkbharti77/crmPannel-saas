@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { cx } from '@/lib/types';
 import {
   ListTree, CheckCircle, AlertCircle, Save, Loader2,
-  ChevronUp, ChevronDown, Plus, Trash2, Image as ImageIcon, X, Upload,
+  ChevronUp, ChevronDown, Plus, Trash2, X, Upload,
   FileText, Video,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';

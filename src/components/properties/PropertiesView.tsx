@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { GlassCard, Badge } from '@/components/ui/primitives';
+import { GlassCard } from '@/components/ui/primitives';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { cx } from '@/lib/types';
 import {
@@ -21,11 +21,8 @@ import {
   Upload,
   X,
   ExternalLink,
-  Layers,
-  Sparkles,
   SlidersHorizontal,
   RefreshCw,
-  Eye,
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';

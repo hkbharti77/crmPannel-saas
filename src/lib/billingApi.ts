@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+import { apiFetch, getAuthToken, getTenantId } from './api';
 
 export interface BillingLimits {
   employeeLimit: number;
@@ -208,4 +208,35 @@ export async function verifyRazorpayPayment(payload: VerifyRazorpayPayload) {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export async function downloadInvoice(transactionId: string) {
+  const token = getAuthToken();
+  const tenantId = getTenantId();
+
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
+  const response = await fetch(`/api/v1/billing/invoice/${transactionId}/download`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to download invoice receipt');
+  }
+
+  const htmlText = await response.text();
+  const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  const win = window.open(url, '_blank');
+  if (!win) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Invoice-${transactionId.substring(0, 8)}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }

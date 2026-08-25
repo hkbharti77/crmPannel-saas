@@ -3,11 +3,10 @@ import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import {
   User, Shield, Globe, CreditCard,
-  Paintbrush, Moon, Bell,
-  Plug, LayoutList, ShoppingBag, FormInput, ListTree,
+  Paintbrush, Bell,
+  Plug, LayoutList, FormInput, ListTree,
   MessageSquare, MousePointerClick,
-  HelpCircle, Zap, LifeBuoy, ChevronRight,
-  Mail, Bot, SlidersHorizontal, Smartphone,
+  HelpCircle, Zap, LifeBuoy, SlidersHorizontal, Smartphone, ChevronRight,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -15,11 +14,9 @@ import { SecurityPanel } from './panels/AccountPanels';
 import { GoogleCalendarPanel } from './panels/AccountPanels';
 import { BillingPanel } from './panels/AccountPanels';
 import { CustomBrandingPanel } from './panels/AppearancePanels';
-import { DarkModePanel } from './panels/AppearancePanels';
 import { NotificationsPanel } from './panels/AppearancePanels';
 import { MenuButtonsPanel } from './panels/MenuButtonsPanel';
 import { MenuBuilderPanel } from './panels/MenuBuilderPanel';
-import { ProductsServicesPanel } from './panels/ProductsServicesPanel';
 import { FormFieldsPanel } from './panels/FormFieldsPanel';
 import { CustomSubMenusPanel } from './panels/CustomSubMenusPanel';
 import { EmailProvidersPanel } from './panels/EmailProvidersPanel';
@@ -30,7 +27,6 @@ import { SupportCategoriesPanel } from './panels/AiSystemPanels';
 import { SystemHealthPanel } from './panels/AiSystemPanels';
 import { NeedHelpPanel } from './panels/AiSystemPanels';
 import { BroadcastFilterConfigPanel } from './panels/BroadcastFilterConfigPanel';
-import { EmailBrandingPanel } from './panels/EmailBrandingPanel';
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 export type SettingsSub =
@@ -71,7 +67,6 @@ const NAV: NavGroup[] = [
     section: 'Appearance',
     items: [
       { id: 'branding', label: 'Brand & Identity', desc: 'Logo, theme, widget & emails', icon: Paintbrush },
-      { id: 'dark-mode', label: 'Dark Mode', desc: 'Toggle light and dark', icon: Moon },
     ],
   },
   {
@@ -120,7 +115,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'google-calendar': GoogleCalendarPanel,
   'billing': BillingPanel,
   'branding': () => <CustomBrandingPanel defaultTab="global" />,
-  'dark-mode': DarkModePanel,
+  'dark-mode': () => <Navigate to="/settings/branding" replace />,
   'notifications': NotificationsPanel,
   'menu-buttons': MenuButtonsPanel,
   'whatsapp-flows': WhatsAppFlowsPanel,

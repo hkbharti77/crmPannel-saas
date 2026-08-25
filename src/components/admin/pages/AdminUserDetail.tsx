@@ -3,8 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
-  ArrowLeft, User, Mail, Phone, Calendar, Shield, Activity, TrendingUp, CheckCircle2,
-  AlertTriangle, Lock, UserCheck, UserX, Building2, Search, KeyRound, MessageSquare,
+  ArrowLeft, TrendingUp,
+  UserCheck, UserX, Building2, Search, KeyRound,
   ArrowUpRight, RefreshCw
 } from 'lucide-react';
 import {

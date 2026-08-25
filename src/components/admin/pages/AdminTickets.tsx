@@ -13,7 +13,6 @@ import {
   User,
   MessageSquare,
   CheckCircle2,
-  AlertCircle,
   ArrowUpRight,
   ShieldCheck,
 } from 'lucide-react';

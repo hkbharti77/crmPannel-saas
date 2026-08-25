@@ -644,7 +644,7 @@ function ManagePermissionsModal({
       : ['MODULE_INBOX', 'MODULE_LEADS', 'MODULE_SETTINGS', 'SETTINGS_PROFILE']
   );
   const [reason, setReason] = useState('');
-  const [dailyLeadLimit, setDailyLeadLimit] = useState<number | ''>(user.dailyLeadLimit ?? '');
+  const [dailyLeadLimit, _setDailyLeadLimit] = useState<number | ''>(user.dailyLeadLimit ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 

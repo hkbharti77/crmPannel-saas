@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { Search, UserCheck, UserX, Mail, Building2, RefreshCw, Eye, ArrowUpRight } from 'lucide-react';
@@ -8,7 +8,6 @@ import { fetchAllUsers, enableUser, disableUser, type ApiUser } from '@/lib/plat
 type StatusFilter = 'ALL' | 'ACTIVE' | 'LOCKED' | 'SUSPENDED' | 'DEACTIVATED';
 
 export function AdminUsers() {
-  const navigate = useNavigate();
   const [users, setUsers] = useState<ApiUser[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

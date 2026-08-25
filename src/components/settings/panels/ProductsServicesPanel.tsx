@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   ShoppingBag, Plus, Trash2, Edit3, Loader2,
-  CheckCircle, AlertCircle, Search, Image as ImageIcon, X, Upload,
-  FileText, Video, File, ExternalLink,
+  CheckCircle, AlertCircle, Search, Image as ImageIcon, X,
+  FileText, Video, File,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';

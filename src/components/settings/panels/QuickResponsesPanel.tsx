@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   MessageSquare, Save, Loader2,
-  CheckCircle, AlertCircle, ChevronDown, ChevronUp, Camera, X,
+  CheckCircle, AlertCircle, ChevronDown, ChevronUp, X,
   FileText, Video, Upload,
 } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';

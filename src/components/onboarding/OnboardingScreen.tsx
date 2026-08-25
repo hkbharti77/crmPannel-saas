@@ -17,7 +17,6 @@ import {
   Sun,
   Moon,
   LogOut,
-  HelpCircle,
   ExternalLink,
   Phone,
   MapPin,
@@ -26,8 +25,6 @@ import {
   CheckCircle2,
   Plug,
   Key,
-  Smartphone,
-  Info,
 } from 'lucide-react';
 
 const TOTAL_STEPS = 5;
@@ -136,7 +133,7 @@ export function OnboardingScreen() {
   const [whatsappMode, setWhatsappMode] = useState<'embedded' | 'manual'>('embedded');
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [accessToken, setAccessToken] = useState('');
-  const [wabaId, setWabaId] = useState('');
+  const [wabaId, _setWabaId] = useState('');
   const [verifyToken] = useState(() => 'crm_' + Math.random().toString(36).substring(2, 12));
   const [isMetaConnecting, setIsMetaConnecting] = useState(false);
   const [metaConnected, setMetaConnected] = useState(false);
@@ -188,7 +185,7 @@ export function OnboardingScreen() {
     if (window.FB) return;
 
     window.fbAsyncInit = function () {
-      window.FB.init({
+      window.FB?.init({
         appId: META_APP_ID,
         cookie: true,
         xfbml: true,

@@ -3,9 +3,9 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import {
-  ArrowLeft, Building2, Users, Mail, Phone, Calendar, Shield, Activity, BarChart3,
-  CheckCircle2, AlertTriangle, XCircle, SlidersHorizontal, RefreshCw,
-  Search, MessageSquare, Send, Bot, Clock, ArrowUpRight, TrendingUp, Ban, Lock
+  ArrowLeft, Building2, Users, Mail, Calendar, Shield, Activity, BarChart3,
+  CheckCircle2, SlidersHorizontal, RefreshCw,
+  Search, MessageSquare, Clock, ArrowUpRight, TrendingUp, Ban
 } from 'lucide-react';
 import {
   fetchTenantProfile,
@@ -42,7 +42,7 @@ export function AdminTenantDetail() {
   const [rosterLoading, setRosterLoading] = useState(false);
   const [rosterRole, setRosterRole] = useState('ALL');
   const [rosterSearch, setRosterSearch] = useState('');
-  const [rosterPage, setRosterPage] = useState(0);
+  const [_rosterPage, _setRosterPage] = useState(0);
 
   const [actionLoading, setActionLoading] = useState(false);
 

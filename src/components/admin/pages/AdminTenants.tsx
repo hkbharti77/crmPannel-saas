@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { GlassCard, Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { PLAN_META, STATUS_META, type TenantStatus, type PlanTier } from '@/components/admin/adminData';
@@ -26,7 +26,6 @@ function mapPlan(t: ApiTenant): PlanTier {
 }
 
 export function AdminTenants() {
-  const navigate = useNavigate();
   const [tenants, setTenants] = useState<ApiTenant[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

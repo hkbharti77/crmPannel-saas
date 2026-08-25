@@ -1,6 +1,5 @@
 import React from 'react';
 import { useAccess } from '@/context/TenantEntitlementsContext';
-import { useAuth } from '@/context/AuthContext';
 import { ShieldAlert, Sparkles, ArrowLeft, RefreshCw, Lock, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,7 +19,6 @@ export const TenantRouteGuard: React.FC<TenantRouteGuardProps> = ({
   description,
 }) => {
   const { canAccess, loading, refreshEntitlements } = useAccess();
-  const { user } = useAuth();
   const navigate = useNavigate();
 
   if (loading) {
