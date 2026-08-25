@@ -15,6 +15,8 @@ import CreateTemplateView from '@/components/broadcasts/CreateTemplateView';
 import CreateBroadcastView from '@/components/broadcasts/CreateBroadcastView';
 import { MetaConfigView } from '@/components/meta/MetaConfigView';
 import { KnowledgeBaseView } from '@/components/knowledge/KnowledgeBaseView';
+import { LiveDemoView } from '@/components/demo/LiveDemoView';
+
 import { LeadDetailView } from '@/components/leaddetail/LeadDetailView';
 import { AppointmentsView } from '@/components/appointments/AppointmentsView';
 import { BookingView } from '@/components/booking/BookingView';
@@ -162,6 +164,15 @@ function AppContent() {
               </TenantRouteGuard>
             }
           />
+          <Route
+            path="demo"
+            element={
+              <TenantRouteGuard pageKey="PAGE_DASHBOARD">
+                <LiveDemoView />
+              </TenantRouteGuard>
+            }
+          />
+
           <Route
             path="inbox"
             element={

@@ -14,11 +14,13 @@ import {
   BarChart3,
   Users,
   Contact,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
 export type ViewId =
   | 'dashboard'
+  | 'demo'
   | 'inbox'
   | 'chatroom'
   | 'pipeline'
@@ -46,6 +48,7 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'demo', label: 'Live Widget Demo', icon: Sparkles },
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: 3 },
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone },
@@ -61,3 +64,4 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'contacts', label: 'Contacts', icon: Contact },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
+
