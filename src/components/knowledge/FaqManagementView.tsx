@@ -4,15 +4,25 @@ import {
   HelpCircle, Plus, Search, Trash2, Edit3, CheckCircle,
   AlertCircle, Sparkles, RefreshCw, Zap, Loader2, X,
   Upload, FileText, Download, FileSpreadsheet, Layers, Check,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, CheckSquare, Square, AlertTriangle
 } from 'lucide-react';
-import { fetchFaqs, createFaq, updateFaq, deleteFaq, createBatchFaqs, type FaqItemDto } from '@/lib/faqApi';
+import {
+  fetchFaqs, createFaq, updateFaq, deleteFaq, createBatchFaqs,
+  deleteAllFaqs, batchDeleteFaqs, type FaqItemDto
+} from '@/lib/faqApi';
 
 export function FaqManagementView() {
   const [faqs, setFaqs] = useState<FaqItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  // Multi-Select & Bulk Delete State
+  const [selectedFaqIds, setSelectedFaqIds] = useState<string[]>([]);
+  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [batchDeleting, setBatchDeleting] = useState(false);
 
   // 10-Row Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -135,8 +145,66 @@ export function FaqManagementView() {
     if (!res.error) {
       setNotification({ type: 'success', msg: 'FAQ item removed.' });
       setFaqs(prev => prev.filter(f => f.id !== id));
+      setSelectedFaqIds(prev => prev.filter(i => i !== id));
     } else {
       setNotification({ type: 'error', msg: res.error });
+    }
+  };
+
+  // Multi-Selection Handlers
+  const handleToggleSelect = (id: string) => {
+    setSelectedFaqIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllPage = () => {
+    const pageIds = paginatedFaqs.map(f => f.id!).filter(Boolean);
+    const allSelected = pageIds.length > 0 && pageIds.every(id => selectedFaqIds.includes(id));
+    if (allSelected) {
+      setSelectedFaqIds(prev => prev.filter(id => !pageIds.includes(id)));
+    } else {
+      setSelectedFaqIds(prev => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleSelectAllFiltered = () => {
+    const allFilteredIds = filteredFaqs.map(f => f.id!).filter(Boolean);
+    setSelectedFaqIds(allFilteredIds);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedFaqIds([]);
+  };
+
+  const handleBatchDeleteSubmit = async () => {
+    if (selectedFaqIds.length === 0) return;
+    setBatchDeleting(true);
+    const res = await batchDeleteFaqs(selectedFaqIds);
+    setBatchDeleting(false);
+    setShowBatchDeleteModal(false);
+
+    if (res.data?.success) {
+      setNotification({ type: 'success', msg: `Successfully deleted ${res.data.deletedCount} FAQ items!` });
+      setFaqs(prev => prev.filter(f => f.id && !selectedFaqIds.includes(f.id)));
+      setSelectedFaqIds([]);
+    } else {
+      setNotification({ type: 'error', msg: res.error || 'Failed to delete selected FAQs.' });
+    }
+  };
+
+  const handleDeleteAllSubmit = async () => {
+    setDeletingAll(true);
+    const res = await deleteAllFaqs();
+    setDeletingAll(false);
+    setShowDeleteAllModal(false);
+
+    if (res.data?.success) {
+      setNotification({ type: 'success', msg: `All ${res.data.deletedCount} FAQs have been permanently deleted!` });
+      setFaqs([]);
+      setSelectedFaqIds([]);
+    } else {
+      setNotification({ type: 'error', msg: res.error || 'Failed to delete all FAQs.' });
     }
   };
 
@@ -300,6 +368,15 @@ export function FaqManagementView() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {faqs.length > 0 && (
+              <button
+                onClick={() => setShowDeleteAllModal(true)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-danger-500/30 bg-danger-500/10 px-3.5 py-2.5 text-xs font-bold text-danger-500 hover:bg-danger-500/20 shadow-sm transition-all"
+                title="Delete all FAQs permanently"
+              >
+                <Trash2 className="h-4 w-4" /> Delete All ({faqs.length})
+              </button>
+            )}
             <button
               onClick={() => {
                 setBulkFiles([]);
@@ -388,6 +465,43 @@ export function FaqManagementView() {
         </div>
       </div>
 
+      {/* Dynamic Multi-Selection Floating Action Bar */}
+      {selectedFaqIds.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-primary-500/10 p-3.5 text-xs text-primary-c shadow-sm animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <span className="flex h-6 items-center rounded-full bg-primary-500 px-3 text-[11px] font-bold text-white shadow-sm">
+              {selectedFaqIds.length} Selected
+            </span>
+            <span className="text-secondary-c">
+              Selected <strong>{selectedFaqIds.length}</strong> of <strong>{filteredFaqs.length}</strong> FAQs
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedFaqIds.length < filteredFaqs.length && (
+              <button
+                onClick={handleSelectAllFiltered}
+                className="rounded-xl border border-primary-500/30 bg-card-c px-3 py-1.5 font-bold text-primary-500 hover:bg-primary-500/10 transition-all text-xs"
+              >
+                Select All {filteredFaqs.length} Filtered
+              </button>
+            )}
+            <button
+              onClick={handleClearSelection}
+              className="rounded-xl border border-base-c bg-card-c px-3 py-1.5 font-bold text-muted-c hover:text-primary-c transition-all text-xs"
+            >
+              Clear Selection
+            </button>
+            <button
+              onClick={() => setShowBatchDeleteModal(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-danger-500 px-4 py-1.5 font-bold text-white shadow-sm hover:bg-danger-600 transition-all text-xs"
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Delete Selected ({selectedFaqIds.length})
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* FAQ Data Table with 10-Row Pagination */}
       {loading ? (
         <div className="grid h-48 place-items-center rounded-2xl border border-base-c bg-card-c">
@@ -411,6 +525,15 @@ export function FaqManagementView() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-base-c bg-slate-500/5 text-[11px] font-bold text-muted-c uppercase tracking-wider">
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={paginatedFaqs.length > 0 && paginatedFaqs.every(f => f.id && selectedFaqIds.includes(f.id))}
+                      onChange={handleSelectAllPage}
+                      className="rounded border-base-c text-primary-500 focus:ring-primary-500 h-4 w-4 cursor-pointer align-middle"
+                      title="Select all on current page"
+                    />
+                  </th>
                   <th className="py-3 px-4 w-20">Status</th>
                   <th className="py-3 px-4 min-w-[220px]">Question</th>
                   <th className="py-3 px-4 min-w-[300px]">Answer</th>
@@ -421,14 +544,26 @@ export function FaqManagementView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-base-c">
-                {paginatedFaqs.map(faq => (
-                  <tr
-                    key={faq.id}
-                    className={cx(
-                      "hover:bg-slate-500/5 transition-colors",
-                      !faq.isActive && "opacity-60 bg-slate-500/5"
-                    )}
-                  >
+                {paginatedFaqs.map(faq => {
+                  const isSelected = !!(faq.id && selectedFaqIds.includes(faq.id));
+                  return (
+                    <tr
+                      key={faq.id}
+                      className={cx(
+                        "hover:bg-slate-500/5 transition-colors",
+                        isSelected && "bg-primary-500/5 dark:bg-primary-500/10",
+                        !faq.isActive && "opacity-60 bg-slate-500/5"
+                      )}
+                    >
+                      {/* Checkbox Column */}
+                      <td className="py-3.5 px-3 text-center align-top">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => faq.id && handleToggleSelect(faq.id)}
+                          className="rounded border-base-c text-primary-500 focus:ring-primary-500 h-4 w-4 cursor-pointer align-middle"
+                        />
+                      </td>
                     {/* Status Toggle */}
                     <td className="py-3.5 px-4 align-top">
                       <button
@@ -509,8 +644,9 @@ export function FaqManagementView() {
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
+                );
+              })}
+            </tbody>
             </table>
           </div>
 
@@ -787,7 +923,7 @@ export function FaqManagementView() {
         </div>
       )}
 
-      {/* DELETE CONFIRMATION MODAL */}
+      {/* SINGLE FAQ DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-sm rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl text-center">
@@ -797,7 +933,7 @@ export function FaqManagementView() {
             <div className="flex justify-center gap-2 pt-2">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c"
+                className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
               >
                 Cancel
               </button>
@@ -806,6 +942,74 @@ export function FaqManagementView() {
                 className="rounded-xl bg-danger-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-danger-600"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BATCH DELETE CONFIRMATION MODAL */}
+      {showBatchDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-sm rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-danger-500/15 text-danger-500 mx-auto">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 className="text-base font-bold text-primary-c">Delete Selected FAQs?</h3>
+            <p className="text-xs text-muted-c">
+              Are you sure you want to permanently delete <strong>{selectedFaqIds.length}</strong> selected FAQ items from your knowledge base?
+            </p>
+            <div className="flex justify-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowBatchDeleteModal(false)}
+                disabled={batchDeleting}
+                className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBatchDeleteSubmit}
+                disabled={batchDeleting}
+                className="flex items-center gap-1.5 rounded-xl bg-danger-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-danger-600 disabled:opacity-50"
+              >
+                {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {batchDeleting ? 'Deleting...' : `Delete ${selectedFaqIds.length} FAQs`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE ALL CONFIRMATION MODAL */}
+      {showDeleteAllModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-danger-500/15 text-danger-500 mx-auto">
+              <AlertTriangle className="h-7 w-7" />
+            </div>
+            <h3 className="text-lg font-bold text-primary-c">Delete Entire FAQ Database?</h3>
+            <p className="text-xs text-muted-c leading-relaxed">
+              ⚠️ This will permanently remove all <strong className="text-primary-c">{faqs.length} FAQ items</strong> and their vector embeddings from your workspace. This action <strong className="text-danger-500">cannot be undone</strong>.
+            </p>
+            <div className="flex justify-center gap-3 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteAllModal(false)}
+                disabled={deletingAll}
+                className="rounded-xl border border-base-c px-5 py-2.5 text-xs font-bold text-muted-c hover:text-primary-c"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteAllSubmit}
+                disabled={deletingAll}
+                className="flex items-center gap-2 rounded-xl bg-danger-500 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-danger-600 disabled:opacity-50"
+              >
+                {deletingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {deletingAll ? 'Deleting All FAQs...' : `Yes, Delete All ${faqs.length} FAQs`}
               </button>
             </div>
           </div>
