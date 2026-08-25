@@ -19,11 +19,9 @@ import {
   ChevronUp,
   AlertTriangle,
   FileQuestion,
-  Layers,
   Compass,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { cx } from '@/lib/types';
 
 interface RouteShortcut {
   title: string;

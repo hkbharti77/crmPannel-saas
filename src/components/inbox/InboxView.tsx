@@ -61,7 +61,7 @@ export function InboxView() {
   // WebChat states
   const [webSessions, setWebSessions] = useState<WebChatSession[]>([]);
   const [loadingWeb, setLoadingWeb] = useState(false);
-  const [webError, setWebError] = useState<string | null>(null);
+  const [_webError, setWebError] = useState<string | null>(null);
 
   const loadChats = async () => {
     setLoading(true);

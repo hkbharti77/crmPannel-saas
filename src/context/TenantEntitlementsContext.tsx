@@ -55,7 +55,6 @@ const SETTINGS_TAB_MAP: Record<string, string> = {
   'google-calendar': 'SETTINGS_CALENDAR',
   billing: 'SETTINGS_BILLING',
   branding: 'SETTINGS_BRANDING',
-  'dark-mode': 'SETTINGS_PROFILE',
   notifications: 'SETTINGS_NOTIFICATIONS',
   'menu-buttons': 'SETTINGS_MENU_BUTTONS',
   'whatsapp-flows': 'SETTINGS_WHATSAPP_FLOWS',

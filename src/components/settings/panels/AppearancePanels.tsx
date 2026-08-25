@@ -4,8 +4,8 @@ import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/primitives';
 import {
   Paintbrush, Moon, Bell, Sun, Check, Upload, Smartphone, MessageSquare,
-  Bot, Mail, Globe, Building2, Sparkles, Trash2, Eye, Layers, Type, FileText,
-  Palette, CheckCircle2, AlertCircle, Loader2, Monitor, ExternalLink
+  Bot, Mail, Building2, Trash2, Eye, FileText,
+  Palette, CheckCircle2, AlertCircle, Loader2, Monitor
 } from 'lucide-react';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { fetchCurrentUserProfile, updateCurrentUserProfile, uploadWidgetIcon, uploadCompanyLogo } from '@/lib/userApi';
@@ -18,7 +18,6 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
   const [businessName, setBusinessName] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
   const [secondaryColor, setSecondaryColor] = useState('#1E293B');
-  const [accentColor, setAccentColor] = useState('#7C3AED');
   const [welcomeMsg, setWelcomeMsg] = useState('Hello! How can I help you today?');
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [widgetIconUrl, setWidgetIconUrl] = useState<string>('');

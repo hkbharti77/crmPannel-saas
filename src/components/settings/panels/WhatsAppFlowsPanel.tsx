@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import {
-  Plus, Sparkles, CheckCircle2, AlertCircle, Loader2, Copy, Check,
+  Plus, Sparkles, CheckCircle2, Loader2, Copy, Check,
   Trash2, Edit3, ArrowLeft, RefreshCw, Send, Smartphone,
-  Archive, FileText, Calendar, Layers, HelpCircle, Eye, Globe, MessageSquare, LifeBuoy, Star
+  FileText, Calendar, Layers, HelpCircle, Eye, Globe, LifeBuoy
 } from 'lucide-react';
 import {
   fetchWhatsAppFlows,
@@ -18,7 +18,6 @@ import {
   fetchWebFlowsRoutingConfig,
   saveWebFlowsRoutingConfig,
   fetchMasterFields,
-  MasterFieldItem,
   syncMetaFlows,
   WhatsAppFlowItem,
   FlowTemplateItem,

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { IconButton, Avatar } from '@/components/ui/primitives';
-import { Menu, Search, Bell, Sun, Moon, Command, LogOut, ChevronDown } from 'lucide-react';
+import { Menu, Bell, Sun, Moon, LogOut, ChevronDown } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 const TITLES: Record<string, string> = {

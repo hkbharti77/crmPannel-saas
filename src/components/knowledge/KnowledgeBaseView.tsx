@@ -56,7 +56,7 @@ export function KnowledgeBaseView() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
-  const [planLocked, setPlanLocked] = useState(false);
+  const [_planLocked, setPlanLocked] = useState(false);
 
   // ── AI Persona State ──
   const [personaPrompt, setPersonaPrompt] = useState('');

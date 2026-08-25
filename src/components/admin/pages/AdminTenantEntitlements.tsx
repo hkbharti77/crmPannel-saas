@@ -14,8 +14,6 @@ import {
 } from '@/lib/platformApi';
 import {
   ArrowLeft,
-  Shield,
-  Layers,
   Sparkles,
   RefreshCw,
   CheckCircle2,
@@ -25,13 +23,10 @@ import {
   Ban,
   RotateCcw,
   SlidersHorizontal,
-  Info,
-  Server,
-  LayoutGrid,
   CheckCheck,
 } from 'lucide-react';
 import { cx } from '@/lib/types';
-import { GlassCard, Avatar } from '@/components/ui/primitives';
+import { GlassCard } from '@/components/ui/primitives';
 
 export function AdminTenantEntitlements() {
   const { tenantId } = useParams<{ tenantId: string }>();

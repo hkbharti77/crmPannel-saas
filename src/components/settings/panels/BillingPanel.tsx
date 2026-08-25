@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { cx } from '@/lib/types';
-import { CreditCard, Loader2, CheckCircle2, AlertCircle, Zap, ShieldCheck, ArrowUpRight, Receipt, Mail, Layers } from 'lucide-react';
+import { CreditCard, Loader2, CheckCircle2, AlertCircle, Zap, ShieldCheck, Receipt, Mail, Layers, Download } from 'lucide-react';
 import { PanelHeader, SectionCard } from './_shared';
 import {
   fetchSubscriptionStatus,
@@ -8,16 +8,24 @@ import {
   fetchAvailablePlans,
   initiateCheckout,
   verifyRazorpayPayment,
+  downloadInvoice,
   type SubscriptionData,
   type BillingTransaction,
   type SubscriptionPlanDto
 } from '@/lib/billingApi';
 import { useAuth } from '@/context/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
+
+const PLAN_LEVELS: Record<string, number> = {
+  FREE: 0,
+  PRO: 1,
+  ENTERPRISE: 2,
+};
 
 function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined') return resolve(false);
-    if ((window as any).Razorpay) return resolve(true);
+    if ((window as unknown as { Razorpay: unknown }).Razorpay) return resolve(true);
 
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -31,13 +39,27 @@ function loadRazorpayScript(): Promise<boolean> {
 /* ─── Subscription & Billing Panel (100% Backend REST API Driven Prices) ─── */
 export function BillingPanel() {
   const { user } = useAuth();
+  const { isOwnerOrAdmin } = usePermissions();
   const [subData, setSubData] = useState<SubscriptionData | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlanDto[]>([]);
   const [transactions, setTransactions] = useState<BillingTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upgrading, setUpgrading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+
+  const handleDownloadInvoice = async (transactionId: string) => {
+    try {
+      setDownloadingId(transactionId);
+      await downloadInvoice(transactionId);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to download invoice receipt';
+      alert(msg);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   // Detect timezone / country for default currency
   const userTz = typeof window !== 'undefined' ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '') : '';
@@ -159,6 +181,11 @@ export function BillingPanel() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleUpgrade = async (targetPlanId: string) => {
+    if (!isOwnerOrAdmin) {
+      setError('Only workspace Tenant Owner or Admin can purchase or upgrade subscription plans.');
+      return;
+    }
+
     setUpgrading(true);
     setError(null);
     setSuccessMsg(null);
@@ -228,22 +255,24 @@ export function BillingPanel() {
           if (verifyRes.error) {
             setError(`Payment verification failed: ${verifyRes.error}`);
           } else {
-            setSuccessMsg(`🎉 Successfully upgraded to ${planDisplayName}! Your new limits and features are now active.`);
+            setSuccessMsg(`🎉 Successfully upgraded to ${planDisplayName}! Your invoice receipt email has been dispatched.`);
             loadBillingData(currency);
           }
         },
       };
 
       try {
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', (response: any) => {
+        const RazorpayClass = (window as unknown as { Razorpay: new (opts: unknown) => { on: (evt: string, cb: (res: { error?: { description?: string } }) => void) => void; open: () => void } }).Razorpay;
+        const rzp = new RazorpayClass(options);
+        rzp.on('payment.failed', (response: { error?: { description?: string } }) => {
           setUpgrading(false);
           setError(`Payment failed: ${response.error?.description || 'Transaction was declined'}`);
         });
         rzp.open();
-      } catch (err: any) {
+      } catch (err: unknown) {
         setUpgrading(false);
-        setError(`Failed to launch Razorpay checkout: ${err?.message || 'Unknown error'}`);
+        const errMsg = err instanceof Error ? err.message : 'Unknown error';
+        setError(`Failed to launch Razorpay checkout: ${errMsg}`);
       }
       return;
     }
@@ -265,6 +294,8 @@ export function BillingPanel() {
   }
 
   const currentPlanId = subData?.planId || 'FREE';
+  const isActiveStatus = subData?.status === 'ACTIVE';
+  const currentPlanLevel = isActiveStatus ? (PLAN_LEVELS[currentPlanId.toUpperCase()] ?? 0) : -1;
   const limits = subData?.limits;
   const usage = subData?.usage;
 
@@ -277,6 +308,13 @@ export function BillingPanel() {
           desc="Manage limits, payment methods, and pricing plans"
           icon={<CreditCard className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
         />
+
+        {!isOwnerOrAdmin && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 dark:text-amber-400 mb-4 font-medium">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+            <span>Notice: Only workspace Tenant Owner or Admin can purchase or upgrade subscription plans.</span>
+          </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400 mb-4">
@@ -423,7 +461,9 @@ export function BillingPanel() {
         {/* Dynamic Pricing Cards From Backend DB */}
         <div className="grid gap-4 pt-4 sm:grid-cols-3">
           {plans.map((plan) => {
-            const isCurrent = currentPlanId.toUpperCase() === plan.id.toUpperCase();
+            const planLevel = PLAN_LEVELS[plan.id.toUpperCase()] ?? 0;
+            const isCurrent = isActiveStatus && currentPlanId.toUpperCase() === plan.id.toUpperCase();
+            const isLowerTier = isActiveStatus && planLevel < currentPlanLevel;
             
             // Resolve price based on selected currency
             let rawPrice = 0;
@@ -444,14 +484,22 @@ export function BillingPanel() {
                   'rounded-xl2 border p-5 space-y-4 relative flex flex-col justify-between transition-all',
                   isCurrent
                     ? 'border-emerald-500 bg-emerald-500/5 ring-2 ring-emerald-500/30'
+                    : isLowerTier
+                    ? 'border-base-c bg-slate-50/50 dark:bg-ink-850/30 opacity-75'
                     : isPopular
                     ? 'border-primary-500/50 bg-card-c shadow-md'
                     : 'border-base-c bg-card-c',
                 )}
               >
-                {isPopular && (
+                {isPopular && !isLowerTier && !isCurrent && (
                   <div className="absolute -top-3 right-4 rounded-full bg-gradient-accent px-3 py-0.5 text-[10px] font-bold text-white uppercase tracking-wider shadow-sm">
                     POPULAR
+                  </div>
+                )}
+
+                {isLowerTier && (
+                  <div className="absolute -top-3 right-4 rounded-full bg-slate-200 dark:bg-ink-700 px-3 py-0.5 text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider shadow-sm">
+                    INCLUDED IN ACTIVE TIER
                   </div>
                 )}
 
@@ -496,9 +544,17 @@ export function BillingPanel() {
                   </ul>
                 </div>
 
-                {isCurrent ? (
+                {!isOwnerOrAdmin ? (
+                  <button disabled className="w-full rounded-xl border border-slate-300 dark:border-ink-700 bg-slate-100 dark:bg-ink-800 py-2.5 text-xs font-bold text-slate-500 dark:text-slate-400 cursor-not-allowed">
+                    Owner / Admin Only
+                  </button>
+                ) : isCurrent ? (
                   <button disabled className="w-full rounded-xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     Active Plan ✓
+                  </button>
+                ) : isLowerTier ? (
+                  <button disabled className="w-full rounded-xl border border-slate-200 dark:border-ink-700 bg-slate-100/80 dark:bg-ink-850/80 py-2.5 text-xs font-bold text-slate-500 dark:text-slate-400 cursor-not-allowed">
+                    Included in Current Tier
                   </button>
                 ) : plan.isContactUs || plan.id.toUpperCase() === 'ENTERPRISE' ? (
                   <a
@@ -574,17 +630,23 @@ export function BillingPanel() {
                         </span>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        {tx.invoiceUrl ? (
-                          <a href={tx.invoiceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary-500 font-bold hover:underline">
-                            Download <ArrowUpRight className="h-3 w-3" />
-                          </a>
-                        ) : isSuccess ? (
-                          <span className="text-emerald-600 dark:text-emerald-400 text-[11px] font-semibold">Paid ✓</span>
-                        ) : isPending ? (
-                          <span className="text-amber-600 dark:text-amber-400 text-[11px] font-semibold">Pending —</span>
-                        ) : (
-                          <span className="text-danger-600 dark:text-danger-400 text-[11px] font-semibold">Failed ✕</span>
-                        )}
+                        <button
+                          onClick={() => handleDownloadInvoice(tx.id)}
+                          disabled={downloadingId === tx.id}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold hover:bg-primary-500/20 transition-all text-xs border border-primary-500/20"
+                        >
+                          {downloadingId === tx.id ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Download className="h-3.5 w-3.5" />
+                              Invoice
+                            </>
+                          )}
+                        </button>
                       </td>
                     </tr>
                   );

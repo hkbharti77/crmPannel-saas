@@ -177,7 +177,7 @@ export function FaqManagementView() {
             isActive: item.isActive !== false,
           }));
         }
-      } catch (e) {
+      } catch (_e) {
         // Fallback to CSV
       }
     }

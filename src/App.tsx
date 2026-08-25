@@ -2,7 +2,8 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { TenantEntitlementsProvider } from '@/context/TenantEntitlementsContext';
 import { TenantRouteGuard } from '@/components/auth/TenantRouteGuard';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthScreen } from '@/components/auth/AuthScreen';
 import { SessionManager } from '@/components/auth/SessionManager';
 import { AppShell } from '@/components/layout/AppShell';
@@ -99,6 +100,18 @@ function ProtectedRoute({
 
 function AppContent() {
   const { user } = useAuth();
+  const location = useLocation();
+
+  useEffect(() => {
+    // Ensure floating webchat widget is ONLY displayed on the /demo page
+    if (location.pathname !== '/demo') {
+      const widgetEl = document.getElementById('crm-chat-widget');
+      if (widgetEl) widgetEl.remove();
+
+      document.querySelectorAll('[id*="crm-chat"]').forEach((el) => el.remove());
+      document.querySelectorAll('script[data-business-id]').forEach((el) => el.remove());
+    }
+  }, [location.pathname]);
 
   return (
     <>

@@ -7,7 +7,7 @@ import { cx } from '@/lib/types';
 import {
   Mail, KeyRound, User, ArrowRight, Sun, Moon,
   Building2, MessageSquare, TrendingUp, Calendar, Shield, RefreshCw, Edit2,
-  Phone, Tag, Layers, CheckCircle2, ExternalLink, Key, Plug, Check, Sparkles,
+  Phone, Tag, CheckCircle2, Check, Sparkles,
   AlertCircle, UserPlus, LogIn
 } from 'lucide-react';
 
@@ -64,8 +64,8 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   const [whatsappMode, setWhatsappMode] = useState<'embedded' | 'manual'>('embedded');
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [accessToken, setAccessToken] = useState('');
-  const [verifyToken, setVerifyToken] = useState('crm_' + Math.random().toString(36).substring(2, 10));
-  const [wabaId, setWabaId] = useState('');
+  const [verifyToken, _setVerifyToken] = useState('crm_' + Math.random().toString(36).substring(2, 10));
+  const [wabaId, _setWabaId] = useState('');
   const [metaConnected, setMetaConnected] = useState(false);
   const [metaPhoneDisplay, setMetaPhoneDisplay] = useState('');
   const [consentAccepted, setConsentAccepted] = useState(true);

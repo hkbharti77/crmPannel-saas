@@ -27,9 +27,15 @@ interface WhatsAppConfigDto {
   embeddedPhoneId?: string;
 }
 
+interface FacebookSdk {
+  init: (options: { appId: string; cookie: boolean; xfbml: boolean; version: string }) => void;
+  login: (callback: (response: Record<string, unknown>) => void, options?: Record<string, unknown>) => void;
+  [key: string]: unknown;
+}
+
 declare global {
   interface Window {
-    FB?: unknown;
+    FB?: FacebookSdk;
     fbAsyncInit?: () => void;
   }
 }
@@ -90,7 +96,7 @@ export function MetaConfigView() {
     if (window.FB) return;
 
     window.fbAsyncInit = function () {
-      window.FB.init({
+      window.FB?.init({
         appId: META_APP_ID,
         cookie: true,
         xfbml: true,
@@ -155,7 +161,7 @@ export function MetaConfigView() {
     }
   };
 
-  const simulateEmbeddedSignupCallback = async () => {
+  const _simulateEmbeddedSignupCallback = async () => {
     setSaving(true);
     const res = await apiFetch('/api/v1/whatsapp-config/embedded-signup/callback', {
       method: 'POST',
