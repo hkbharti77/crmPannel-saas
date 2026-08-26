@@ -81,8 +81,8 @@ export async function sendTenantMenu(contactId: string): Promise<{ success: bool
 }
 
 export async function toggleBotPaused(contactId: string, botPaused: boolean): Promise<{ success: boolean; error: string | null }> {
-  const res = await apiFetch(`/api/v1/contacts/${contactId}/bot-paused`, {
-    method: 'PUT',
+  const res = await apiFetch(`/api/v1/contacts/${contactId}/toggle-bot`, {
+    method: 'PATCH',
     body: JSON.stringify({ botPaused }),
   });
   return { success: !res.error, error: res.error || null };
