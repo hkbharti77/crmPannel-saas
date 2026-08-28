@@ -32,6 +32,7 @@ import {
   MenuSquare,
   Check,
   UserCheck,
+  Users,
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -219,7 +220,7 @@ export function InboxView() {
     const bot = conversations.filter((c) => c.isBotHandled).length;
     const vip = conversations.filter((c) => c.tags.includes('VIP')).length;
     const mine = conversations.filter((c) => c.assignedTo === 'Arjun').length;
-    const unassigned = conversations.filter((c) => c.status === 'UNASSIGNED' || !c.assignedTo).length;
+    const unassigned = conversations.filter((c) => c.leadStatus === 'UNASSIGNED' || !c.assignedTo).length;
 
     return { all, unread, bot, vip, mine, unassigned };
   }, [conversations]);
@@ -230,7 +231,7 @@ export function InboxView() {
       if (filter === 'bot' && !c.isBotHandled) return false;
       if (filter === 'vip' && !c.tags.includes('VIP')) return false;
       if (filter === 'mine' && c.assignedTo !== 'Arjun') return false;
-      if (filter === 'unassigned' && c.status !== 'UNASSIGNED' && c.assignedTo) return false;
+      if (filter === 'unassigned' && c.leadStatus !== 'UNASSIGNED' && c.assignedTo) return false;
       if (query) {
         const q = query.toLowerCase();
         return (

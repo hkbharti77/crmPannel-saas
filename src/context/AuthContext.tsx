@@ -17,6 +17,9 @@ import {
 export type AuthUser = {
   id: string;
   email: string;
+  displayName?: string;
+  name?: string;
+  phone?: string;
   tenantId?: string;
   businessName?: string;
   role?: string;

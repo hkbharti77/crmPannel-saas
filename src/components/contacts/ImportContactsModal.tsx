@@ -17,9 +17,8 @@ interface ParsedRow {
   email?: string;
   waId: string;
   tags?: string[];
-  rawWaId: string;
   isValid: boolean;
-  validationError?: string;
+  errors: string[];
 }
 
 export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalProps) {
@@ -29,6 +28,13 @@ export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalP
   const [error, setError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      processFiles(Array.from(files).filter(f => f.name.endsWith('.csv')));
+    }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -83,7 +89,7 @@ export function ImportContactsModal({ onClose, onSuccess }: ImportContactsModalP
                 row: index + 2, // 1-based index + header
                 name: name ? String(name).trim() : undefined,
                 email: email ? String(email).trim() : undefined,
-                waId: waId ? String(waId).trim() : undefined,
+                waId: waId ? String(waId).trim() : '',
                 tags: tagsStr ? String(tagsStr).split(',').map(t => t.trim()).filter(t => t.length > 0) : [],
                 isValid: rowErrors.length === 0,
                 errors: rowErrors

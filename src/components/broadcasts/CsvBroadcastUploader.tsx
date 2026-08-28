@@ -36,6 +36,7 @@ type Props = {
     csvRecipients: Record<string, string | null>[];
     phoneColumn: string;
     appliedFilters: AppliedFilter[];
+    filterMatchLogic?: 'AND' | 'OR';
     filteredCount: number;
   }) => void;
   onCancel: () => void;

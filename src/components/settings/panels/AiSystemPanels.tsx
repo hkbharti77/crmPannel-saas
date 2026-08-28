@@ -83,7 +83,7 @@ export function KnowledgeBasePanel() {
     if (charOverLimit) return;
     setPersonaSaving(true);
     setPersonaError(null);
-    const res = await apiFetch('/api/v1/settings/ai/persona', {
+    const res = await apiFetch<{ aiPersonaUpdatedAt?: string }>('/api/v1/settings/ai/persona', {
       method: 'PUT',
       body: JSON.stringify({ aiPersonaPrompt: personaPrompt }),
     });
@@ -350,7 +350,7 @@ export function SupportCategoriesPanel() {
   const loadData = async () => {
     setLoading(true);
     // Fetch Support Form Config
-    const configRes = await apiFetch('/api/v1/support-form-config');
+    const configRes = await apiFetch<Record<string, any>>('/api/v1/support-form-config');
     if (configRes.data) {
       const d = configRes.data;
       if (d.formTitle) setFormTitle(d.formTitle);
@@ -371,7 +371,7 @@ export function SupportCategoriesPanel() {
     }
 
     // Fetch WhatsApp Greeting
-    const greetingRes = await apiFetch('/api/v1/flow-config/greeting?flowType=SUPPORT');
+    const greetingRes = await apiFetch<Record<string, any>>('/api/v1/flow-config/greeting?flowType=SUPPORT');
     if (greetingRes.data?.greetingMessage) {
       setWhatsappIntro(greetingRes.data.greetingMessage);
     }
@@ -1093,7 +1093,7 @@ export function NeedHelpPanel() {
           onClick={() => setShowModal(false)}
         >
           <div
-            className="w-full max-w-lg rounded-xl2 border border-base-c bg-card-c p-6 shadow-soft-lg space-y-4 animate-slide-up"
+            className="w-full max-w-lg max-h-[90vh] overflow-y-auto scrollbar-thin rounded-xl2 border border-base-c bg-card-c p-6 shadow-soft-lg space-y-4 animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">

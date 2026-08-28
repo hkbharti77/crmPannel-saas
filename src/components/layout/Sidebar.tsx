@@ -220,7 +220,7 @@ export function Sidebar({
           {showProfileMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowProfileMenu(false)} />
-              <div className="absolute bottom-16 left-3 z-20 w-64 overflow-hidden rounded-xl2 border border-base-c bg-card-c p-3 shadow-2xl animate-slide-up">
+              <div className="absolute bottom-16 left-3 z-20 w-64 max-h-[80vh] overflow-y-auto scrollbar-thin rounded-xl2 border border-base-c bg-card-c p-3 shadow-2xl animate-slide-up">
                 <div className="flex items-center gap-3 border-b border-base-c pb-3">
                   <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-accent text-sm font-bold text-white">
                     {initials}

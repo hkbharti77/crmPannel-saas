@@ -64,13 +64,13 @@ export function DashboardView() {
       </div>
 
       {/* Live Chatbot Simulator Callout Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-5 shadow-lg shadow-blue-500/15 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white p-4 sm:p-5 shadow-lg shadow-blue-500/15 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/15 backdrop-blur-md text-white border border-white/20 shadow-inner">
             <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <h3 className="text-base font-extrabold tracking-tight">Test Your Live AI Chatbot Widget</h3>
+            <h3 className="text-sm sm:text-base font-extrabold tracking-tight">Test Your Live AI Chatbot Widget</h3>
             <p className="text-xs text-blue-100 mt-0.5">
               Simulate customer conversations and test live AI responses dynamically on your custom <strong className="underline decoration-blue-300">/demo</strong> landing page.
             </p>
@@ -78,7 +78,7 @@ export function DashboardView() {
         </div>
         <button
           onClick={() => navigate('/demo')}
-          className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 text-xs font-extrabold shadow-md transition-all hover:scale-105"
+          className="shrink-0 inline-flex items-center gap-2 rounded-xl bg-white text-blue-700 hover:bg-blue-50 px-4 py-2.5 text-xs font-extrabold shadow-md transition-all hover:scale-105 btn-tactile w-full md:w-auto justify-center"
         >
           Open Live Demo Page
           <ArrowRight className="h-4 w-4" />

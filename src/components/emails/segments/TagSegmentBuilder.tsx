@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Tag, Users, CheckCircle2, XCircle, X, AlertTriangle } from 'lucide-react';
 import { cx } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
@@ -357,7 +357,7 @@ function TagChipInput({ tags, onTagsChange, placeholder, accent, availableTags =
                 Tag Suggestions
               </div>
               <div className="max-h-40 overflow-y-auto py-1 scrollbar-thin">
-                {suggestions.map(sug => (
+                {suggestions.map((sug: string) => (
                   <button
                     key={sug}
                     type="button"

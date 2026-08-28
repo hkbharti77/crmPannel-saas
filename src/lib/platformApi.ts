@@ -83,6 +83,7 @@ export type ApiAnalyticsOverview = {
   totalUsers: number;
   totalLeads: number;
   openTickets: number;
+  totalTickets?: number;
   degradedServices: number;
   mrr?: number;
 };
@@ -408,9 +409,12 @@ export type EntitlementDefinition = {
   key: string;
   type: 'PAGE' | 'SETTING' | 'SERVICE';
   label: string;
+  displayName?: string;
   category: string;
   description: string;
   dependencies: string[];
+  requiredServices?: string[];
+  defaultInPlans?: string[];
   mutability: 'ALWAYS_ENABLED' | 'OVERRIDABLE' | 'PLAN_ONLY';
 };
 
@@ -419,6 +423,7 @@ export type PlatformTenantEntitlementMatrix = {
   businessName: string;
   planId: string;
   planName: string;
+  planType?: string;
   entitlementVersion: number;
   pageOverrides: Record<string, OverrideAction>;
   settingOverrides: Record<string, OverrideAction>;

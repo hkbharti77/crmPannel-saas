@@ -267,8 +267,8 @@ export function SettingsView() {
           </button>
 
           {mobileMenuOpen && (
-            <div className="mt-2 rounded-xl border border-base-c bg-card-c shadow-soft-lg">
-              {NAV.map((group) => (
+            <div className="mt-2 rounded-xl border border-base-c bg-card-c shadow-soft-lg max-h-[60vh] overflow-y-auto scrollbar-thin">
+              {filteredNav.map((group) => (
                 <div key={group.section}>
                   <p className="px-3 pt-2.5 pb-1 text-[8px] font-bold uppercase tracking-widest text-muted-c">{group.section}</p>
                   {group.items.map((item) => {

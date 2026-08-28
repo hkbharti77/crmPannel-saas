@@ -38,7 +38,7 @@ export function AdminOverview() {
       setTenants(list.slice(0, 5));
     }
     if (hlRes.data?.services) setHealth(normalizeHealthServices(hlRes.data.services).slice(0, 5));
-    if (actRes.data) setActivity(Array.isArray(actRes.data) ? actRes.data.slice(0, 5) : []);
+    if (actRes.data) setActivity((Array.isArray(actRes.data) ? actRes.data.slice(0, 5) : []) as Record<string, unknown>[]);
     setLoading(false);
   };
 

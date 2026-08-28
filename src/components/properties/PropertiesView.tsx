@@ -107,7 +107,7 @@ export function PropertiesView() {
       if (mediaFilter === 'VIDEO') return isVideoUrl(item.imageUrl);
       if (mediaFilter === 'DOC') return isDocUrl(item.imageUrl);
       if (mediaFilter === 'IMAGE') return item.imageUrl && !isVideoUrl(item.imageUrl) && !isDocUrl(item.imageUrl);
-      if (mediaFilter === 'TEXT_ONLY') return !item.imageUrl && !item.hasImage;
+      if (mediaFilter === 'TEXT_ONLY') return !item.imageUrl;
 
       return true;
     });

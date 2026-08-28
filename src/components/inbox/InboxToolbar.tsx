@@ -83,7 +83,7 @@ export function InboxToolbar({
 
       {/* Filter tabs (only for WhatsApp) */}
       {channel === 'whatsapp' && (
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
           {filters.map((f) => {
             const Icon = f.icon;
             const active = activeFilter === f.id;
@@ -92,7 +92,7 @@ export function InboxToolbar({
                 key={f.id}
                 onClick={() => onFilter(f.id)}
                 className={cx(
-                  'flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+                  'flex shrink-0 items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap btn-tactile',
                   active
                     ? 'bg-gradient-accent text-white shadow-soft'
                     : 'border border-base-c text-secondary-c hover:border-primary-500/30 hover:text-primary-c',

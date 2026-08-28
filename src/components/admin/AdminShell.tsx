@@ -79,7 +79,7 @@ export function AdminShell() {
               {!collapsed && (
                 <div className="flex flex-col justify-center">
                   <span className="text-[15px] font-extrabold tracking-tight text-primary-c leading-tight">
-                    GyanVaniAi
+                    GyanVani AI
                   </span>
                   <div className="flex items-center gap-1.5 mt-[2px]">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-primary-500/80 leading-none">
