@@ -14,7 +14,7 @@ import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } f
 /* ─── Unified Enterprise Brand & White-Labeling Suite ─── */
 export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'global' | 'widget' | 'email' | 'preview' } = {}) {
   const [activeTab, setActiveTab] = useState<'global' | 'widget' | 'email' | 'preview'>(defaultTab);
-  const [botName, setBotName] = useState('GyanVaniAi Assistant');
+  const [botName, setBotName] = useState('GyanVani AI Assistant');
   const [businessName, setBusinessName] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
   const [secondaryColor, setSecondaryColor] = useState('#1E293B');
@@ -195,12 +195,12 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
           </div>
 
           {/* Tab Switcher Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-base-c bg-slate-100/80 p-1 dark:bg-ink-850">
+          <div className="flex items-center gap-1.5 rounded-xl border border-base-c bg-slate-100/80 p-1 dark:bg-ink-850 overflow-x-auto scrollbar-none flex-nowrap max-w-full">
             <button
               type="button"
               onClick={() => setActiveTab('global')}
               className={cx(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 whitespace-nowrap btn-tactile',
                 activeTab === 'global'
                   ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-700 dark:text-white'
                   : 'text-secondary-c hover:text-primary-c'
@@ -214,7 +214,7 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
               type="button"
               onClick={() => setActiveTab('widget')}
               className={cx(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 whitespace-nowrap btn-tactile',
                 activeTab === 'widget'
                   ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-700 dark:text-white'
                   : 'text-secondary-c hover:text-primary-c'
@@ -228,7 +228,7 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
               type="button"
               onClick={() => setActiveTab('email')}
               className={cx(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 whitespace-nowrap btn-tactile',
                 activeTab === 'email'
                   ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-700 dark:text-white'
                   : 'text-secondary-c hover:text-primary-c'
@@ -242,7 +242,7 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
               type="button"
               onClick={() => setActiveTab('preview')}
               className={cx(
-                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 whitespace-nowrap btn-tactile',
                 activeTab === 'preview'
                   ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-700 dark:text-white'
                   : 'text-secondary-c hover:text-primary-c'

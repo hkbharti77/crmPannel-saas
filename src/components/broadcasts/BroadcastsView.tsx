@@ -530,14 +530,14 @@ function WhatsAppTemplateCard({ template, onDelete }: { template: WhatsAppTempla
       )}
 
       {/* WhatsApp Live Preview Body */}
-      <div className="flex-1 p-8 flex flex-col items-center justify-start bg-slate-50/50 dark:bg-ink-950/50 relative overflow-y-auto scrollbar-thin">
-        <div className="flex items-center gap-2 mb-6 self-start max-w-[340px] mx-auto w-full">
+      <div className="flex-1 p-4 sm:p-8 flex flex-col items-center justify-start bg-slate-50/50 dark:bg-ink-950/50 relative overflow-y-auto max-h-[85vh] scrollbar-thin">
+        <div className="flex items-center gap-2 mb-4 sm:mb-6 self-start max-w-[340px] mx-auto w-full">
           <Smartphone className="h-5 w-5 text-emerald-600" />
           <h4 className="text-sm font-bold text-primary-c">WhatsApp Preview</h4>
         </div>
 
         {/* Premium Mock Phone */}
-        <div className="relative w-full max-w-[340px] rounded-[3rem] border-[8px] border-slate-900 bg-[#E5DDD5] shadow-2xl overflow-hidden min-h-[580px] flex flex-col shrink-0">
+        <div className="relative w-full max-w-[340px] rounded-[2.5rem] sm:rounded-[3rem] border-[6px] sm:border-[8px] border-slate-900 bg-[#E5DDD5] shadow-2xl overflow-hidden min-h-[520px] sm:min-h-[580px] flex flex-col shrink-0">
           {/* Phone Notch */}
           <div className="absolute top-0 inset-x-0 h-6 bg-slate-900 rounded-b-2xl w-32 mx-auto z-20"></div>
 
@@ -888,7 +888,7 @@ function CampaignRecipientsTable({ campaignId }: { campaignId: string }) {
 
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
+            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | 'FAILED_ONLY' | 'SENT' | 'DELIVERED' | 'READ')}
             className="h-7 rounded-lg border border-base-c bg-card-c px-2 text-[11px] text-primary-c focus:border-primary-500 focus:outline-none"
           >
             <option value="ALL">All Statuses</option>

@@ -40,10 +40,13 @@ export function FieldRow({
 export function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
       className={cx(
-        'relative h-6 w-11 shrink-0 rounded-full transition-colors',
+        'relative h-6 w-11 shrink-0 rounded-full transition-colors btn-tactile',
         checked ? 'bg-gradient-accent' : 'bg-slate-300 dark:bg-ink-700',
         disabled && 'opacity-60 cursor-not-allowed',
       )}
@@ -63,13 +66,14 @@ export function Toggle({ checked, onChange, disabled }: { checked: boolean; onCh
 export function SaveBar({ onSave, saving = false }: { onSave: () => void; saving?: boolean }) {
   return (
     <div className="flex items-center justify-end gap-2 border-t border-base-c pt-4">
-      <button className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c">
+      <button type="button" className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c btn-tactile">
         Cancel
       </button>
       <button
+        type="button"
         onClick={onSave}
         disabled={saving}
-        className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-4 py-2 text-xs font-semibold text-white transition-transform hover:scale-105 disabled:opacity-50 btn-tactile"
       >
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
         <span>{saving ? 'Saving…' : 'Save Changes'}</span>
@@ -126,7 +130,7 @@ export function PlanLockBanner({
             if (onUpgrade) onUpgrade();
             else window.dispatchEvent(new CustomEvent('switchSettingsTab', { detail: 'billing' }));
           }}
-          className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-accent px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 shrink-0"
+          className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-accent px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 shrink-0 btn-tactile"
         >
           <Sparkles className="h-4 w-4" />
           <span>Upgrade to {requiredPlan}</span>

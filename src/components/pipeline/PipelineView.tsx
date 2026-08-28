@@ -315,13 +315,13 @@ export function PipelineView() {
             className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-10 pr-4 text-sm text-primary-c placeholder:text-muted-c transition-colors focus:border-primary-500/50 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full scrollbar-none flex-nowrap">
           {filters.map((f) => (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
               className={cx(
-                'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all',
+                'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap btn-tactile',
                 filter === f.id
                   ? 'bg-gradient-accent text-white shadow-soft'
                   : 'border border-base-c text-secondary-c hover:border-primary-500/30 hover:text-primary-c',
@@ -341,7 +341,7 @@ export function PipelineView() {
 
       {/* Main View */}
       {viewMode === 'kanban' ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin">
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scroll-snap-x min-h-[500px]">
           {STAGE_CONFIG.map((col) => {
             const colLeads = filtered.filter((l) => l.stage === col.stage);
             return (

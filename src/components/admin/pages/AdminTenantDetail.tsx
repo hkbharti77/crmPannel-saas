@@ -18,7 +18,7 @@ import {
   type TenantMultiChannelAnalytics,
   type TenantMemberRoster,
 } from '@/lib/platformApi';
-import { PLAN_META, STATUS_META } from '@/components/admin/adminData';
+import { PLAN_META, STATUS_META, type PlanTier, type TenantStatus } from '@/components/admin/adminData';
 
 type Tab = 'overview' | 'roster' | 'analytics';
 
@@ -101,9 +101,10 @@ export function AdminTenantDetail() {
     return <div className="p-6 text-sm text-danger-500">Tenant ID missing</div>;
   }
 
-  const plan = (profile?.planType || 'STARTER').toLowerCase();
+  const plan = (profile?.planType?.toLowerCase() || 'starter') as PlanTier;
   const pMeta = PLAN_META[plan] ?? PLAN_META['starter'];
-  const sMeta = STATUS_META[profile?.lifecycleStatus?.toLowerCase() || 'active'] ?? STATUS_META['active'];
+  const status = (profile?.lifecycleStatus?.toLowerCase() || 'active') as TenantStatus;
+  const sMeta = STATUS_META[status] ?? STATUS_META['active'];
 
   return (
     <div className="mx-auto max-w-7xl p-4 lg:p-6 space-y-6">
@@ -176,7 +177,7 @@ export function AdminTenantDetail() {
                 <span className={cx('rounded-full px-3 py-0.5 text-xs font-bold uppercase', pMeta.color)}>
                   {profile?.planName || pMeta.label}
                 </span>
-                <span className={cx('flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', sMeta.bg, sMeta.color)}>
+                <span className={cx('flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold', sMeta.color)}>
                   <span className={cx('h-2 w-2 rounded-full', sMeta.dot)} />
                   {profile?.lifecycleStatus || 'ACTIVE'}
                 </span>

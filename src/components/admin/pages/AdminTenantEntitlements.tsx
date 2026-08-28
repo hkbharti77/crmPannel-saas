@@ -194,10 +194,10 @@ export function AdminTenantEntitlements() {
       if (categoryFilter !== 'ALL' && item.category !== categoryFilter) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
-        const matchName = item.displayName.toLowerCase().includes(q);
+        const matchName = (item.displayName || item.label || '').toLowerCase().includes(q);
         const matchKey = item.key.toLowerCase().includes(q);
         const matchDesc = item.description?.toLowerCase().includes(q);
-        const matchReq = item.requiredServices?.some((s) => s.toLowerCase().includes(q));
+        const matchReq = item.requiredServices?.some((s: string) => s.toLowerCase().includes(q));
         if (!matchName && !matchKey && !matchDesc && !matchReq) return false;
       }
       return true;
@@ -375,11 +375,11 @@ export function AdminTenantEntitlements() {
       </div>
 
       {/* Categories Horizontal Scroll */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-nowrap">
         <button
           onClick={() => setCategoryFilter('ALL')}
           className={cx(
-            'whitespace-nowrap rounded-lg px-3 py-1 text-xs font-medium transition-all',
+            'whitespace-nowrap rounded-lg px-3 py-1 text-xs font-medium transition-all shrink-0 btn-tactile',
             categoryFilter === 'ALL'
               ? 'bg-slate-900 text-white dark:bg-white dark:text-black font-semibold'
               : 'bg-slate-100 dark:bg-ink-800 text-secondary-c hover:text-primary-c'
@@ -392,7 +392,7 @@ export function AdminTenantEntitlements() {
             key={c}
             onClick={() => setCategoryFilter(c)}
             className={cx(
-              'whitespace-nowrap rounded-lg px-3 py-1 text-xs font-medium transition-all',
+              'whitespace-nowrap rounded-lg px-3 py-1 text-xs font-medium transition-all shrink-0 btn-tactile',
               categoryFilter === c
                 ? 'bg-slate-900 text-white dark:bg-white dark:text-black font-semibold'
                 : 'bg-slate-100 dark:bg-ink-800 text-secondary-c hover:text-primary-c'
@@ -437,7 +437,7 @@ export function AdminTenantEntitlements() {
                       )}>
                         {def.type}
                       </span>
-                      <h4 className="text-sm font-bold text-primary-c">{def.displayName}</h4>
+                      <h4 className="text-sm font-bold text-primary-c">{def.displayName || def.label}</h4>
                       <code className="text-[10px] text-muted-c font-mono">{def.key}</code>
                       {isAlwaysEnabled && (
                         <span className="flex items-center gap-1 rounded bg-slate-500/10 px-1.5 py-0.5 text-[9px] font-semibold text-secondary-c">
@@ -449,7 +449,7 @@ export function AdminTenantEntitlements() {
                     {def.requiredServices && def.requiredServices.length > 0 && (
                       <div className="mt-1.5 flex items-center gap-1 text-[10px] text-muted-c">
                         <span className="font-semibold">Requires:</span>
-                        {def.requiredServices.map((s) => (
+                        {def.requiredServices.map((s: string) => (
                           <code key={s} className="rounded bg-slate-100 dark:bg-ink-800 px-1 py-0.5 font-mono text-primary-500">
                             {s}
                           </code>

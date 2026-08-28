@@ -88,7 +88,7 @@ export function TopBar({
         <Menu className="h-5 w-5" />
       </button>
 
-      <h1 className="text-base font-semibold text-primary-c lg:text-lg">
+      <h1 className="text-base font-semibold text-primary-c lg:text-lg truncate max-w-[180px] sm:max-w-none">
         {TITLES[currentPath] ?? 'Dashboard'}
       </h1>
 

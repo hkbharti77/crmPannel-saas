@@ -59,6 +59,7 @@ export function LeadDetailView() {
   const onBack = () => navigate('/pipeline');
   const [tab, setTab] = useState<TabId>('timeline');
   const [lead, setLead] = useState<LeadDTO | null>(leadObj || null);
+  const [loading, setLoading] = useState(false);
 
   const [notes, setNotes] = useState<LeadNoteDTO[]>([]);
   const [notesLoading, setNotesLoading] = useState(false);
@@ -110,8 +111,8 @@ export function LeadDetailView() {
   const email = lead?.contact?.email || leadObj?.email || 'N/A';
   const location = lead?.contact?.source || 'N/A';
   const budget = lead?.dealValue ? `₹${lead.dealValue}` : 'Not specified';
-  const enquiries = lead?.enquiries || [];
-  const firstEnquiry = enquiries[0];
+  const enquiries = (lead?.enquiries || []) as Record<string, any>[];
+  const firstEnquiry = enquiries[0] as Record<string, any> | undefined;
   const interest = firstEnquiry?.requirement || firstEnquiry?.serviceCategory || lead?.dealLabel || 'General Inquiry';
   const source = lead?.contact?.source || leadObj?.source || 'WhatsApp Ingress';
   const assignedTo = lead?.ownerName || leadObj?.assignedTo || 'Unassigned';

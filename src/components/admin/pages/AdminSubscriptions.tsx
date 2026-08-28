@@ -6,6 +6,42 @@ import { Search, Users, RefreshCw, Plus, Edit2, Trash2, X, Shield, Layers, Zap, 
 import { fetchPlatformSubscriptions, updateTenantPlan, fetchPlatformPlans, createPlatformPlan, updatePlatformPlanDetails, deletePlatformPlan } from '@/lib/platformApi';
 import { fetchEffectiveEntitlements, updateTenantOverrides, resetTenantOverrides, fetchOverrideAudits, EffectiveEntitlementsDto, TenantOverrideAudit } from '@/lib/billingApi';
 
+interface PlatformSubscriptionItem {
+  id?: string;
+  tenantId: string;
+  tenant: string;
+  plan: string;
+  mrr?: number;
+  seats?: number;
+  seatsUsed?: number;
+  paymentMethod?: string;
+  status?: string;
+  renewalDate?: string;
+}
+
+interface PlatformPlanItem {
+  id: string;
+  name: string;
+  priceMonthlyInr?: number;
+  priceYearlyInr?: number;
+  priceMonthlyUsd?: number;
+  priceYearlyUsd?: number;
+  priceMonthly?: number;
+  priceYearly?: number;
+  employeeLimit?: number;
+  primaryResourceLimit?: number;
+  secondaryResourceLimit?: number;
+  ticketLimit?: number;
+  emailLimit?: number;
+  hasWhatsapp?: boolean;
+  hasWhatsappCampaign?: boolean;
+  whatsappCampaignLimit?: number;
+  hasCustomWidget?: boolean;
+  hasRagLlm?: boolean;
+  isContactUs?: boolean;
+  contactUs?: boolean;
+}
+
 function mapPlan(planStr?: string): PlanTier {
   const p = (planStr ?? 'FREE').toLowerCase();
   if (p === 'enterprise') return 'enterprise';
@@ -18,14 +54,14 @@ export function AdminSubscriptions() {
   const [activeTab, setActiveTab] = useState<'tenants' | 'plans'>('tenants');
   
   // Tenant Subscriptions State
-  const [subscriptions, setSubscriptions] = useState<Record<string, unknown>[]>([]);
+  const [subscriptions, setSubscriptions] = useState<PlatformSubscriptionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   // Tenant Custom Overrides Modal State
-  const [overrideModalTenant, setOverrideModalTenant] = useState<Record<string, unknown> | null>(null);
+  const [overrideModalTenant, setOverrideModalTenant] = useState<PlatformSubscriptionItem | null>(null);
   const [effectiveEntitlements, setEffectiveEntitlements] = useState<EffectiveEntitlementsDto | null>(null);
   const [overrideAudits, setOverrideAudits] = useState<TenantOverrideAudit[]>([]);
   const [overrideLoading, setOverrideLoading] = useState(false);
@@ -46,9 +82,9 @@ export function AdminSubscriptions() {
   });
 
   // Platform Plans State (Super Admin CRUD)
-  const [plans, setPlans] = useState<Record<string, unknown>[]>([]);
+  const [plans, setPlans] = useState<PlatformPlanItem[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<Record<string, unknown> | null>(null);
+  const [editingPlan, setEditingPlan] = useState<PlatformPlanItem | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
 
@@ -81,7 +117,7 @@ export function AdminSubscriptions() {
     if (res.error) {
       setError(res.error);
     } else if (res.data) {
-      setSubscriptions(res.data);
+      setSubscriptions((res.data || []) as unknown as PlatformSubscriptionItem[]);
     }
   };
 
@@ -89,7 +125,7 @@ export function AdminSubscriptions() {
     setPlansLoading(true);
     const res = await fetchPlatformPlans();
     if (res.data) {
-      setPlans(res.data);
+      setPlans((res.data || []) as unknown as PlatformPlanItem[]);
     }
     setPlansLoading(false);
   };
@@ -99,13 +135,13 @@ export function AdminSubscriptions() {
     loadPlans();
   }, []);
 
-  const openOverrideModal = async (tenant: Record<string, unknown>) => {
+  const openOverrideModal = async (tenant: PlatformSubscriptionItem) => {
     setOverrideModalTenant(tenant);
     setOverrideLoading(true);
     setOverrideTab('config');
 
     try {
-      const res = await fetchEffectiveEntitlements(tenant.tenantId as string, true);
+      const res = await fetchEffectiveEntitlements(tenant.tenantId, true);
       if (res.data) {
         setEffectiveEntitlements(res.data);
         setOverrideForm({
@@ -141,19 +177,18 @@ export function AdminSubscriptions() {
         maxRecipientsPerWhatsappCampaign: Number(overrideForm.maxRecipientsPerWhatsappCampaign),
         monthlyWhatsappMessageQuota: Number(overrideForm.monthlyWhatsappMessageQuota),
         maxAllowedPriority: overrideForm.maxAllowedPriority,
-        hasWhatsapp: overrideForm.hasWhatsapp,
-        hasWhatsappCampaign: overrideForm.hasWhatsappCampaign,
-        hasCustomWidget: overrideForm.hasCustomWidget,
-        hasRagLlm: overrideForm.hasRagLlm,
+        hasWhatsapp: Boolean(overrideForm.hasWhatsapp),
+        hasWhatsappCampaign: Boolean(overrideForm.hasWhatsappCampaign),
+        hasCustomWidget: Boolean(overrideForm.hasCustomWidget),
+        hasRagLlm: Boolean(overrideForm.hasRagLlm),
         customMonthlyInr: Number(overrideForm.customMonthlyInr),
-        reason: overrideForm.reason,
+        reason: overrideForm.reason || 'Admin custom entitlement override update',
       });
 
       if (res.data) {
         setEffectiveEntitlements(res.data);
         const auditsRes = await fetchOverrideAudits(overrideModalTenant.tenantId);
         if (auditsRes.data) setOverrideAudits(auditsRes.data);
-        load();
       }
     } catch (e) {
       console.error('Error saving overrides', e);
@@ -164,15 +199,29 @@ export function AdminSubscriptions() {
 
   const handleResetOverrides = async () => {
     if (!overrideModalTenant) return;
-    if (!confirm('Are you sure you want to reset custom overrides to base plan defaults?')) return;
+    if (!confirm(`Are you sure you want to reset custom overrides for ${overrideModalTenant.tenant}? This tenant will fall back entirely to base plan '${overrideModalTenant.plan}' rules.`)) return;
+
     setOverrideSaving(true);
     try {
       await resetTenantOverrides(overrideModalTenant.tenantId);
       const res = await fetchEffectiveEntitlements(overrideModalTenant.tenantId, true);
-      if (res.data) setEffectiveEntitlements(res.data);
-      const auditsRes = await fetchOverrideAudits(overrideModalTenant.tenantId);
-      if (auditsRes.data) setOverrideAudits(auditsRes.data);
-      load();
+      if (res.data) {
+        setEffectiveEntitlements(res.data);
+        setOverrideForm({
+          employeeLimit: res.data.limits?.employeeLimit || 10,
+          maxRecipientsPerWhatsappCampaign: res.data.limits?.maxRecipientsPerWhatsappCampaign || 25000,
+          monthlyWhatsappMessageQuota: res.data.limits?.monthlyWhatsappMessageQuota || 25000,
+          maxAllowedPriority: res.data.maxAllowedPriority || 'MEDIUM',
+          hasWhatsapp: res.data.features?.hasWhatsapp ?? true,
+          hasWhatsappCampaign: res.data.features?.hasWhatsappCampaign ?? true,
+          hasCustomWidget: res.data.features?.hasCustomWidget ?? false,
+          hasRagLlm: res.data.features?.hasRagLlm ?? true,
+          customMonthlyInr: res.data.pricing?.monthlyInr || 2499,
+          reason: 'Reset to plan defaults',
+        });
+        const auditsRes = await fetchOverrideAudits(overrideModalTenant.tenantId);
+        if (auditsRes.data) setOverrideAudits(auditsRes.data);
+      }
     } catch (e) {
       console.error('Error resetting overrides', e);
     } finally {
@@ -216,7 +265,7 @@ export function AdminSubscriptions() {
     setIsCreating(true);
   };
 
-  const openEditModal = (plan: Record<string, unknown>) => {
+  const openEditModal = (plan: PlatformPlanItem) => {
     setEditingPlan(plan);
     setPlanForm({
       id: plan.id,
@@ -255,15 +304,18 @@ export function AdminSubscriptions() {
     }
   };
 
-  const handleDeletePlan = async (planId: string) => {
-    if (!confirm(`Are you sure you want to delete plan ${planId}? Tenants assigned to this plan will remain intact.`)) return;
+  const handleDeletePlan = (planId: string) => {
     setDeletingPlanId(planId);
-    await deletePlatformPlan(planId);
-    setDeletingPlanId(null);
-    loadPlans();
   };
 
-
+  const confirmDeletePlan = async () => {
+    if (!deletingPlanId) return;
+    setPlansLoading(true);
+    await deletePlatformPlan(deletingPlanId);
+    setDeletingPlanId(null);
+    setPlansLoading(false);
+    loadPlans();
+  };
 
   const filtered = useMemo(() => {
     if (!search.trim()) return subscriptions;
@@ -549,11 +601,11 @@ export function AdminSubscriptions() {
             </button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {plansLoading ? (
               [...Array(3)].map((_, i) => <div key={i} className="h-64 rounded-xl2 bg-slate-100 dark:bg-ink-800 animate-pulse" />)
             ) : plans.length === 0 ? (
-              <div className="col-span-3 py-12 text-center text-xs text-muted-c">No subscription plans found in PostgreSQL database.</div>
+              <div className="col-span-full py-12 text-center text-xs text-muted-c">No subscription plans found in PostgreSQL database.</div>
             ) : (
               plans.map((plan) => (
                 <div key={plan.id} className="rounded-xl2 border border-base-c bg-card-c p-5 space-y-4 flex flex-col justify-between shadow-sm relative">
@@ -633,10 +685,10 @@ export function AdminSubscriptions() {
       {/* CREATE / EDIT PLAN MODAL */}
       {(isCreating || editingPlan) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-xl rounded-xl2 border border-base-c bg-card-c p-6 space-y-4 shadow-2xl">
+          <div className="w-full max-w-xl max-h-[90vh] overflow-y-auto scrollbar-thin rounded-xl2 border border-base-c bg-card-c p-4 sm:p-6 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-base-c pb-3">
               <h3 className="text-base font-bold text-primary-c">
-                {isCreating ? 'Create New Subscription Plan' : `Edit Plan: ${editingPlan.id}`}
+                {isCreating ? 'Create New Subscription Plan' : editingPlan ? `Edit Plan: ${editingPlan.id}` : 'Edit Plan'}
               </h3>
               <button onClick={() => { setIsCreating(false); setEditingPlan(null); }} className="rounded-lg p-1 text-muted-c hover:text-primary-c">
                 <X className="h-5 w-5" />
@@ -644,7 +696,7 @@ export function AdminSubscriptions() {
             </div>
 
             <form onSubmit={handleSavePlan} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-bold text-primary-c">Plan ID (Unique Key)</label>
                   <input

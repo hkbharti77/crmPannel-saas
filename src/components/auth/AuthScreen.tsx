@@ -352,7 +352,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
           </div>
           <div className="flex flex-col justify-center">
             <h2 className="text-xl font-extrabold tracking-tight text-white leading-tight">
-              GyanVaniAi
+              GyanVani AI
             </h2>
             <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70 leading-none mt-1">
               Connect
@@ -377,7 +377,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md px-3.5 py-2.5">
               <Sparkles className="h-4 w-4 text-amber-300" />
-              <span>AI Lead Qualified</span>
+              <span>AI Lead Qualification</span>
             </div>
             <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md px-3.5 py-2.5">
               <TrendingUp className="h-4 w-4 text-blue-300" />

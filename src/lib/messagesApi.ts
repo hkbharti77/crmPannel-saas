@@ -8,6 +8,10 @@ export type ApiChat = {
   unread: number;
   status: string;
   botPaused?: boolean;
+  tags?: string[];
+  leadId?: string;
+  leadStatus?: string;
+  assignedAgentName?: string;
 };
 
 export type ApiMessage = {

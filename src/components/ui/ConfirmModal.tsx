@@ -10,7 +10,9 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   variant?: 'danger' | 'warning' | 'primary';
+  confirmVariant?: 'danger' | 'warning' | 'primary';
   loading?: boolean;
+  isLoading?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -21,11 +23,15 @@ export function ConfirmModal({
   message,
   confirmText = 'Delete',
   cancelText = 'Cancel',
-  variant = 'danger',
-  loading = false,
+  variant,
+  confirmVariant,
+  loading,
+  isLoading,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const activeVariant = confirmVariant || variant || 'danger';
+  const isBusy = isLoading ?? loading ?? false;
   return (
     <Modal isOpen={isOpen} onClose={onCancel}>
       <div
@@ -36,11 +42,11 @@ export function ConfirmModal({
           <div className="flex items-center gap-3">
             <div className={cx(
               "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
-              variant === 'danger' && "bg-rose-500/15 text-rose-500 border border-rose-500/30",
-              variant === 'warning' && "bg-amber-500/15 text-amber-500 border border-amber-500/30",
-              variant === 'primary' && "bg-primary-500/15 text-primary-500 border border-primary-500/30"
+              activeVariant === 'danger' && "bg-rose-500/15 text-rose-500 border border-rose-500/30",
+              activeVariant === 'warning' && "bg-amber-500/15 text-amber-500 border border-amber-500/30",
+              activeVariant === 'primary' && "bg-primary-500/15 text-primary-500 border border-primary-500/30"
             )}>
-              {variant === 'danger' ? <Trash2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
+              {activeVariant === 'danger' ? <Trash2 className="h-5 w-5" /> : <AlertTriangle className="h-5 w-5" />}
             </div>
             <div>
               <h3 className="text-base font-bold text-primary-c">{title}</h3>
@@ -59,7 +65,7 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onCancel}
-            disabled={loading}
+            disabled={isBusy}
             className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:bg-slate-500/10 hover:text-primary-c transition-all"
           >
             {cancelText}
@@ -67,15 +73,15 @@ export function ConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={loading}
+            disabled={isBusy}
             className={cx(
               "flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-50",
-              variant === 'danger' && "bg-rose-600 hover:bg-rose-700",
-              variant === 'warning' && "bg-amber-600 hover:bg-amber-700",
-              variant === 'primary' && "bg-primary-600 hover:bg-primary-700"
+              activeVariant === 'danger' && "bg-rose-600 hover:bg-rose-700",
+              activeVariant === 'warning' && "bg-amber-600 hover:bg-amber-700",
+              activeVariant === 'primary' && "bg-primary-600 hover:bg-primary-700"
             )}
           >
-            {loading && <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+            {isBusy && <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
             <span>{confirmText}</span>
           </button>
         </div>

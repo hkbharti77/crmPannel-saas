@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { onboardingApi, categoryApi, apiFetch, type OnboardingData } from '@/lib/api';
+import { onboardingApi, categoryApi, metaGatewayApi, apiFetch, type OnboardingData } from '@/lib/api';
 import { cx } from '@/lib/types';
 import {
   User,

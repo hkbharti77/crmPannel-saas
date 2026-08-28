@@ -104,7 +104,7 @@ export function ContactsView() {
     }
   };
 
-  const toggleSelect = (e: React.MouseEvent, id: string) => {
+  const toggleSelect = (e: React.SyntheticEvent, id: string) => {
     e.stopPropagation();
     setSelectedContacts(prev => {
       const newSet = new Set(prev);
@@ -151,45 +151,46 @@ export function ContactsView() {
             />
           </div>
           
-          <div className="flex w-full md:w-auto items-center gap-3">
+          <div className="flex w-full md:w-auto items-center gap-2 sm:gap-3 flex-wrap">
             <button 
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex flex-1 md:flex-none items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium shadow-sm transition-colors ${
+              className={`flex items-center justify-center gap-2 rounded-lg border px-3 sm:px-4 py-2 text-sm font-medium shadow-sm transition-colors btn-tactile ${
                 showFilters || filterSource !== 'ALL' || filterBotStatus !== 'ALL'
                   ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-300 dark:hover:bg-ink-800'
               }`}
             >
               <Filter className="h-4 w-4" />
-              Filters
+              <span>Filters</span>
               {(filterSource !== 'ALL' || filterBotStatus !== 'ALL') && (
                 <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">
                   {(filterSource !== 'ALL' ? 1 : 0) + (filterBotStatus !== 'ALL' ? 1 : 0)}
                 </span>
               )}
             </button>
-            <div className="hidden sm:block h-6 w-px bg-slate-200 dark:bg-ink-800"></div>
             <button 
               onClick={handleExport}
               disabled={isExporting}
-              className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-300 dark:hover:bg-ink-800"
+              title="Export Contacts CSV"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 sm:px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-300 dark:hover:bg-ink-800 btn-tactile"
             >
               {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {isExporting ? 'Exporting...' : 'Export'}
+              <span className="hidden sm:inline">{isExporting ? 'Exporting…' : 'Export'}</span>
             </button>
             <button
               onClick={() => setIsImportModalOpen(true)}
-              className="hidden sm:flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-300 dark:hover:bg-ink-800"
+              title="Import Contacts CSV"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 sm:px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-300 dark:hover:bg-ink-800 btn-tactile"
             >
               <Upload className="h-4 w-4" />
-              Import
+              <span className="hidden sm:inline">Import</span>
             </button>
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700"
+              className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 sm:px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 btn-tactile ml-auto md:ml-0"
             >
               <Plus className="h-4 w-4" />
-              Add Contact
+              <span>Add Contact</span>
             </button>
           </div>
         </div>

@@ -6,7 +6,8 @@ export type LeadDTO = {
   leadNumber?: string;
   contact?: ContactDTO;
   status: 'NEW' | 'CONTACTED' | 'QUALIFIED' | 'WON' | 'LOST';
-  enquiries?: unknown[];
+  enquiries?: Record<string, any>[];
+  notes?: string;
   createdAt?: string;
   lastActivity?: string;
   dealValue?: number;

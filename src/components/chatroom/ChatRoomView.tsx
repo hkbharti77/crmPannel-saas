@@ -37,6 +37,7 @@ export function ChatRoomView() {
   const [draft, setDraft] = useState('');
   const [botMode, setBotMode] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [suggestionIdx, setSuggestionIdx] = useState<number>(0);
   const [showContext, setShowContext] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sendingMenu, setSendingMenu] = useState(false);
@@ -209,7 +210,7 @@ export function ChatRoomView() {
   };
 
   const handleRegenerate = () => {
-    setSuggestionIdx((i) => (i + 1) % 3);
+    setSuggestionIdx((i: number) => (i + 1) % 3);
   };
 
   const displayName = contactDetails?.name || contactDetails?.waId || 'WhatsApp Lead';
@@ -256,19 +257,20 @@ export function ChatRoomView() {
                 )}
               >
                 {botMode ? (
-                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5" />} Bot Active</>  
+                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5 shrink-0" />} <span className="hidden xs:inline sm:inline">Bot Active</span><span className="xs:hidden sm:hidden">Bot</span></>  
                 ) : (
-                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5" />} Human Mode</>  
+                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5 shrink-0" />} <span className="hidden xs:inline sm:inline">Human Mode</span><span className="xs:hidden sm:hidden">Human</span></>  
                 )}
               </button>
               {contactId && contactId.includes('-') && (
                 <button
                   onClick={handleSendMenu}
                   disabled={sendingMenu}
-                  className="flex items-center gap-1 text-xs font-medium rounded-lg border border-primary-500/30 bg-primary-500/10 px-2.5 py-1 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20"
+                  className="flex items-center gap-1 text-xs font-medium rounded-lg border border-primary-500/30 bg-primary-500/10 px-2 sm:px-2.5 py-1 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 btn-tactile shrink-0"
                 >
-                  <MenuSquare className="h-3.5 w-3.5" />
-                  {sendingMenu ? 'Sending...' : 'Send Menu'}
+                  <MenuSquare className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden sm:inline">{sendingMenu ? 'Sending…' : 'Send Menu'}</span>
+                  <span className="sm:hidden">Menu</span>
                 </button>
               )}
 

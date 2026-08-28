@@ -131,55 +131,57 @@ function StageProgression({
   const currentIdx = STAGES.indexOf(currentStage);
 
   return (
-    <div className="flex items-center">
-      {STAGES.map((stageItem, i) => {
-        const isComplete = i < currentIdx;
-        const isCurrent = i === currentIdx;
+    <div className="w-full overflow-x-auto scrollbar-none py-1">
+      <div className="flex items-center min-w-[340px] sm:min-w-full">
+        {STAGES.map((stageItem, i) => {
+          const isComplete = i < currentIdx;
+          const isCurrent = i === currentIdx;
 
-        return (
-          <div key={stageItem} className="flex flex-1 items-center last:flex-none">
-            <div
-              onClick={() => onStageChange?.(stageItem)}
-              className="flex flex-col items-center cursor-pointer group"
-              title={`Click to set stage to ${stageItem}`}
-            >
-              <div className="relative">
-                {isComplete ? (
-                  <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft transition-transform group-hover:scale-110', STAGE_COLORS[stageItem])}>
-                    <CheckCircle2 className="h-4 w-4" />
-                  </div>
-                ) : isCurrent ? (
-                  <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft ring-4 ring-card-c transition-transform group-hover:scale-110', STAGE_COLORS[stageItem])}>
-                    <Circle className="h-4 w-4 fill-current" />
-                  </div>
-                ) : (
-                  <div className="grid h-8 w-8 place-items-center rounded-full border-2 border-base-c bg-card-c text-muted-c transition-all group-hover:border-primary-500 group-hover:text-primary-c group-hover:scale-110">
-                    <Circle className="h-4 w-4" />
-                  </div>
-                )}
-                {isCurrent && (
-                  <span className="absolute -inset-1 animate-ping rounded-full bg-secondary-500/30" />
-                )}
+          return (
+            <div key={stageItem} className="flex flex-1 items-center last:flex-none">
+              <div
+                onClick={() => onStageChange?.(stageItem)}
+                className="flex flex-col items-center cursor-pointer group shrink-0"
+                title={`Click to set stage to ${stageItem}`}
+              >
+                <div className="relative">
+                  {isComplete ? (
+                    <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft transition-transform group-hover:scale-110', STAGE_COLORS[stageItem])}>
+                      <CheckCircle2 className="h-4 w-4" />
+                    </div>
+                  ) : isCurrent ? (
+                    <div className={cx('grid h-8 w-8 place-items-center rounded-full text-white shadow-soft ring-4 ring-card-c transition-transform group-hover:scale-110', STAGE_COLORS[stageItem])}>
+                      <Circle className="h-4 w-4 fill-current" />
+                    </div>
+                  ) : (
+                    <div className="grid h-8 w-8 place-items-center rounded-full border-2 border-base-c bg-card-c text-muted-c transition-all group-hover:border-primary-500 group-hover:text-primary-c group-hover:scale-110">
+                      <Circle className="h-4 w-4" />
+                    </div>
+                  )}
+                  {isCurrent && (
+                    <span className="absolute -inset-1 animate-ping rounded-full bg-secondary-500/30" />
+                  )}
+                </div>
+                <span className={cx(
+                  'mt-1.5 text-[10px] font-semibold transition-colors whitespace-nowrap',
+                  isCurrent ? 'text-primary-c font-bold' : isComplete ? 'text-secondary-c' : 'text-muted-c group-hover:text-primary-c',
+                )}>
+                  {stageItem}
+                </span>
               </div>
-              <span className={cx(
-                'mt-1.5 text-[10px] font-semibold transition-colors',
-                isCurrent ? 'text-primary-c font-bold' : isComplete ? 'text-secondary-c' : 'text-muted-c group-hover:text-primary-c',
-              )}>
-                {stageItem}
-              </span>
+
+              {i < STAGES.length - 1 && (
+                <div className="mx-1.5 h-0.5 flex-1 rounded-full min-w-[20px]">
+                  <div className={cx(
+                    'h-full rounded-full transition-colors',
+                    i < currentIdx ? STAGE_COLORS[STAGES[i]] : 'bg-base-c',
+                  )} />
+                </div>
+              )}
             </div>
-
-            {i < STAGES.length - 1 && (
-              <div className="mx-1.5 h-0.5 flex-1 rounded-full">
-                <div className={cx(
-                  'h-full rounded-full transition-colors',
-                  i < currentIdx ? STAGE_COLORS[STAGES[i]] : 'bg-base-c',
-                )} />
-              </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -199,9 +201,9 @@ function ActionBtn({
     <button
       onClick={onClick}
       className={cx(
-        'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all',
+        'flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all whitespace-nowrap btn-tactile',
         accent
-          ? 'bg-gradient-accent text-white hover:scale-105'
+          ? 'bg-gradient-accent text-white hover:scale-105 shadow-sm'
           : 'border border-base-c text-secondary-c hover:border-primary-500/30 hover:text-primary-c',
       )}
     >

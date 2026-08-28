@@ -307,27 +307,27 @@ export function EmailProvidersPanel() {
               {providers.map((p) => {
                 const conf = PROVIDER_LOGOS[p.providerType] || PROVIDER_LOGOS.SMTP;
                 return (
-                  <div key={p.id} className="flex items-center justify-between rounded-xl border border-base-c bg-card-c p-4 transition-all hover:shadow-sm">
+                  <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-base-c bg-card-c p-4 transition-all hover:shadow-sm">
                     <div className="flex items-center gap-4">
-                      <div className={cx('grid h-12 w-12 place-items-center rounded-lg border', conf.color)}>
+                      <div className={cx('grid h-12 w-12 place-items-center rounded-lg border shrink-0', conf.color)}>
                         {conf.icon}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h5 className="font-bold text-sm text-primary-c">{p.name}</h5>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h5 className="font-bold text-sm text-primary-c truncate">{p.name}</h5>
                           {p.isDefault && (
                             <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
                               DEFAULT
                             </span>
                           )}
                         </div>
-                        <p className="text-xs font-medium text-muted-c mt-0.5">
+                        <p className="text-xs font-medium text-muted-c mt-0.5 truncate">
                           From: {p.fromEmail} • Type: {conf.label}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                       {p.status === 'CONNECTED' ? (
                         <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                           <CheckCircle2 className="h-4 w-4" /> Connected

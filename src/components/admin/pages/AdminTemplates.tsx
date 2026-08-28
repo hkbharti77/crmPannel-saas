@@ -49,6 +49,8 @@ export function AdminTemplates() {
   // New template modal state
   const [newName, setNewName] = useState('');
   const [newNiche, setNewNiche] = useState('Real Estate');
+  const [newIcon, setNewIcon] = useState('home');
+  const [newColor, setNewColor] = useState('blue');
   const [newDesc, setNewDesc] = useState('');
   const [newStagesStr, setNewStagesStr] = useState('New Lead, Contacted, Qualified, Closed');
   const [saving, setSaving] = useState(false);

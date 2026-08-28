@@ -244,7 +244,7 @@ export function BillingPanel() {
         key: res.data.keyId || '',
         amount: res.data.amount,
         currency: res.data.currency || 'INR',
-        name: 'GyanVaniAI Connect',
+        name: 'GyanVani AI Connect',
         description: `${planDisplayName} Subscription (${billingCycle})`,
         order_id: res.data.orderId,
         prefill: {
@@ -481,7 +481,7 @@ export function BillingPanel() {
         </div>
 
         {/* Dynamic Pricing Cards From Backend DB */}
-        <div className="grid gap-4 pt-4 sm:grid-cols-3">
+        <div className="grid gap-4 pt-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
           {plans.map((plan) => {
             const planLevel = PLAN_LEVELS[plan.id.toUpperCase()] ?? 0;
             const isCurrent = isActiveStatus && currentPlanId.toUpperCase() === plan.id.toUpperCase();
