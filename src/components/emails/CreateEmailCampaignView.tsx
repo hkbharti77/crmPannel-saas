@@ -163,7 +163,11 @@ interface SavedTemplate {
 
 export function CreateEmailCampaignView() {
   const { user } = useAuth();
-  const isPremium = user?.planType?.toUpperCase() === 'PRO' || user?.planType?.toUpperCase() === 'ENTERPRISE';
+  const isPremium =
+    user?.isSuperAdmin === true ||
+    user?.role === 'SUPER_ADMIN' ||
+    user?.planType?.toUpperCase() === 'PRO' ||
+    user?.planType?.toUpperCase() === 'ENTERPRISE';
   const navigate = useNavigate();
 
   // Wizard Stepper State: 'audience' | 'content' | 'review'

@@ -9,7 +9,8 @@ import {
   MessageSquare,
   ChevronUp, ChevronDown, Settings, Tag as TagIcon, MessageCircle, Sliders,
   ArrowUp, ArrowDown, User, AtSign, CheckCircle2, RotateCcw, Save, Loader2, AlertCircle,
-  X, Send, Sparkles, Wand2, Zap
+  X, Send, Sparkles, Wand2, Zap,
+  Mic, Volume2, Radio
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SectionCard, StatPill } from './_shared';
 import { apiFetch } from '@/lib/api';
@@ -32,6 +33,30 @@ const PERSONA_TEMPLATES = [
   {
     label: '🛒 E-Commerce Support',
     prompt: 'You are a friendly and efficient e-commerce support assistant. Help customers with orders, returns, and product questions. Be upbeat, solution-focused, and always aim to resolve issues quickly.',
+  },
+];
+
+/* ─── Voice Persona Template Presets (English Only) ─── */
+const VOICE_PERSONA_TEMPLATES = [
+  {
+    name: 'Priya',
+    label: '🎙️ Warm Receptionist (Priya)',
+    prompt: 'You are Priya, a polite and warm voice assistant. Speak naturally in concise 1-2 sentences in clear spoken English. Greet callers warmly, understand their inquiry, and guide them to book an appointment or consultation.',
+  },
+  {
+    name: 'Riya',
+    label: '💼 Corporate Booking Desk (Riya)',
+    prompt: 'You are Riya, an executive voice assistant for our business. Keep spoken English responses strictly under 25 words. Ask for caller name and service interest, then schedule their discussion.',
+  },
+  {
+    name: 'Ananya',
+    label: '🏥 Healthcare Coordinator (Ananya)',
+    prompt: 'You are Ananya, a reassuring and empathetic clinic voice guide. Reassure patients warmly in clear spoken English, answer clinic hours and service questions briefly, and guide them to book a visit.',
+  },
+  {
+    name: 'Aryan',
+    label: '🚀 Direct Sales Specialist (Aryan)',
+    prompt: 'You are Aryan, an energetic sales concierge. Keep phone conversations engaging in fluent English, highlight top services in one sentence, and prompt callers to take the next step.',
   },
 ];
 
@@ -62,9 +87,24 @@ export function KnowledgeBasePanel() {
   const charCount = personaPrompt.length;
   const charOverLimit = charCount > MAX_PERSONA_CHARS;
 
+  // ── Voice Assistant Persona State ──
+  const [voiceAssistantName, setVoiceAssistantName] = useState('Priya');
+  const [savedVoiceAssistantName, setSavedVoiceAssistantName] = useState('Priya');
+  const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
+  const [savedVoicePersonaPrompt, setSavedVoicePersonaPrompt] = useState('');
+  const [voiceLoading, setVoiceLoading] = useState(true);
+  const [voiceSaving, setVoiceSaving] = useState(false);
+  const [voiceToast, setVoiceToast] = useState<string | null>(null);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [showVoiceTemplates, setShowVoiceTemplates] = useState(false);
+
+  const voiceDirty = voiceAssistantName !== savedVoiceAssistantName || voicePersonaPrompt !== savedVoicePersonaPrompt;
+  const voiceCharOverLimit = voicePersonaPrompt.length > MAX_PERSONA_CHARS;
+
   // ── Load Persona on Mount ──
   useEffect(() => {
     loadPersona();
+    loadVoicePersona();
   }, []);
 
   const loadPersona = async () => {
@@ -77,6 +117,20 @@ export function KnowledgeBasePanel() {
       setPersonaUpdatedAt(res.data.aiPersonaUpdatedAt || null);
     }
     setPersonaLoading(false);
+  };
+
+  const loadVoicePersona = async () => {
+    setVoiceLoading(true);
+    const res = await apiFetch<{ voicePersonaPrompt: string | null; voiceAssistantName: string | null }>('/api/v1/settings/ai/voice-persona');
+    if (res.data) {
+      const name = res.data.voiceAssistantName || 'Priya';
+      const prompt = res.data.voicePersonaPrompt || '';
+      setVoiceAssistantName(name);
+      setSavedVoiceAssistantName(name);
+      setVoicePersonaPrompt(prompt);
+      setSavedVoicePersonaPrompt(prompt);
+    }
+    setVoiceLoading(false);
   };
 
   const savePersona = async () => {
@@ -96,6 +150,29 @@ export function KnowledgeBasePanel() {
       setPersonaUpdatedAt(res.data?.aiPersonaUpdatedAt || new Date().toISOString());
       setPersonaToast('AI Persona saved successfully!');
       setTimeout(() => setPersonaToast(null), 3000);
+    }
+  };
+
+  const saveVoicePersona = async () => {
+    if (voiceCharOverLimit) return;
+    setVoiceSaving(true);
+    setVoiceError(null);
+    const res = await apiFetch('/api/v1/settings/ai/voice-persona', {
+      method: 'PUT',
+      body: JSON.stringify({
+        voiceAssistantName,
+        voicePersonaPrompt,
+      }),
+    });
+    setVoiceSaving(false);
+    if (res.error) {
+      setVoiceError(res.error);
+      setTimeout(() => setVoiceError(null), 4000);
+    } else {
+      setSavedVoiceAssistantName(voiceAssistantName);
+      setSavedVoicePersonaPrompt(voicePersonaPrompt);
+      setVoiceToast('Voice Assistant Persona saved successfully!');
+      setTimeout(() => setVoiceToast(null), 3000);
     }
   };
 
@@ -216,6 +293,169 @@ export function KnowledgeBasePanel() {
               >
                 {personaSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 Save Persona
+              </button>
+            </div>
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ─── Voice Assistant Persona Section ─── */}
+      <SectionCard>
+        <div className="flex items-start justify-between">
+          <PanelHeader
+            title="Voice Assistant Persona & Voice Engine"
+            desc="Configure your voice assistant's name, spoken persona, and cadence for phone and web voice calls"
+            icon={<Mic className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+          />
+          <div className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/70 px-3 py-1 text-[11px] font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+            <Radio className="h-3 w-3 animate-pulse text-indigo-500" />
+            <span>Deepgram Nova-2 + Aura</span>
+          </div>
+        </div>
+
+        {/* Toast / Error */}
+        {voiceToast && (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-3">
+            <CheckCircle2 className="h-4 w-4 shrink-0" /> {voiceToast}
+          </div>
+        )}
+        {voiceError && (
+          <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-xs font-medium text-rose-700 dark:text-rose-400 mb-3">
+            <AlertCircle className="h-4 w-4 shrink-0" /> {voiceError}
+          </div>
+        )}
+
+        {voiceLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+            <span className="ml-2 text-xs text-muted-c">Loading Voice Assistant settings…</span>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Voice info alert */}
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3.5 dark:border-indigo-800/50 dark:bg-indigo-950/20">
+              <p className="text-xs text-indigo-800 dark:text-indigo-300 leading-relaxed">
+                <strong>Spoken Cadence Rule:</strong> Voice assistants speak in <strong>1 to 2 short sentences</strong> (under 35 words) in clear, natural spoken English so callers enjoy a fast, professional voice experience.
+              </p>
+            </div>
+
+            {/* Assistant Name Input */}
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-secondary-c">
+                  Voice Assistant Name
+                </label>
+                <input
+                  type="text"
+                  value={voiceAssistantName}
+                  onChange={(e) => setVoiceAssistantName(e.target.value)}
+                  placeholder="e.g. Priya, Riya, Ananya"
+                  maxLength={50}
+                  className="w-full rounded-xl border border-base-c bg-white p-2.5 text-xs text-primary-c focus:border-indigo-500 focus:outline-none dark:bg-slate-950"
+                />
+                <p className="mt-1 text-[11px] text-muted-c">
+                  The bot will introduce itself with this name during calls.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-semibold text-secondary-c">
+                  Speech Engine & Voice Model
+                </label>
+                <div className="flex items-center gap-2 rounded-xl border border-base-c bg-slate-50/60 p-2.5 text-xs text-secondary-c dark:bg-slate-900/50">
+                  <Volume2 className="h-4 w-4 text-indigo-500 shrink-0" />
+                  <span className="font-medium">Deepgram Aura (Asteria/Priya) &bull; 24kHz HD</span>
+                </div>
+                <p className="mt-1 text-[11px] text-muted-c">
+                  High-speed enterprise STT/TTS with sub-second latency.
+                </p>
+              </div>
+            </div>
+
+            {/* Voice Templates */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setShowVoiceTemplates(!showVoiceTemplates)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+              >
+                <Wand2 className="h-3.5 w-3.5" />
+                {showVoiceTemplates ? 'Hide Voice Templates' : 'Choose from Voice Persona Templates'}
+                {showVoiceTemplates ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+
+              {showVoiceTemplates && (
+                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                  {VOICE_PERSONA_TEMPLATES.map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      onClick={() => {
+                        setVoiceAssistantName(t.name);
+                        setVoicePersonaPrompt(t.prompt);
+                        setShowVoiceTemplates(false);
+                      }}
+                      className="rounded-xl border border-base-c bg-card-c p-3 text-left hover:border-indigo-500/40 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all"
+                    >
+                      <span className="text-xs font-bold text-primary-c">{t.label}</span>
+                      <p className="mt-1 text-[11px] text-muted-c line-clamp-2">{t.prompt}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Voice Persona Instructions Textarea */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-secondary-c">
+                Voice Spoken Instructions & Persona
+              </label>
+              <textarea
+                value={voicePersonaPrompt}
+                onChange={(e) => setVoicePersonaPrompt(e.target.value)}
+                rows={4}
+                placeholder="e.g. You are Priya, speaking warmly as the front-desk assistant of our business. Greet customers with 'Haan ji' or 'Hello', keep answers under 25 words, and politely ask how you can help them book..."
+                className={cx(
+                  'w-full rounded-xl border bg-white p-3.5 text-xs text-primary-c leading-relaxed focus:outline-none transition-colors dark:bg-slate-950',
+                  voiceCharOverLimit
+                    ? 'border-rose-400 focus:border-rose-500'
+                    : 'border-base-c focus:border-indigo-500'
+                )}
+              />
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-[11px] text-muted-c">
+                  {voicePersonaPrompt.trim() ? 'Custom voice persona active' : 'Using default spoken receptionist persona'}
+                </p>
+                <span className={cx(
+                  'text-[11px] font-medium tabular-nums',
+                  voiceCharOverLimit ? 'text-rose-500' : 'text-muted-c'
+                )}>
+                  {voicePersonaPrompt.length.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Save / Reset */}
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setVoiceAssistantName(savedVoiceAssistantName);
+                  setVoicePersonaPrompt(savedVoicePersonaPrompt);
+                }}
+                disabled={!voiceDirty}
+                className="flex items-center gap-1.5 rounded-xl border border-base-c bg-white px-4 py-2 text-xs font-semibold text-secondary-c hover:bg-slate-50 disabled:opacity-40 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors"
+              >
+                <RotateCcw className="h-3.5 w-3.5" /> Reset
+              </button>
+              <button
+                type="button"
+                onClick={saveVoicePersona}
+                disabled={!voiceDirty || voiceCharOverLimit || voiceSaving}
+                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm"
+              >
+                {voiceSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save Voice Persona
               </button>
             </div>
           </div>

@@ -381,6 +381,7 @@ function WebWidgetPreview({
           <iframe
             src={embedWidgetUrl}
             title="Live Web Widget"
+            allow="microphone *; camera *; display-capture *; autoplay *; clipboard-write *"
             className="flex-1 w-full border-0 bg-white"
           />
         </div>
