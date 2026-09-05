@@ -33,6 +33,7 @@ import {
   Check,
   UserCheck,
   Users,
+  ArrowLeft,
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -279,7 +280,7 @@ export function InboxView() {
     <div className="mx-auto max-w-7xl h-[calc(100vh-4.5rem)] p-3 lg:p-5 overflow-hidden">
       <div className="grid h-full gap-4 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] overflow-hidden">
         {/* Left: conversation list */}
-        <div className="flex h-full flex-col overflow-hidden space-y-3">
+        <div className={cx("flex h-full flex-col overflow-hidden space-y-3", selectedId ? "hidden lg:flex" : "flex")}>
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
@@ -382,7 +383,7 @@ export function InboxView() {
         </div>
 
         {/* Right: conversation / session preview */}
-        <div className="hidden h-full overflow-hidden lg:block">
+        <div className={cx("h-full overflow-hidden", selectedId ? "block" : "hidden lg:block")}>
           {channel === 'whatsapp' ? (
             selectedWa ? (
               <ChatPreview
@@ -398,6 +399,7 @@ export function InboxView() {
                     )
                   );
                 }}
+                onBack={() => setSelectedId(null)}
               />
             ) : (
               <EmptyState />
@@ -406,6 +408,7 @@ export function InboxView() {
             <WebChatPreview
               session={selectedWeb}
               onDelete={() => handleDeleteWebSession(selectedWeb.id)}
+              onBack={() => setSelectedId(null)}
             />
           ) : (
             <EmptyState />
@@ -442,12 +445,13 @@ function EmptyState() {
   );
 }
 
-function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotToggle }: {
+function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotToggle, onBack }: {
   conv: Conversation;
   wsMessages: ApiMessage[];
   onClearWsMessages: () => void;
   onOpenChat: () => void;
   onBotToggle: (newBotPaused: boolean) => Promise<void>;
+  onBack: () => void;
 }) {
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [input, setInput] = useState('');
@@ -513,6 +517,12 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
     <GlassCard className="flex h-full flex-col overflow-hidden">
       {/* Chat header */}
       <div className="flex items-center gap-3 border-b border-base-c p-4">
+        <button
+          onClick={onBack}
+          className="lg:hidden p-1.5 -ml-2 rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <div className="relative">
           <Avatar name={conv.name} size={40} />
           {/* Green dot = active WhatsApp session (last message within 24h) */}
@@ -710,9 +720,11 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
 function WebChatPreview({
   session,
   onDelete,
+  onBack,
 }: {
   session: WebChatSession;
   onDelete: () => void;
+  onBack: () => void;
 }) {
   const [messages, setMessages] = useState<WebChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
@@ -737,6 +749,12 @@ function WebChatPreview({
     <GlassCard className="flex h-full flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-base-c p-4">
+        <button
+          onClick={onBack}
+          className="lg:hidden p-1.5 -ml-2 rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-accent text-white font-bold">
           <Globe className="h-5 w-5" />
         </div>
