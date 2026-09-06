@@ -28,6 +28,9 @@ interface TriggerLabels {
   triggerButtonLabel?: string;
   triggerListLabel?: string;
   servicesLabel?: string;
+  leadLabel?: string;
+  appointmentLabel?: string;
+  bookingLabel?: string;
 }
 
 interface FeatureLabels {
@@ -352,6 +355,9 @@ export function MenuButtonsPanel() {
   const [thirdButtonType, setThirdButtonType] = useState<'ABOUT' | 'SOS' | 'SUPPORT_FORM'>('ABOUT');
   const [menuType, setMenuType] = useState<'list' | 'button'>('list');
   const [editingFeatures, setEditingFeatures] = useState(false);
+  const [leadButtonLabel, setLeadButtonLabel] = useState('');
+  const [appointmentButtonLabel, setAppointmentButtonLabel] = useState('');
+  const [bookingButtonLabel, setBookingButtonLabel] = useState('');
 
   // Menu layout state
   const [menuItems, setMenuItems] = useState<MenuItem[]>(
@@ -430,6 +436,9 @@ export function MenuButtonsPanel() {
       setShowSosButton(d.showSosButton ?? true);
       setShowSupportFormButton(d.showSupportFormButton ?? true);
       setSosNote(d.sosNote || '');
+      setLeadButtonLabel(d.leadButtonLabel || '');
+      setAppointmentButtonLabel(d.appointmentButtonLabel || '');
+      setBookingButtonLabel(d.bookingButtonLabel || '');
       if (d.menuType === 'button' || d.menuType === 'list') setMenuType(d.menuType);
 
       if (d.customSubMenusJson) {
@@ -503,9 +512,9 @@ export function MenuButtonsPanel() {
 
   // Derived slot capacity & active trigger flows
   const activeFlows: string[] = [];
-  if (showLeadFlow) activeFlows.push('💻 Enquire Now');
-  if (showAppointmentFlow) activeFlows.push(triggerLabels.triggerListLabel || '🗓️ Book Appointment');
-  if (showBookingFlow) activeFlows.push(triggerLabels.triggerButtonLabel || '✂️ Book Service');
+  if (showLeadFlow) activeFlows.push(triggerLabels.leadLabel || '💻 Enquire Now');
+  if (showAppointmentFlow) activeFlows.push(triggerLabels.appointmentLabel || '🗓️ Book Appointment');
+  if (showBookingFlow) activeFlows.push(triggerLabels.bookingLabel || '✂️ Book Service');
 
   const reservedFeatures: string[] = [
     ...(showSupportFormButton ? [featureLabels?.SUPPORT_FORM || '🎫 Get Support'] : []),
@@ -551,7 +560,7 @@ export function MenuButtonsPanel() {
     const [res] = await Promise.all([
       apiFetch('/api/v1/whatsapp-config', {
         method: 'POST',
-        body: JSON.stringify({ showAboutContact, showSosButton, showSupportFormButton, sosNote, thirdButtonType }),
+        body: JSON.stringify({ showAboutContact, showSosButton, showSupportFormButton, sosNote, thirdButtonType, leadButtonLabel, appointmentButtonLabel, bookingButtonLabel }),
       }),
       updateCurrentUserProfile({
         forceShowLeads: showLeadFlow,
@@ -774,6 +783,14 @@ export function MenuButtonsPanel() {
               </div>
               <Toggle checked={showLeadFlow} onChange={handleToggleLeadFlow} />
             </div>
+            {showLeadFlow && (
+              <input
+                value={leadButtonLabel}
+                onChange={e => { setLeadButtonLabel(e.target.value); setEditingFeatures(true); }}
+                placeholder="Custom Label (Optional, e.g. 💻 Enquire Now)"
+                className="mt-2 form-input"
+              />
+            )}
           </div>
 
           {/* Appointment Flow Toggle */}
@@ -785,6 +802,14 @@ export function MenuButtonsPanel() {
               </div>
               <Toggle checked={showAppointmentFlow} onChange={handleToggleAppointmentFlow} />
             </div>
+            {showAppointmentFlow && (
+              <input
+                value={appointmentButtonLabel}
+                onChange={e => { setAppointmentButtonLabel(e.target.value); setEditingFeatures(true); }}
+                placeholder="Custom Label (Optional, e.g. 🗓️ Book Appointment)"
+                className="mt-2 form-input"
+              />
+            )}
           </div>
 
           {/* Service Booking Flow Toggle */}
@@ -796,6 +821,14 @@ export function MenuButtonsPanel() {
               </div>
               <Toggle checked={showBookingFlow} onChange={handleToggleBookingFlow} />
             </div>
+            {showBookingFlow && (
+              <input
+                value={bookingButtonLabel}
+                onChange={e => { setBookingButtonLabel(e.target.value); setEditingFeatures(true); }}
+                placeholder="Custom Label (Optional, e.g. ✂️ Book Service)"
+                className="mt-2 form-input"
+              />
+            )}
           </div>
 
           {/* About & Contact */}
