@@ -11,6 +11,7 @@ import { apiFetch } from '@/lib/api';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { FaqManagementView } from './FaqManagementView';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { fetchVoiceConfig, saveVoiceConfig, resetVoiceConfig } from '@/lib/flowFieldsApi';
 
 interface RagDocumentDto {
   documentId: string;
@@ -95,6 +96,8 @@ export function KnowledgeBaseView() {
   // ── Voice Assistant Persona State ──
   const [voiceAssistantName, setVoiceAssistantName] = useState('Priya');
   const [savedVoiceAssistantName, setSavedVoiceAssistantName] = useState('Priya');
+  const [voiceGreetingText, setVoiceGreetingText] = useState('Hello! How can I help you today?');
+  const [savedVoiceGreetingText, setSavedVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
   const [savedVoicePersonaPrompt, setSavedVoicePersonaPrompt] = useState('');
   const [voiceLoading, setVoiceLoading] = useState(true);
@@ -103,7 +106,10 @@ export function KnowledgeBaseView() {
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [showVoiceTemplates, setShowVoiceTemplates] = useState(false);
 
-  const voiceDirty = voiceAssistantName !== savedVoiceAssistantName || voicePersonaPrompt !== savedVoicePersonaPrompt;
+  const voiceDirty =
+    voiceAssistantName !== savedVoiceAssistantName ||
+    voiceGreetingText !== savedVoiceGreetingText ||
+    voicePersonaPrompt !== savedVoicePersonaPrompt;
   const voiceCharOverLimit = voicePersonaPrompt.length > MAX_PERSONA_CHARS;
 
   // Status & Notifications
@@ -133,13 +139,16 @@ export function KnowledgeBaseView() {
   const loadVoicePersona = useCallback(async () => {
     setVoiceLoading(true);
     setVoiceError(null);
-    const res = await apiFetch<{ voicePersonaPrompt: string | null; voiceAssistantName: string | null }>(`/api/v1/settings/ai/voice-persona?t=${Date.now()}`);
+    const res = await fetchVoiceConfig();
     setVoiceLoading(false);
     if (res.data) {
       const name = res.data.voiceAssistantName || 'Priya';
+      const greeting = res.data.voiceGreetingText || 'Hello! How can I help you today?';
       const prompt = res.data.voicePersonaPrompt || '';
       setVoiceAssistantName(name);
       setSavedVoiceAssistantName(name);
+      setVoiceGreetingText(greeting);
+      setSavedVoiceGreetingText(greeting);
       setVoicePersonaPrompt(prompt);
       setSavedVoicePersonaPrompt(prompt);
     } else if (res.error) {
@@ -209,14 +218,16 @@ export function KnowledgeBaseView() {
     setVoiceError(null);
     setVoiceToast(null);
 
-    const res = await apiFetch<{ voicePersonaUpdatedAt?: string }>('/api/v1/settings/ai/voice-persona', {
-      method: 'PUT',
-      body: JSON.stringify({ voiceAssistantName, voicePersonaPrompt }),
+    const res = await saveVoiceConfig({
+      voiceAssistantName,
+      voiceGreetingText,
+      voicePersonaPrompt,
     });
 
     setVoiceSaving(false);
     if (!res.error) {
       setSavedVoiceAssistantName(voiceAssistantName);
+      setSavedVoiceGreetingText(voiceGreetingText);
       setSavedVoicePersonaPrompt(voicePersonaPrompt);
       setVoiceToast('Voice Assistant Persona saved successfully!');
       setTimeout(() => setVoiceToast(null), 4000);

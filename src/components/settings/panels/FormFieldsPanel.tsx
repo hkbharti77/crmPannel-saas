@@ -3,10 +3,12 @@ import { cx } from '@/lib/types';
 import {
   FormInput, MessageSquare, CheckCircle, AlertCircle, Save, Loader2,
   ChevronUp, ChevronDown, Plus, Trash2, Sliders, FileText, Calendar, ShoppingBag,
+  Sparkles, Wand2, Zap, Target
 } from 'lucide-react';
 import { PanelHeader, Toggle, SectionCard } from './_shared';
 import {
   fetchFlowFields, saveFlowFields, fetchFlowGreeting, saveFlowGreeting,
+  fetchFlowIntent, saveFlowIntent,
   type FlowFieldConfig, type FormFlowType,
 } from '@/lib/flowFieldsApi';
 
@@ -20,6 +22,8 @@ export function FormFieldsPanel() {
   const [activeFlow, setActiveFlow] = useState<FormFlowType>('lead');
   const [fields, setFields] = useState<FlowFieldConfig[]>([]);
   const [greeting, setGreeting] = useState('');
+  const [intentDescription, setIntentDescription] = useState('');
+  const [triggerExamplesText, setTriggerExamplesText] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -42,9 +46,10 @@ export function FormFieldsPanel() {
     setLoading(true);
     setMessage(null);
     setError(null);
-    const [fieldsRes, greetingRes] = await Promise.all([
+    const [fieldsRes, greetingRes, intentRes] = await Promise.all([
       fetchFlowFields(flowType),
       fetchFlowGreeting(flowType),
+      fetchFlowIntent(flowType),
     ]);
     setLoading(false);
 
@@ -58,6 +63,11 @@ export function FormFieldsPanel() {
     if (greetingRes.data) {
       setGreeting(greetingRes.data.greetingMessage || '');
     }
+
+    if (intentRes.data) {
+      setIntentDescription(intentRes.data.intentDescription || '');
+      setTriggerExamplesText((intentRes.data.triggerExamples || []).join('\n'));
+    }
   };
 
   const handleSaveAll = async () => {
@@ -67,17 +77,22 @@ export function FormFieldsPanel() {
 
     // Update orders sequentially based on array index
     const orderedFields = fields.map((f, i) => ({ ...f, order: i + 1 }));
+    const triggerExamplesArray = triggerExamplesText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
 
     const fieldsRes = await saveFlowFields(activeFlow, orderedFields);
     const greetingRes = await saveFlowGreeting(activeFlow, greeting);
+    const intentRes = await saveFlowIntent(activeFlow, intentDescription, triggerExamplesArray);
     setSaving(false);
 
-    if (!fieldsRes.error && !greetingRes.error) {
-      setMessage('Form fields configuration saved successfully!');
+    if (!fieldsRes.error && !greetingRes.error && !intentRes.error) {
+      setMessage('Form fields & AI intent routing configuration saved successfully!');
       setTimeout(() => setMessage(null), 3000);
       loadFlowData(activeFlow);
     } else {
-      setError(`Save failed: ${fieldsRes.error || greetingRes.error}`);
+      setError(`Save failed: ${fieldsRes.error || greetingRes.error || intentRes.error}`);
     }
   };
 
@@ -174,6 +189,75 @@ export function FormFieldsPanel() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* AI Voice & Chatbot Intent Routing Activation Section */}
+            <div className="rounded-2xl border border-indigo-200/80 bg-slate-50/80 p-5 dark:border-indigo-900/50 dark:bg-slate-900/50 shadow-sm space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-100 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-600 text-white shadow-xs">
+                    <Target className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                      AI Voice & Chatbot Intent Activation
+                      <span className="text-[11px] font-normal text-slate-500 dark:text-slate-400">({activeFlowMeta.label})</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Configure dynamic database prompts & trigger phrases for AI voice orchestrator and chatbot intent matching.
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-indigo-100 px-3 py-1 text-[11px] font-bold text-indigo-700 dark:bg-indigo-950/80 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  DB Dynamic Tool
+                </span>
+              </div>
+
+              {/* Intent Description */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Intent Description for LLM Tool Selector
+                </label>
+                <textarea
+                  value={intentDescription}
+                  onChange={(e) => setIntentDescription(e.target.value)}
+                  rows={2}
+                  maxLength={1000}
+                  placeholder={`e.g. Trigger this tool when the customer expresses interest in ${activeFlowMeta.label.toLowerCase()}, asking for details, scheduling, or booking.`}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white leading-relaxed placeholder:text-slate-400"
+                />
+                <div className="flex items-center justify-between text-[11px] pt-0.5">
+                  <p className="text-slate-500 dark:text-slate-400">
+                    The AI Voice orchestrator uses this description to dynamically select this form flow during calls.
+                  </p>
+                  <span className="font-mono font-medium text-slate-400 tabular-nums">
+                    {intentDescription.length.toLocaleString()} / 1,000
+                  </span>
+                </div>
+              </div>
+
+              {/* Trigger Examples */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Trigger Examples / Sample User Utterances (One phrase per line)
+                </label>
+                <textarea
+                  value={triggerExamplesText}
+                  onChange={(e) => setTriggerExamplesText(e.target.value)}
+                  rows={4}
+                  maxLength={2000}
+                  placeholder={`I want to ${activeFlow === 'appointment' ? 'book an appointment' : activeFlow === 'booking' ? 'order a service' : 'request a callback'}\nCan I schedule a consultation?\nIs someone available to assist me?`}
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-xs font-sans text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white leading-relaxed placeholder:text-slate-400"
+                />
+                <div className="flex items-center justify-between text-[11px] pt-0.5">
+                  <p className="text-slate-500 dark:text-slate-400">
+                    Enter one example phrase per line to train LLM intent classification accuracy across Voice & WhatsApp channels.
+                  </p>
+                  <span className="font-mono font-medium text-slate-400 tabular-nums">
+                    {triggerExamplesText.length.toLocaleString()} / 2,000
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Flow Greeting Message */}
             <div className="rounded-xl2 border border-base-c bg-card-c/50 p-4 space-y-2">
               <label className="flex items-center gap-2 text-xs font-bold text-primary-c">

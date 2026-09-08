@@ -92,7 +92,7 @@ export async function apiFetch<T = unknown>(
     }
 
     if (!res.ok) {
-      if (res.status === 401 || res.status === 403) {
+      if (res.status === 401) {
         // Dispatch global event for auth context to pick up
         window.dispatchEvent(new CustomEvent('session-expired'));
       }
