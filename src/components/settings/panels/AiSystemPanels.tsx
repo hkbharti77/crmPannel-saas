@@ -15,6 +15,7 @@ import {
 import { PanelHeader, FieldRow, Toggle, SectionCard, StatPill } from './_shared';
 import { apiFetch } from '@/lib/api';
 import { fetchTickets, createTicket, type TicketDTO } from '@/lib/ticketsApi';
+import { fetchVoiceConfig, saveVoiceConfig, resetVoiceConfig, type VoiceAssistantConfigDTO } from '@/lib/flowFieldsApi';
 
 /* ─── Persona Template Presets ─── */
 const PERSONA_TEMPLATES = [
@@ -40,27 +41,33 @@ const PERSONA_TEMPLATES = [
 const VOICE_PERSONA_TEMPLATES = [
   {
     name: 'Priya',
+    greeting: 'Hello! Welcome to our business. How can I help you today?',
     label: '🎙️ Warm Receptionist (Priya)',
     prompt: 'You are Priya, a polite and warm voice assistant. Speak naturally in concise 1-2 sentences in clear spoken English. Greet callers warmly, understand their inquiry, and guide them to book an appointment or consultation.',
   },
   {
     name: 'Riya',
+    greeting: 'Hello! Thank you for calling our enterprise desk. How may I assist your booking today?',
     label: '💼 Corporate Booking Desk (Riya)',
     prompt: 'You are Riya, an executive voice assistant for our business. Keep spoken English responses strictly under 25 words. Ask for caller name and service interest, then schedule their discussion.',
   },
   {
     name: 'Ananya',
+    greeting: 'Welcome to our clinic! How can I help you schedule your health visit today?',
     label: '🏥 Healthcare Coordinator (Ananya)',
     prompt: 'You are Ananya, a reassuring and empathetic clinic voice guide. Reassure patients warmly in clear spoken English, answer clinic hours and service questions briefly, and guide them to book a visit.',
   },
   {
     name: 'Aryan',
+    greeting: 'Hey there! Welcome! Ready to supercharge your business today?',
     label: '🚀 Direct Sales Specialist (Aryan)',
     prompt: 'You are Aryan, an energetic sales concierge. Keep phone conversations engaging in fluent English, highlight top services in one sentence, and prompt callers to take the next step.',
   },
 ];
 
-const MAX_PERSONA_CHARS = 4000;
+const MAX_PERSONA_CHARS = 5000;
+const MAX_GREETING_CHARS = 500;
+const MAX_NAME_CHARS = 50;
 
 /* ─── Knowledge Base ─── */
 export function KnowledgeBasePanel() {
@@ -90,6 +97,8 @@ export function KnowledgeBasePanel() {
   // ── Voice Assistant Persona State ──
   const [voiceAssistantName, setVoiceAssistantName] = useState('Priya');
   const [savedVoiceAssistantName, setSavedVoiceAssistantName] = useState('Priya');
+  const [voiceGreetingText, setVoiceGreetingText] = useState('Hello! How can I help you today?');
+  const [savedVoiceGreetingText, setSavedVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
   const [savedVoicePersonaPrompt, setSavedVoicePersonaPrompt] = useState('');
   const [voiceLoading, setVoiceLoading] = useState(true);
@@ -98,8 +107,14 @@ export function KnowledgeBasePanel() {
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [showVoiceTemplates, setShowVoiceTemplates] = useState(false);
 
-  const voiceDirty = voiceAssistantName !== savedVoiceAssistantName || voicePersonaPrompt !== savedVoicePersonaPrompt;
-  const voiceCharOverLimit = voicePersonaPrompt.length > MAX_PERSONA_CHARS;
+  const voiceDirty =
+    voiceAssistantName !== savedVoiceAssistantName ||
+    voiceGreetingText !== savedVoiceGreetingText ||
+    voicePersonaPrompt !== savedVoicePersonaPrompt;
+  const voiceCharOverLimit =
+    voicePersonaPrompt.length > MAX_PERSONA_CHARS ||
+    voiceGreetingText.length > MAX_GREETING_CHARS ||
+    voiceAssistantName.length > MAX_NAME_CHARS;
 
   // ── Load Persona on Mount ──
   useEffect(() => {
@@ -121,12 +136,15 @@ export function KnowledgeBasePanel() {
 
   const loadVoicePersona = async () => {
     setVoiceLoading(true);
-    const res = await apiFetch<{ voicePersonaPrompt: string | null; voiceAssistantName: string | null }>('/api/v1/settings/ai/voice-persona');
+    const res = await fetchVoiceConfig();
     if (res.data) {
       const name = res.data.voiceAssistantName || 'Priya';
+      const greeting = res.data.voiceGreetingText || 'Hello! How can I help you today?';
       const prompt = res.data.voicePersonaPrompt || '';
       setVoiceAssistantName(name);
       setSavedVoiceAssistantName(name);
+      setVoiceGreetingText(greeting);
+      setSavedVoiceGreetingText(greeting);
       setVoicePersonaPrompt(prompt);
       setSavedVoicePersonaPrompt(prompt);
     }
@@ -157,24 +175,49 @@ export function KnowledgeBasePanel() {
     if (voiceCharOverLimit) return;
     setVoiceSaving(true);
     setVoiceError(null);
-    const res = await apiFetch('/api/v1/settings/ai/voice-persona', {
-      method: 'PUT',
-      body: JSON.stringify({
-        voiceAssistantName,
-        voicePersonaPrompt,
-      }),
+    const res = await saveVoiceConfig({
+      voiceAssistantName,
+      voiceGreetingText,
+      voicePersonaPrompt,
     });
     setVoiceSaving(false);
     if (res.error) {
       setVoiceError(res.error);
       setTimeout(() => setVoiceError(null), 4000);
     } else {
-      setSavedVoiceAssistantName(voiceAssistantName);
-      setSavedVoicePersonaPrompt(voicePersonaPrompt);
-      setVoiceToast('Voice Assistant Persona saved successfully!');
+      if (res.data) {
+        setVoiceAssistantName(res.data.voiceAssistantName);
+        setSavedVoiceAssistantName(res.data.voiceAssistantName);
+        setVoiceGreetingText(res.data.voiceGreetingText);
+        setSavedVoiceGreetingText(res.data.voiceGreetingText);
+        setVoicePersonaPrompt(res.data.voicePersonaPrompt);
+        setSavedVoicePersonaPrompt(res.data.voicePersonaPrompt);
+      }
+      setVoiceToast('Voice Assistant configuration saved successfully!');
       setTimeout(() => setVoiceToast(null), 3000);
     }
   };
+
+  const handleResetVoiceDefaults = async () => {
+    setVoiceSaving(true);
+    setVoiceError(null);
+    const res = await resetVoiceConfig();
+    setVoiceSaving(false);
+    if (res.error) {
+      setVoiceError(res.error);
+      setTimeout(() => setVoiceError(null), 4000);
+    } else if (res.data) {
+      setVoiceAssistantName(res.data.voiceAssistantName);
+      setSavedVoiceAssistantName(res.data.voiceAssistantName);
+      setVoiceGreetingText(res.data.voiceGreetingText);
+      setSavedVoiceGreetingText(res.data.voiceGreetingText);
+      setVoicePersonaPrompt(res.data.voicePersonaPrompt);
+      setSavedVoicePersonaPrompt(res.data.voicePersonaPrompt);
+      setVoiceToast('Voice Assistant reset to system defaults!');
+      setTimeout(() => setVoiceToast(null), 3000);
+    }
+  };
+
 
   const statusMeta: Record<string, { label: string; variant: 'success' | 'warning' }> = {
     trained: { label: 'Trained', variant: 'success' },
@@ -392,6 +435,7 @@ export function KnowledgeBasePanel() {
                       type="button"
                       onClick={() => {
                         setVoiceAssistantName(t.name);
+                        setVoiceGreetingText(t.greeting);
                         setVoicePersonaPrompt(t.prompt);
                         setShowVoiceTemplates(false);
                       }}
@@ -405,6 +449,37 @@ export function KnowledgeBasePanel() {
               )}
             </div>
 
+            {/* Voice Greeting Text Field */}
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-secondary-c">
+                Initial Spoken Voice Greeting (Spoken to caller on call connect)
+              </label>
+              <textarea
+                value={voiceGreetingText}
+                onChange={(e) => setVoiceGreetingText(e.target.value)}
+                rows={2}
+                maxLength={MAX_GREETING_CHARS}
+                placeholder="e.g. Hello! Welcome to our business. How can I help you today?"
+                className={cx(
+                  'w-full rounded-xl border bg-white p-3 text-xs text-primary-c leading-relaxed focus:outline-none transition-colors dark:bg-slate-950',
+                  voiceGreetingText.length > MAX_GREETING_CHARS
+                    ? 'border-rose-400 focus:border-rose-500'
+                    : 'border-base-c focus:border-indigo-500'
+                )}
+              />
+              <div className="mt-1 flex items-center justify-between">
+                <p className="text-[11px] text-muted-c">
+                  This greeting phrase is spoken out loud to incoming phone callers the instant the call connects.
+                </p>
+                <span className={cx(
+                  'text-[11px] font-medium tabular-nums',
+                  voiceGreetingText.length > MAX_GREETING_CHARS ? 'text-rose-500' : 'text-muted-c'
+                )}>
+                  {voiceGreetingText.length.toLocaleString()} / {MAX_GREETING_CHARS.toLocaleString()}
+                </span>
+              </div>
+            </div>
+
             {/* Voice Persona Instructions Textarea */}
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-secondary-c">
@@ -414,10 +489,11 @@ export function KnowledgeBasePanel() {
                 value={voicePersonaPrompt}
                 onChange={(e) => setVoicePersonaPrompt(e.target.value)}
                 rows={4}
+                maxLength={MAX_PERSONA_CHARS}
                 placeholder="e.g. You are Priya, speaking warmly as the front-desk assistant of our business. Greet customers with 'Haan ji' or 'Hello', keep answers under 25 words, and politely ask how you can help them book..."
                 className={cx(
                   'w-full rounded-xl border bg-white p-3.5 text-xs text-primary-c leading-relaxed focus:outline-none transition-colors dark:bg-slate-950',
-                  voiceCharOverLimit
+                  voicePersonaPrompt.length > MAX_PERSONA_CHARS
                     ? 'border-rose-400 focus:border-rose-500'
                     : 'border-base-c focus:border-indigo-500'
                 )}
@@ -428,35 +504,48 @@ export function KnowledgeBasePanel() {
                 </p>
                 <span className={cx(
                   'text-[11px] font-medium tabular-nums',
-                  voiceCharOverLimit ? 'text-rose-500' : 'text-muted-c'
+                  voicePersonaPrompt.length > MAX_PERSONA_CHARS ? 'text-rose-500' : 'text-muted-c'
                 )}>
                   {voicePersonaPrompt.length.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()}
                 </span>
               </div>
             </div>
 
-            {/* Save / Reset */}
-            <div className="flex items-center gap-2 pt-1">
+            {/* Save / Reset Buttons */}
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => {
-                  setVoiceAssistantName(savedVoiceAssistantName);
-                  setVoicePersonaPrompt(savedVoicePersonaPrompt);
-                }}
-                disabled={!voiceDirty}
-                className="flex items-center gap-1.5 rounded-xl border border-base-c bg-white px-4 py-2 text-xs font-semibold text-secondary-c hover:bg-slate-50 disabled:opacity-40 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors"
+                onClick={handleResetVoiceDefaults}
+                disabled={voiceSaving}
+                className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/50 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 transition-colors"
+                title="Reset voice config back to tenant safety defaults"
               >
-                <RotateCcw className="h-3.5 w-3.5" /> Reset
+                <RotateCcw className="h-3.5 w-3.5" /> Reset to System Defaults
               </button>
-              <button
-                type="button"
-                onClick={saveVoicePersona}
-                disabled={!voiceDirty || voiceCharOverLimit || voiceSaving}
-                className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm"
-              >
-                {voiceSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                Save Voice Persona
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVoiceAssistantName(savedVoiceAssistantName);
+                    setVoiceGreetingText(savedVoiceGreetingText);
+                    setVoicePersonaPrompt(savedVoicePersonaPrompt);
+                  }}
+                  disabled={!voiceDirty}
+                  className="flex items-center gap-1.5 rounded-xl border border-base-c bg-white px-4 py-2 text-xs font-semibold text-secondary-c hover:bg-slate-50 disabled:opacity-40 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Revert Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={saveVoicePersona}
+                  disabled={!voiceDirty || voiceCharOverLimit || voiceSaving}
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm"
+                >
+                  {voiceSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  Save Voice Configuration
+                </button>
+              </div>
             </div>
           </div>
         )}
