@@ -5,10 +5,11 @@ import { Badge } from '@/components/ui/primitives';
 import {
   Paintbrush, Moon, Bell, Sun, Check, Upload, Smartphone, MessageSquare,
   Bot, Mail, Building2, Trash2, Eye, FileText,
-  Palette, CheckCircle2, AlertCircle, Loader2, Monitor
+  Palette, CheckCircle2, RotateCcw, Save, AlertCircle, Loader2, Monitor
 } from 'lucide-react';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { fetchCurrentUserProfile, updateCurrentUserProfile, uploadWidgetIcon, uploadCompanyLogo } from '@/lib/userApi';
+import { apiFetch } from '@/lib/api';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
 
 /* ─── Unified Enterprise Brand & White-Labeling Suite ─── */
@@ -903,6 +904,215 @@ export function NotificationsPanel() {
       </div>
 
       <div className="mt-5"><SaveBar onSave={() => { }} /></div>
+    </SectionCard>
+  );
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Lead Email Settings Panel
+   Allows tenants to configure the email sent to the customer and owner
+   when a new lead is captured. Falls back to system defaults when blank.
+   ═══════════════════════════════════════════════════════════════════════════ */
+export function LeadEmailSettingsPanel() {
+  const PLACEHOLDERS = [
+    '{{contactName}}', '{{businessName}}', '{{enquiryMessage}}',
+    '{{contactEmail}}', '{{ownerName}}',
+  ];
+
+  // Customer receipt
+  const [custSubject, setCustSubject] = useState('');
+  const [savedCustSubject, setSavedCustSubject] = useState('');
+  const [custBody, setCustBody]       = useState('');
+  const [savedCustBody, setSavedCustBody] = useState('');
+
+  // Owner alert
+  const [ownSubject, setOwnSubject]   = useState('');
+  const [savedOwnSubject, setSavedOwnSubject] = useState('');
+  const [ownBody, setOwnBody]         = useState('');
+  const [savedOwnBody, setSavedOwnBody] = useState('');
+
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [errMsg,  setErrMsg]  = useState<string | null>(null);
+
+  const dirty =
+    custSubject !== savedCustSubject || custBody !== savedCustBody ||
+    ownSubject  !== savedOwnSubject  || ownBody  !== savedOwnBody;
+
+  useEffect(() => { loadSettings(); }, []);
+
+  const loadSettings = async () => {
+    setLoading(true);
+    const res = await apiFetch<Record<string, string | null>>('/api/v1/settings/ai/lead-emails');
+    if (res.data) {
+      const d = res.data;
+      setCustSubject(d.leadCustomerEmailSubject || '');
+      setSavedCustSubject(d.leadCustomerEmailSubject || '');
+      setCustBody(d.leadCustomerEmailBody || '');
+      setSavedCustBody(d.leadCustomerEmailBody || '');
+      setOwnSubject(d.leadOwnerEmailSubject || '');
+      setSavedOwnSubject(d.leadOwnerEmailSubject || '');
+      setOwnBody(d.leadOwnerEmailBody || '');
+      setSavedOwnBody(d.leadOwnerEmailBody || '');
+    }
+    setLoading(false);
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setErrMsg(null); setToastMsg(null);
+    const res = await apiFetch<any>('/api/v1/settings/ai/lead-emails', {
+      method: 'PUT',
+      body: JSON.stringify({
+        leadCustomerEmailSubject: custSubject || null,
+        leadCustomerEmailBody:    custBody    || null,
+        leadOwnerEmailSubject:    ownSubject  || null,
+        leadOwnerEmailBody:       ownBody     || null,
+      }),
+    });
+    if (res.error) {
+      setErrMsg(res.error.message || 'Failed to save.');
+    } else {
+      setSavedCustSubject(custSubject); setSavedCustBody(custBody);
+      setSavedOwnSubject(ownSubject);   setSavedOwnBody(ownBody);
+      setToastMsg('Lead email templates saved successfully.');
+      setTimeout(() => setToastMsg(null), 3000);
+    }
+    setSaving(false);
+  };
+
+  const handleRevert = () => {
+    setCustSubject(savedCustSubject); setCustBody(savedCustBody);
+    setOwnSubject(savedOwnSubject);   setOwnBody(savedOwnBody);
+  };
+
+  const handleClearAll = () => {
+    setCustSubject(''); setCustBody('');
+    setOwnSubject('');  setOwnBody('');
+  };
+
+  const inputClass = (val: string) => cx(
+    'w-full rounded-xl border bg-white p-2.5 text-xs text-primary-c focus:outline-none transition-colors dark:bg-slate-950',
+    val.trim() ? 'border-amber-400 focus:border-amber-500' : 'border-base-c focus:border-amber-500'
+  );
+  const textareaClass = (val: string) => cx(
+    'w-full rounded-xl border bg-white p-3 text-xs text-primary-c leading-relaxed focus:outline-none transition-colors dark:bg-slate-950',
+    val.trim() ? 'border-amber-400 focus:border-amber-500' : 'border-base-c focus:border-amber-500'
+  );
+
+  return (
+    <SectionCard>
+      <PanelHeader
+        title="Lead Notification Email Templates"
+        desc="Customise the subject and body of emails sent when a new lead is captured. Leave blank to use the system default."
+        icon={<Mail className="h-5 w-5 text-amber-500" />}
+      />
+
+      {/* Toast / Error */}
+      {toastMsg && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+          <CheckCircle2 className="h-4 w-4 shrink-0" /> {toastMsg}
+        </div>
+      )}
+      {errMsg && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-2.5 text-xs font-medium text-rose-700 dark:text-rose-400">
+          <AlertCircle className="h-4 w-4 shrink-0" /> {errMsg}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-amber-500" />
+          <span className="ml-2 text-xs text-muted-c">Loading email templates…</span>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Placeholder hint */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-3.5 dark:border-amber-800/50 dark:bg-amber-950/20">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-widest text-amber-700 dark:text-amber-400">Available Placeholders</p>
+            <div className="flex flex-wrap gap-2">
+              {PLACEHOLDERS.map(p => (
+                <span key={p} className="rounded-lg border border-amber-300 bg-amber-100 px-2 py-0.5 font-mono text-[11px] text-amber-800 dark:border-amber-700 dark:bg-amber-900/40 dark:text-amber-300">{p}</span>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-amber-700/80 dark:text-amber-500">These are replaced with real values when the email is sent. Leave subject/body blank to use the system default.</p>
+          </div>
+
+          {/* ─── Customer Receipt ─── */}
+          <div className="rounded-xl border border-base-c bg-slate-50/50 p-4 dark:bg-slate-900/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-primary-c flex items-center gap-2">
+                <span>📩</span> Customer Receipt Email (Sent to Lead)
+              </span>
+              {(custSubject.trim() || custBody.trim()) ? (
+                <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">Custom Active</span>
+              ) : (
+                <span className="rounded-md border border-base-c bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-muted-c dark:bg-slate-800">Using System Default</span>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-secondary-c">Subject Line</label>
+              <input value={custSubject} onChange={e => setCustSubject(e.target.value)}
+                placeholder="System Default: Thank you for contacting {{businessName}}" className={inputClass(custSubject)} />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-secondary-c">Email Body Text</label>
+              <textarea value={custBody} onChange={e => setCustBody(e.target.value)} rows={4}
+                placeholder="System Default: Hi {{contactName}}, Thank you for reaching out to {{businessName}}! We have received your inquiry..."
+                className={textareaClass(custBody)} />
+            </div>
+          </div>
+
+          {/* ─── Owner Alert ─── */}
+          <div className="rounded-xl border border-base-c bg-slate-50/50 p-4 dark:bg-slate-900/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-primary-c flex items-center gap-2">
+                <span>🔔</span> Owner Alert Email (Sent to You)
+              </span>
+              {(ownSubject.trim() || ownBody.trim()) ? (
+                <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">Custom Active</span>
+              ) : (
+                <span className="rounded-md border border-base-c bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-muted-c dark:bg-slate-800">Using System Default</span>
+              )}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-secondary-c">Subject Line</label>
+              <input value={ownSubject} onChange={e => setOwnSubject(e.target.value)}
+                placeholder="System Default: New Lead Captured: {{contactName}}" className={inputClass(ownSubject)} />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-secondary-c">Email Body Text</label>
+              <textarea value={ownBody} onChange={e => setOwnBody(e.target.value)} rows={4}
+                placeholder="System Default: Hello {{ownerName}}, A new lead has been submitted on {{businessName}}..."
+                className={textareaClass(ownBody)} />
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" onClick={handleClearAll} disabled={saving}
+              className="flex items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/50 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 transition-colors">
+              <RotateCcw className="h-3.5 w-3.5" /> Revert to Defaults
+            </button>
+            <div className="flex gap-2">
+              <button type="button" onClick={handleRevert} disabled={!dirty || saving}
+                className="flex items-center gap-1.5 rounded-xl border border-base-c bg-white px-4 py-2 text-xs font-semibold text-secondary-c hover:bg-slate-50 disabled:opacity-40 dark:bg-slate-900 dark:hover:bg-slate-800 transition-colors">
+                Discard Changes
+              </button>
+              <button type="button" onClick={handleSave} disabled={!dirty || saving}
+                className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-5 py-2 text-xs font-bold text-white hover:bg-amber-600 disabled:opacity-50 transition-all shadow-sm">
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                Save Email Templates
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </SectionCard>
   );
 }

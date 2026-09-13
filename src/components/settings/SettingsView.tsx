@@ -7,6 +7,7 @@ import {
   Plug, LayoutList, FormInput, ListTree,
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, SlidersHorizontal, Smartphone, ChevronRight,
+  Mail,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -37,6 +38,7 @@ export type SettingsSub =
   | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'email-branding'
   | 'quick-responses' | 'flow-cta' | 'broadcast-filter-config'
   | 'support-categories'
+  | 'lead-emails'
   | 'system-health'
   | 'need-help';
 
@@ -130,6 +132,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'flow-cta': FlowCTAPanel,
   'broadcast-filter-config': BroadcastFilterConfigPanel,
   'support-categories': SupportCategoriesPanel,
+  'lead-emails': () => <Navigate to="/pipeline" replace />,
   'system-health': SystemHealthPanel,
   'need-help': NeedHelpPanel,
 };
