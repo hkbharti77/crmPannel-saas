@@ -9,8 +9,9 @@ import {
   downloadLeadsExport,
   type LeadDTO,
 } from '@/lib/leadsApi';
-import { Search, Plus, Download, RefreshCw, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Search, Plus, Download, RefreshCw, LayoutGrid, List as ListIcon, Mail } from 'lucide-react';
 import { PipelineTableView } from './PipelineTableView';
+import { LeadEmailModal } from './LeadEmailModal';
 
 type FilterId = 'all' | 'hot' | 'vip' | 'mine';
 
@@ -42,6 +43,7 @@ export function PipelineView() {
   const [viewMode, setViewMode] = useState<'kanban' | 'table'>('kanban');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   // Modal State for Won/Lost
   const [showWonModal, setShowWonModal] = useState(false);
@@ -295,6 +297,14 @@ export function PipelineView() {
             {exporting ? 'Exporting...' : 'Export CSV'}
           </button>
 
+          <button
+            onClick={() => setShowEmailModal(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition-all hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+          >
+            <Mail className="h-3.5 w-3.5 text-amber-500" />
+            Email Templates
+          </button>
+
           <button className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105">
             <Plus className="h-3.5 w-3.5" /> New Lead
           </button>
@@ -505,6 +515,9 @@ export function PipelineView() {
           </div>
         </div>
       )}
+
+      {/* Lead Email Templates Modal */}
+      <LeadEmailModal isOpen={showEmailModal} onClose={() => setShowEmailModal(false)} />
     </div>
   );
 }

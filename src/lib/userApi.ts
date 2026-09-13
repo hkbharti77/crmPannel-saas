@@ -12,6 +12,7 @@ export interface UserProfileDto {
   aboutUs?: string;
   logoUrl?: string;
   widgetIconUrl?: string;
+  widgetBaseUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
   emailHeaderText?: string;

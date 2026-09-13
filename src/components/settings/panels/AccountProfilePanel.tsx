@@ -5,7 +5,7 @@ import { Avatar } from '@/components/ui/primitives';
 import {
   User, Mail, Phone, MapPin, Check,
   Loader2, AlertCircle, CheckCircle2,
-  Copy, Bot, Settings as SettingsIcon, BookOpen, Eye, Navigation, Briefcase, ChevronDown, X,
+  Copy, Bot, Settings as SettingsIcon, BookOpen, Eye, Navigation, Briefcase, ChevronDown, X, Code2
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard } from './_shared';
 import {
@@ -56,6 +56,7 @@ export function AccountProfilePanel() {
 
   // Tenant / Business ID for Website Chat Widget
   const [businessId, setBusinessId] = useState('');
+  const [widgetBaseUrl, setWidgetBaseUrl] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,6 +64,7 @@ export function AccountProfilePanel() {
   const [error, setError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedSnippet, setCopiedSnippet] = useState(false);
+  const [copiedContactSnippet, setCopiedContactSnippet] = useState(false);
 
   // Modal State for Documentation
   const [showDocModal, setShowDocModal] = useState(false);
@@ -115,6 +117,7 @@ export function AccountProfilePanel() {
 
         if (profRes.data.latitude) setLatitude(String(profRes.data.latitude));
         if (profRes.data.longitude) setLongitude(String(profRes.data.longitude));
+        if (profRes.data.widgetBaseUrl) setWidgetBaseUrl(profRes.data.widgetBaseUrl);
 
         setBusinessId(profRes.data.id || user?.id || '840c4a19-6805-4995-84f3-53c7baff658f');
       } else {
@@ -198,6 +201,7 @@ export function AccountProfilePanel() {
       forceShowLeads,
       forceShowAppointment,
       forceShowBooking,
+      widgetBaseUrl: widgetBaseUrl.trim() || undefined,
       latitude: isNaN(latNum) ? undefined : latNum,
       longitude: isNaN(lngNum) ? undefined : lngNum,
     });
@@ -220,7 +224,7 @@ export function AccountProfilePanel() {
   };
 
   const rawApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  const apiBase = rawApiBase || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? `${window.location.origin}` : 'http://localhost:8080');
+  const apiBase = widgetBaseUrl || rawApiBase || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? `${window.location.origin}` : 'http://localhost:8080');
 
   const snippetCode = `<link rel="stylesheet" href="${apiBase}/styles.css">
 <script src="${apiBase}/chat-widget.js"
@@ -231,6 +235,29 @@ export function AccountProfilePanel() {
     navigator.clipboard.writeText(snippetCode);
     setCopiedSnippet(true);
     setTimeout(() => setCopiedSnippet(false), 2000);
+  };
+
+  const contactApiSnippet = `fetch('${apiBase}/api/v1/public/contact/${businessId}', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    name: 'John Doe',
+    email: 'john@example.com',
+    phone: '+919876543210',
+    subject: 'Inquiry',
+    message: 'Hello, I want to know more about your services.'
+  })
+})
+.then(response => response.json())
+.then(data => console.log('Success:', data))
+.catch(error => console.error('Error:', error));`;
+
+  const copyContactSnippet = () => {
+    navigator.clipboard.writeText(contactApiSnippet);
+    setCopiedContactSnippet(true);
+    setTimeout(() => setCopiedContactSnippet(false), 2000);
   };
 
   if (loading) {
@@ -545,7 +572,24 @@ export function AccountProfilePanel() {
             </pre>
           </div>
 
-          {/* Action Buttons */}
+          {/* Widget API Base URL */}
+        <div className="space-y-4 pt-4 border-t border-base-c">
+          <div>
+            <label className="mb-1 block text-xs font-bold text-primary-c">Widget API Base URL</label>
+            <input
+              type="url"
+              className="w-full rounded-lg border border-base-c bg-white dark:bg-ink-900 px-3 py-2 text-sm text-primary-c shadow-sm placeholder:text-muted-c focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              placeholder="e.g. https://api.gyanvaniai.online"
+              value={widgetBaseUrl}
+              onChange={(e) => setWidgetBaseUrl(e.target.value)}
+            />
+            <p className="mt-1 text-[11px] text-muted-c">
+              Leave empty to use the default environment URL. This URL is used in the snippet below.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               type="button"
@@ -561,6 +605,40 @@ export function AccountProfilePanel() {
             >
               <BookOpen className="h-4 w-4 text-emerald-500" /> Documentation
             </button>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* Public Contact Us API Section Card */}
+      <SectionCard>
+        <PanelHeader
+          title="Public Contact Us API Integration"
+          desc="Use this public API endpoint to integrate a Contact Us form on your website. It automatically creates a Lead and Lead Enquiry in CRM Lite."
+          icon={<Code2 className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />}
+        />
+
+        <div className="space-y-4">
+          <div className="rounded-xl border border-indigo-500/20 bg-indigo-50/50 dark:bg-indigo-900/10 p-3">
+            <p className="text-[11px] font-medium text-indigo-700 dark:text-indigo-300">
+              <strong>Endpoint:</strong> POST <code className="font-mono bg-indigo-500/10 px-1 py-0.5 rounded text-indigo-600 dark:text-indigo-400 select-all">{apiBase}/api/v1/public/contact/{businessId}</code>
+            </p>
+          </div>
+
+          <div className="relative rounded-xl border border-base-c bg-[#0B141A] p-4 text-xs font-mono text-emerald-300">
+            <div className="flex items-center justify-between mb-2 border-b border-white/10 pb-2">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">JAVASCRIPT FETCH EXAMPLE</span>
+              <button
+                type="button"
+                onClick={copyContactSnippet}
+                className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-1 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/30"
+              >
+                {copiedContactSnippet ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                <span>{copiedContactSnippet ? 'Copied!' : 'Copy'}</span>
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap leading-relaxed overflow-x-auto text-[11px]">
+              {contactApiSnippet}
+            </pre>
           </div>
         </div>
       </SectionCard>
@@ -617,18 +695,19 @@ export function AccountProfilePanel() {
 
       {/* Website Chat Widget Documentation Modal (Matches User Screenshot 1-to-1) */}
       {showDocModal && (
-        <WidgetDocModal businessId={businessId} onClose={() => setShowDocModal(false)} />
+        <WidgetDocModal businessId={businessId} widgetBaseUrl={widgetBaseUrl} onClose={() => setShowDocModal(false)} />
       )}
     </div>
   );
 }
 
 /* ─── Website Chat Widget Documentation Modal ─── */
-function WidgetDocModal({ businessId, onClose }: { businessId: string; onClose: () => void }) {
+function WidgetDocModal({ businessId, widgetBaseUrl, onClose }: { businessId: string; widgetBaseUrl?: string; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<'html' | 'react' | 'cms' | 'attributes'>('html');
   const [copiedDocSnippet, setCopiedDocSnippet] = useState(false);
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || '';
+  const rawApiBase = import.meta.env.VITE_API_BASE_URL || '';
+  const apiBase = widgetBaseUrl || rawApiBase || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? `${window.location.origin}` : 'http://localhost:8080');
 
   const htmlSnippet = `<link rel="stylesheet" href="${apiBase}/styles.css">
 <script src="${apiBase}/chat-widget.js"
