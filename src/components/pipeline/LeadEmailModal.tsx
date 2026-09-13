@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import {
   Mail, X, CheckCircle2, AlertCircle, Loader2, RotateCcw, Save, Sparkles, Code, Eye, FileText
@@ -46,7 +47,13 @@ export function LeadEmailModal({ isOpen, onClose }: LeadEmailModalProps) {
   useEffect(() => {
     if (isOpen) {
       loadSettings();
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+    };
   }, [isOpen]);
 
   const loadSettings = async () => {
@@ -131,8 +138,8 @@ export function LeadEmailModal({ isOpen, onClose }: LeadEmailModalProps) {
   const inputClass = 'w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 font-mono shadow-xs';
   const textareaClass = 'w-full rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-900 leading-relaxed focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-none transition-all dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 font-mono shadow-xs resize-y';
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 sm:p-6 backdrop-blur-[2px] animate-fade-in">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/40 p-4 sm:p-6 backdrop-blur-[2px] animate-fade-in w-screen h-screen">
       <div className="relative flex flex-col w-full max-w-3xl max-h-[90vh] rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden dark:border-slate-800 dark:bg-slate-900">
         
         {/* Fixed Header */}
@@ -350,6 +357,7 @@ export function LeadEmailModal({ isOpen, onClose }: LeadEmailModalProps) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
