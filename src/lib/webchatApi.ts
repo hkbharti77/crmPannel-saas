@@ -5,6 +5,8 @@ export type WebChatSession = {
   sessionId: string;
   createdAt: string;
   updatedAt: string;
+  lastMessage?: string;
+  lastMessageSender?: 'USER' | 'BOT';
 };
 
 export type WebChatMessage = {

@@ -3,11 +3,13 @@ import { createPortal } from 'react-dom';
 import {
   Plug, Check, Copy, AlertCircle, CheckCircle2,
   ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, Eye, EyeOff,
+  RefreshCw, Zap, MessageSquare, Shield, ArrowUpRight
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { apiFetch } from '@/lib/api';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { cx } from '@/lib/types';
 
 interface WhatsAppConfigDto {
   id?: string;
@@ -44,7 +46,7 @@ const META_APP_ID = import.meta.env.VITE_META_APP_ID || '1573307991099476';
 const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '1052344107323702';
 
 export function MetaConfigView() {
-  const [activeTab, setActiveTab] = useState<'legacy' | 'embedded'>('legacy');
+  const [activeTab, setActiveTab] = useState<'embedded' | 'legacy'>('embedded');
   const [config, setConfig] = useState<WhatsAppConfigDto | null>(null);
 
   // Legacy Cloud API state
@@ -127,7 +129,9 @@ export function MetaConfigView() {
       if (data.accessToken) setAccessToken(data.accessToken);
       if (data.verifyToken) setVerifyToken(data.verifyToken);
       if (data.appSecret) setAppSecret(data.appSecret);
-      if (data.connectionType === 'EMBEDDED_SIGNUP_COEXISTENCE') {
+      if (data.connectionType === 'LEGACY') {
+        setActiveTab('legacy');
+      } else {
         setActiveTab('embedded');
       }
     }
@@ -161,27 +165,6 @@ export function MetaConfigView() {
     }
   };
 
-  const _simulateEmbeddedSignupCallback = async () => {
-    setSaving(true);
-    const res = await apiFetch('/api/v1/whatsapp-config/embedded-signup/callback', {
-      method: 'POST',
-      body: JSON.stringify({
-        code: 'SIMULATED_OAUTH_CODE',
-        wabaId: wabaId || '987654321098765',
-        phoneNumberId: phoneNumberId || '123456789012345',
-      }),
-    });
-
-    setSaving(false);
-    if (!res.error) {
-      setMessage('Simulated Embedded Sign Up successful!');
-      fetchConfig();
-      setTimeout(() => setMessage(null), 4000);
-    } else {
-      setError(`Simulation Error: ${res.error}`);
-    }
-  };
-
   // Triggers Meta Terms Modal first according to Meta Rules
   const handleOpenEmbeddedSignupFlow = () => {
     setAgreedTerms(false);
@@ -198,7 +181,6 @@ export function MetaConfigView() {
     const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
 
     try {
-      // 1. Fetch Gateway session configuration (including secure public launcher URL and single-use sessionId)
       const sessionRes = await apiFetch<{ launcherUrl?: string; appId?: string; configId?: string; sessionId?: string }>(
         '/api/v1/integrations/meta/gateway/session',
       );
@@ -313,10 +295,11 @@ export function MetaConfigView() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-5xl p-6">
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-          <p className="mt-3 text-xs text-muted-c">Fetching Meta WhatsApp credentials from backend database…</p>
+      <div className="mx-auto max-w-7xl p-6">
+        <div className="flex flex-col items-center justify-center py-24">
+          <Loader2 className="h-10 w-10 animate-spin text-emerald-500 mb-3" />
+          <p className="text-xs font-bold text-primary-c">Fetching Meta WhatsApp credentials from database…</p>
+          <p className="text-[11px] text-muted-c mt-1">Verifying WABA session &amp; webhook subscriptions</p>
         </div>
       </div>
     );
@@ -325,95 +308,322 @@ export function MetaConfigView() {
   const isConnected = !!config?.phoneNumberId;
 
   return (
-    <div className="mx-auto max-w-5xl p-4 lg:p-6 space-y-6">
-      {/* Header Title */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-base-c pb-4">
+    <div className="mx-auto max-w-7xl p-3 sm:p-6 lg:p-8 space-y-6">
+      {/* ── TOP PAGE HEADER ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-base-c/80 pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-primary-c">Meta Configuration</h2>
-            {isConnected && (
-              <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                Connected ({config?.connectionType || 'LEGACY'}) ✓
-              </span>
-            )}
+          <div className="flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-soft">
+              <MessageSquare className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5">
+                <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-primary-c">
+                  Meta WhatsApp API Gateway
+                </h1>
+                {isConnected ? (
+                  <span className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    Connected ({config?.connectionType === 'EMBEDDED_SIGNUP_COEXISTENCE' ? 'Embedded Coexistence' : 'Legacy Cloud API'})
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 px-3 py-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Not Connected
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-c">
+                Configure Meta WhatsApp Business API credentials &amp; Dual Connection Modes (Embedded Sign Up Coexistence vs Legacy Cloud API).
+              </p>
+            </div>
           </div>
-          <p className="mt-0.5 text-xs text-secondary-c">
-            Configure Meta WhatsApp Business API credentials & Dual Connection Modes (Legacy Cloud API vs Embedded Sign Up)
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={fetchConfig}
+            className="flex items-center gap-1.5 rounded-xl border border-base-c/80 bg-card-c px-3.5 py-2 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-all shadow-xs"
+          >
+            <RefreshCw className={cx('h-3.5 w-3.5 text-muted-c', loading && 'animate-spin')} />
+            Sync Session
+          </button>
+
+          {isConnected && (
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 disabled:opacity-50 transition-all shadow-xs"
+            >
+              {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+              <span>Disconnect Gateway</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* ── META API KPI STATS HEADER CARDS ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Connection Mode */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Connection Mode</span>
+            <div className={cx(
+              "grid h-8 w-8 place-items-center rounded-xl",
+              isConnected ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+            )}>
+              <Plug className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-lg font-black text-primary-c truncate max-w-[170px]">
+              {isConnected ? (config?.connectionType === 'EMBEDDED_SIGNUP_COEXISTENCE' ? 'Embedded Coexistence' : 'Legacy Cloud API') : 'Disconnected'}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">
+            {isConnected ? 'Active Meta WhatsApp Integration' : 'Connect Meta API to start messaging'}
           </p>
         </div>
 
-        {isConnected && (
-          <button
-            type="button"
-            onClick={handleDisconnect}
-            disabled={disconnecting}
-            className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 disabled:opacity-50"
-          >
-            {disconnecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
-            <span>Disconnect Meta API</span>
-          </button>
-        )}
+        {/* Card 2: Webhook Sync Status */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Webhook Delivery</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <Zap className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-lg font-black text-primary-c truncate">
+              {config?.webhookSubscriptionStatus === 'ACTIVE' ? 'Subscribed (200 OK)' : (isConnected ? 'Pending Sync' : 'Inactive')}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">Real-time incoming WhatsApp events</p>
+        </div>
+
+        {/* Card 3: WABA Account ID */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>WABA Account ID</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+              <Database className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-base font-black font-mono text-primary-c truncate max-w-[180px]">
+              {config?.wabaId || 'Not Configured'}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">WhatsApp Business Account ID</p>
+        </div>
+
+        {/* Card 4: WhatsApp Phone ID */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Phone Number ID</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+              <Phone className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-base font-black font-mono text-primary-c truncate max-w-[180px]">
+              {config?.displayPhoneNumber || config?.phoneNumberId || 'Not Configured'}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">Verified Meta Phone Sender</p>
+        </div>
       </div>
 
-
+      {/* ── SUBSCRIPTION WARNING BANNER ── */}
       {planLocked && (
-        <div className="rounded-xl2 border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Info className="h-4 w-4 shrink-0 text-amber-500" />
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-700 dark:text-amber-300 flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <Info className="h-5 w-5 shrink-0 text-amber-500" />
             <span>WhatsApp Business API Integration requires a <strong>PRO</strong> subscription plan. Upgrade your plan to send live messages.</span>
           </div>
           <button
             onClick={() => window.location.hash = '#billing'}
-            className="rounded-lg bg-gradient-accent px-3 py-1.5 text-xs font-bold text-white shadow-sm shrink-0"
+            className="rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-4 py-2 text-xs font-bold text-white shadow-soft hover:brightness-110 shrink-0 transition-all"
           >
             Upgrade Plan
           </button>
         </div>
       )}
 
+      {/* ── NOTIFICATIONS ── */}
       {message && (
-        <div className="flex items-center gap-2 rounded-xl border border-success-500/20 bg-success-500/10 p-3 text-xs text-success-600 dark:text-success-400">
-          <CheckCircle2 className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2.5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-xs font-semibold text-emerald-700 dark:text-emerald-400 shadow-xs animate-fade-in">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
           <span>{message}</span>
         </div>
       )}
 
       {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">
-          <AlertCircle className="h-4 w-4 shrink-0" />
+        <div className="flex items-center gap-2.5 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs font-semibold text-rose-700 dark:text-rose-400 shadow-xs animate-fade-in">
+          <AlertCircle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Mode Selector Tabs (Matches User Requirement) */}
+      {/* ── MODE SELECTOR TABS ── */}
       <TabSwitcher
         tabs={[
-          { id: 'legacy', label: '1. Legacy Method (Cloud API)', icon: <Server className="h-4 w-4" /> },
-          { id: 'embedded', label: '2. Embedded Sign Up (Co-existence)', icon: <Sparkles className="h-4 w-4" /> }
+          { id: 'embedded', label: '1. Embedded Sign Up (Co-existence Mode)', icon: <Sparkles className="h-4 w-4 text-emerald-500" /> },
+          { id: 'legacy', label: '2. Legacy Method (Cloud API Credentials)', icon: <Server className="h-4 w-4" /> }
         ]}
         activeTab={activeTab}
-        onChange={(id) => setActiveTab(id as 'legacy' | 'embedded')}
-        className="w-full justify-between [&>button]:flex-1"
+        onChange={(id) => setActiveTab(id as 'embedded' | 'legacy')}
+        className="w-full justify-between [&>button]:flex-1 bg-slate-100/80 dark:bg-ink-900/60 p-1 rounded-xl"
       />
 
-      {/* TAB 1: LEGACY CLOUD API METHOD */}
-      {activeTab === 'legacy' && (
-        <div className="space-y-5">
-          <div className="rounded-xl2 border border-base-c bg-card-c p-5 lg:p-6 space-y-5 shadow-sm">
+      {/* ── TAB 1: META TECH PROVIDER EMBEDDED SIGNUP (COEXISTENCE METHOD) ── */}
+      {activeTab === 'embedded' && (
+        <div className="space-y-5 animate-fade-in">
+          <div className="rounded-2xl border border-emerald-500/30 bg-card-c p-6 space-y-6 shadow-sm relative overflow-hidden">
             <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-400">
-                <Plug className="h-5 w-5" />
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 shadow-soft">
+                <Sparkles className="h-6 w-6" />
               </div>
               <div>
-                <h3 className="text-base font-bold text-primary-c">Legacy Meta Cloud API Credentials</h3>
-                <p className="text-xs text-secondary-c">Enter your WhatsApp Phone Number ID, WABA ID, and Permanent System User Access Token from Meta Developer Console.</p>
+                <h3 className="text-lg font-bold text-primary-c">Meta Embedded Sign Up &amp; WhatsApp Coexistence</h3>
+                <p className="text-xs text-muted-c">
+                  Connect via Meta Tech Provider Embedded Signup. Use your WhatsApp Business App on phone and WhatsApp Cloud API on CRM simultaneously.
+                </p>
+              </div>
+            </div>
+
+            {/* Connection Status Box */}
+            {config?.connectionType === 'EMBEDDED_SIGNUP_COEXISTENCE' ? (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 space-y-4 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-sm">
+                    <ShieldCheck className="h-5 w-5" />
+                    <span>WhatsApp Coexistence Embedded Signup Active</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono font-bold bg-emerald-500/20 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 px-3 py-1 rounded-full">
+                      COEXISTENCE MODE
+                    </span>
+                    {config.webhookSubscriptionStatus === 'ACTIVE' ? (
+                      <span className="text-[11px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full flex items-center gap-1">
+                        <Check className="h-3.5 w-3.5" /> Webhook Active
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5" /> Webhook {config.webhookSubscriptionStatus || 'PENDING'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono text-primary-c pt-3 border-t border-emerald-500/20">
+                  <div className="rounded-xl bg-card-c/60 p-3 border border-emerald-500/20">
+                    <span className="text-[10px] text-muted-c uppercase font-sans font-bold block mb-0.5">WABA ID</span>
+                    <span className="font-bold">{config.wabaId || '987654321098765'}</span>
+                  </div>
+                  <div className="rounded-xl bg-card-c/60 p-3 border border-emerald-500/20">
+                    <span className="text-[10px] text-muted-c uppercase font-sans font-bold block mb-0.5">Phone Number ID</span>
+                    <span className="font-bold">{config.phoneNumberId || '123456789012345'}</span>
+                  </div>
+                  {config.verifiedName && (
+                    <div className="col-span-1 sm:col-span-2 rounded-xl bg-card-c/60 p-3 border border-emerald-500/20 flex items-center justify-between">
+                      <span className="text-[10px] text-muted-c uppercase font-sans font-bold">Verified Meta Name</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{config.verifiedName}</span>
+                    </div>
+                  )}
+                </div>
+
+                {config.webhookSubscriptionStatus === 'FAILED' && (
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-500/10 border border-amber-500/30 p-3.5 text-xs text-amber-700 dark:text-amber-300">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+                      <span>Webhook subscription failed: {config.webhookSubscriptionError || 'Could not subscribe to Meta webhooks'}.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRetryWebhook}
+                      disabled={retryingWebhook}
+                      className="rounded-xl bg-amber-600 text-white font-bold px-3.5 py-1.5 text-xs hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1.5 shrink-0 shadow-xs"
+                    >
+                      {retryingWebhook && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      <span>Retry Webhook Subscription</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-2xl border border-base-c/80 bg-card-c/60 p-4 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <Smartphone className="h-4 w-4" />
+                    <span>Mobile App Coexistence</span>
+                  </div>
+                  <p className="text-[11px] text-muted-c leading-relaxed">
+                    Keep using your mobile WhatsApp Business App on your phone while CRM AI auto-replies simultaneously.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-base-c/80 bg-card-c/60 p-4 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    <Shield className="h-4 w-4" />
+                    <span>Zero History Loss</span>
+                  </div>
+                  <p className="text-[11px] text-muted-c leading-relaxed">
+                    All existing chat history, media, and customer contacts remain 100% intact without needing formatting.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-base-c/80 bg-card-c/60 p-4 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-purple-600 dark:text-purple-400">
+                    <Sparkles className="h-4 w-4" />
+                    <span>1-Click OAuth Connect</span>
+                  </div>
+                  <p className="text-[11px] text-muted-c leading-relaxed">
+                    Authenticate directly through Meta Business Suite popup in under 60 seconds with zero API keys.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Launch Embedded Signup Action Button */}
+            <div className="pt-3 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-base-c/80">
+              <p className="text-xs text-muted-c">Meta Facebook SDK embedded signup authorization (Config ID: {META_CONFIG_ID}).</p>
+
+              <button
+                type="button"
+                onClick={handleOpenEmbeddedSignupFlow}
+                disabled={saving}
+                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-6 py-3 text-xs font-bold text-white shadow-soft transition-all transform hover:scale-[1.02] disabled:opacity-50 shrink-0"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                <span>Connect via Meta Embedded Sign Up</span>
+                <ExternalLink className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── TAB 2: LEGACY CLOUD API METHOD ── */}
+      {activeTab === 'legacy' && (
+        <div className="space-y-5 animate-fade-in">
+          <div className="rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-soft">
+                <Plug className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-primary-c">Legacy Meta Cloud API Credentials</h3>
+                <p className="text-xs text-muted-c">Enter your WhatsApp Phone Number ID, WABA ID, and Permanent System User Access Token from Meta Developer Console.</p>
               </div>
             </div>
 
             <form onSubmit={handleSaveLegacy} className="space-y-4 pt-1">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-secondary-c">WhatsApp Phone Number ID</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">WhatsApp Phone Number ID</label>
                   <div className="relative">
                     <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
                     <input
@@ -421,13 +631,13 @@ export function MetaConfigView() {
                       value={phoneNumberId}
                       onChange={(e) => setPhoneNumberId(e.target.value)}
                       placeholder="e.g. 104820491823901"
-                      className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                      className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-secondary-c">WABA ID (WhatsApp Business Account ID)</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">WABA ID (WhatsApp Business Account ID)</label>
                   <div className="relative">
                     <Database className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
                     <input
@@ -435,14 +645,14 @@ export function MetaConfigView() {
                       value={wabaId}
                       onChange={(e) => setWabaId(e.target.value)}
                       placeholder="e.g. 982301928401928"
-                      className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                      className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Permanent Access Token (System User Token)</label>
+                <label className="mb-1.5 block text-xs font-semibold text-primary-c">Permanent Access Token (System User Token)</label>
                 <div className="relative">
                   <Key className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
                   <input
@@ -451,7 +661,7 @@ export function MetaConfigView() {
                     value={accessToken}
                     onChange={(e) => setAccessToken(e.target.value)}
                     placeholder="EAAG••••••••••••••••••••••••••••••••"
-                    className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-9 pr-10 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                    className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-10 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                   />
                   <button
                     type="button"
@@ -467,24 +677,24 @@ export function MetaConfigView() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Webhook Verify Token</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">Webhook Verify Token</label>
                   <input
                     value={verifyToken}
                     onChange={(e) => setVerifyToken(e.target.value)}
                     placeholder="CRM_TOKEN_2026"
-                    className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 px-4 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                    className="w-full rounded-xl border border-base-c bg-card-c py-2.5 px-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-secondary-c">App Secret (Optional Signature Verification)</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">App Secret (Optional Signature Verification)</label>
                   <div className="relative">
                     <input
                       type={showAppSecret ? 'text' : 'password'}
                       value={appSecret}
                       onChange={(e) => setAppSecret(e.target.value)}
                       placeholder="Meta App Secret..."
-                      className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-4 pr-10 text-xs font-mono text-primary-c focus:border-primary-500/50 focus:outline-none"
+                      className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-4 pr-10 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                     />
                     <button
                       type="button"
@@ -503,7 +713,7 @@ export function MetaConfigView() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-accent px-6 py-2.5 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-2.5 text-xs font-bold text-white shadow-soft transition-all hover:scale-105 disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   <span>Save Legacy Configuration</span>
@@ -513,133 +723,41 @@ export function MetaConfigView() {
           </div>
 
           {/* Webhook Configuration Guide Card */}
-          <div className="rounded-xl2 border border-base-c bg-card-c p-5 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-primary-c">Meta Webhook Setup URL</h4>
-            <p className="text-xs text-secondary-c">
+          <div className="rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-3 shadow-xs">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-primary-c">Meta Webhook Callback URL</h4>
+            <p className="text-xs text-muted-c">
               In Meta Developer Console under <strong>WhatsApp → Configuration → Webhook</strong>, paste this callback URL:
             </p>
-            <div className="relative rounded-xl border border-base-c bg-slate-50 dark:bg-ink-850 p-3 text-xs font-mono text-primary-c flex items-center justify-between gap-3">
-              <span className="select-all overflow-x-auto">{webhookUrl}</span>
+            <div className="relative rounded-xl border border-base-c bg-slate-100/70 dark:bg-ink-850 p-3 text-xs font-mono text-primary-c flex items-center justify-between gap-3">
+              <span className="select-all overflow-x-auto truncate">{webhookUrl}</span>
               <button
                 type="button"
                 onClick={copyWebhookUrl}
-                className="flex items-center gap-1 rounded bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 shrink-0"
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 shrink-0 transition-all"
               >
                 {copiedWebhook ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>{copiedWebhook ? 'Copied!' : 'Copy URL'}</span>
+                <span>{copiedWebhook ? 'Copied!' : 'Copy Callback URL'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TAB 2: META TECH PROVIDER EMBEDDED SIGNUP (COEXISTENCE METHOD) */}
-      {activeTab === 'embedded' && (
-        <div className="space-y-5">
-          <div className="rounded-xl2 border border-emerald-500/30 bg-emerald-500/5 p-5 lg:p-6 space-y-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-primary-c">Meta Embedded Sign Up & WhatsApp Co-existence</h3>
-                <p className="text-xs text-secondary-c">
-                  Connect via Meta Tech Provider Embedded Signup. Use your WhatsApp Business App and WhatsApp Cloud API on the same number simultaneously.
-                </p>
-              </div>
-            </div>
-
-            {/* Connection Status Box */}
-            {config?.connectionType === 'EMBEDDED_SIGNUP_COEXISTENCE' ? (
-              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
-                    <ShieldCheck className="h-4 w-4" />
-                    <span>WhatsApp Coexistence Embedded Signup Active</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 rounded">
-                      COEXISTENCE MODE
-                    </span>
-                    {config.webhookSubscriptionStatus === 'ACTIVE' ? (
-                      <span className="text-[10px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 rounded flex items-center gap-1">
-                        <Check className="h-3 w-3" /> Webhook Active
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" /> Webhook {config.webhookSubscriptionStatus || 'PENDING'}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs font-mono text-secondary-c pt-2 border-t border-emerald-500/20">
-                  <p>WABA ID: {config.wabaId || '987654321098765'}</p>
-                  <p>Phone ID: {config.phoneNumberId || '123456789012345'}</p>
-                  {config.verifiedName && <p className="col-span-2">Verified Name: {config.verifiedName}</p>}
-                </div>
-
-                {config.webhookSubscriptionStatus === 'FAILED' && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-2.5 text-xs text-amber-700 dark:text-amber-300">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
-                      <span>Webhook subscription failed: {config.webhookSubscriptionError || 'Could not subscribe to Meta webhooks'}.</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRetryWebhook}
-                      disabled={retryingWebhook}
-                      className="rounded bg-amber-600 text-white font-bold px-3 py-1 text-xs hover:bg-amber-700 disabled:opacity-50 flex items-center gap-1 shrink-0"
-                    >
-                      {retryingWebhook && <Loader2 className="h-3 w-3 animate-spin" />}
-                      <span>Retry Webhook Subscription</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-base-c bg-card-c p-4 text-xs text-secondary-c space-y-2">
-                <h5 className="font-bold text-primary-c">Why Embedded Sign Up Coexistence?</h5>
-                <ul className="space-y-1.5 list-disc list-inside">
-                  <li>Keep using your WhatsApp Business mobile app on your phone while AI automates responses in CRM.</li>
-                  <li>No loss of chat history or manual chat control.</li>
-                  <li>Instant 1-click OAuth authentication via Meta Business Suite.</li>
-                </ul>
-              </div>
-            )}
-
-            {/* Launch Embedded Signup Action Button */}
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-base-c">
-              <p className="text-xs text-muted-c">Meta Facebook SDK embedded signup authorization (Config ID: {META_CONFIG_ID}).</p>
-
-              <button
-                type="button"
-                onClick={handleOpenEmbeddedSignupFlow}
-                disabled={saving}
-                className="flex items-center justify-center gap-2 rounded-xl bg-gradient-accent px-6 py-3 text-xs font-bold text-white shadow-md transition-transform hover:scale-105 disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                <span>Connect via Meta Embedded Sign Up</span>
-                <ExternalLink className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Meta Terms & Conditions Modal (Required by Meta Rules before FB Login) */}
+      {/* Meta Terms & Conditions Modal */}
       {showTermsModal && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in" onClick={() => setShowTermsModal(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in" onClick={() => setShowTermsModal(false)}>
           <div
-            className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-xl2 border border-base-c bg-card-c shadow-2xl animate-slide-up overflow-hidden"
+            className="flex max-h-[90vh] w-full max-w-xl flex-col rounded-2xl border border-base-c/80 bg-card-c shadow-2xl animate-slide-up overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-base-c px-6 py-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-emerald-500" />
+            <div className="flex items-center justify-between border-b border-base-c/80 px-6 py-4 bg-card-c/90">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <FileText className="h-5 w-5" />
+                </div>
                 <div>
-                  <h3 className="text-base font-bold text-primary-c">Meta Tech Provider Terms & Conditions</h3>
+                  <h3 className="text-base font-bold text-primary-c">Meta Tech Provider Terms &amp; Conditions</h3>
                   <p className="text-xs text-muted-c">Mandatory privacy compliance review prior to Facebook Embedded Login</p>
                 </div>
               </div>
@@ -649,25 +767,24 @@ export function MetaConfigView() {
             </div>
 
             {/* Terms Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-secondary-c leading-relaxed scrollbar-thin">
-
-              <div className="space-y-2">
-                <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">1. Data Access & Permissions</h4>
-                <p>GyanVaniAi Connect will receive read and write access to your WhatsApp Business Account (WABA ID), Phone Number ID, template directory, and incoming customer inquiry messages.</p>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs text-primary-c/80 leading-relaxed scrollbar-thin">
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">1. Data Access &amp; Permissions</h4>
+                <p className="text-muted-c">GyanVaniAi Connect will receive read and write access to your WhatsApp Business Account (WABA ID), Phone Number ID, template directory, and incoming customer inquiry messages.</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">2. Meta Business Platform Compliance</h4>
-                <p>You agree to adhere strictly to Meta's WhatsApp Commerce Policy, Spam Policy, and Data Security Requirements. Automated messaging must honor customer opt-out requests.</p>
+                <p className="text-muted-c">You agree to adhere strictly to Meta's WhatsApp Commerce Policy, Spam Policy, and Data Security Requirements. Automated messaging must honor customer opt-out requests.</p>
               </div>
 
-              <div className="space-y-2">
-                <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">3. WhatsApp Co-existence Agreement</h4>
-                <p>In Co-existence mode, your mobile WhatsApp Business App and GyanVaniAi Connect share API message events seamlessly without disrupting existing customer histories.</p>
+              <div className="space-y-1.5">
+                <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">3. WhatsApp Coexistence Agreement</h4>
+                <p className="text-muted-c">In Coexistence mode, your mobile WhatsApp Business App and GyanVaniAi Connect share API message events seamlessly without disrupting existing customer histories.</p>
               </div>
 
               {/* Checkbox Agreement */}
-              <div className="pt-3 border-t border-base-c">
+              <div className="pt-4 border-t border-base-c/80">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
@@ -676,27 +793,27 @@ export function MetaConfigView() {
                     className="mt-0.5 h-4 w-4 rounded border-base-c text-emerald-600 focus:ring-emerald-500"
                   />
                   <span className="text-xs font-semibold text-primary-c">
-                    I have read, understood, and accept the Meta Tech Provider Terms & Data Privacy Policy rules.
+                    I have read, understood, and accept the Meta Tech Provider Terms &amp; Data Privacy Policy rules.
                   </span>
                 </label>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between border-t border-base-c px-6 py-4 bg-slate-50/50 dark:bg-ink-850/40">
+            <div className="flex items-center justify-between border-t border-base-c/80 px-6 py-4 bg-slate-50/50 dark:bg-ink-900/40">
               <button
                 onClick={() => setShowTermsModal(false)}
-                className="rounded-xl border border-base-c bg-card-c px-4 py-2 text-xs font-bold text-secondary-c hover:text-primary-c"
+                className="rounded-xl border border-base-c bg-card-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
               >
                 Cancel
               </button>
               <button
                 onClick={launchMetaFbLogin}
                 disabled={!agreedTerms}
-                className="flex items-center gap-2 rounded-xl bg-gradient-accent px-6 py-2 text-xs font-bold text-white shadow-md transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-6 py-2.5 text-xs font-bold text-white shadow-soft transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Check className="h-4 w-4" />
-                <span>Agree & Launch Meta Login</span>
+                <span>Agree &amp; Launch Meta Login</span>
               </button>
             </div>
           </div>
@@ -717,3 +834,4 @@ export function MetaConfigView() {
     </div>
   );
 }
+

@@ -8,12 +8,14 @@ export function MessageComposer({
   setDraft,
   botMode,
   onToggleBot,
+  theme = 'whatsapp-dark',
 }: {
   onSend: (text: string) => void;
   draft: string;
   setDraft: (s: string) => void;
   botMode: boolean;
   onToggleBot: () => void;
+  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
 }) {
   const [showAttach, setShowAttach] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -24,118 +26,164 @@ export function MessageComposer({
     setDraft('');
   };
 
+  const quickTemplates = [
+    'Hello! How can we assist you today?',
+    'Thanks for reaching out! A representative will connect shortly.',
+    'Could you please share your preferred appointment time slot?',
+  ];
+
+  const getContainerStyle = () => {
+    if (theme === 'whatsapp-dark') return 'bg-[#202c33] border-[#222d34] text-[#e9edef]';
+    if (theme === 'whatsapp-light') return 'bg-[#f0f2f5] border-[#e9edef] text-[#111b21]';
+    return 'bg-card-c/90 backdrop-blur-md border-base-c/80';
+  };
+
+  const getInputStyle = () => {
+    if (theme === 'whatsapp-dark') return 'bg-[#2a3942] border-none text-[#e9edef] placeholder-[#8696a0]';
+    if (theme === 'whatsapp-light') return 'bg-[#ffffff] border-none text-[#111b21] placeholder-[#54656f]';
+    return 'bg-card-c border-base-c text-primary-c placeholder:text-muted-c';
+  };
+
   return (
-    <div className="border-t border-base-c p-3">
+    <div className={cx('border-t p-3 lg:p-4 transition-colors', getContainerStyle())}>
       {botMode ? (
         /* ── BOT ACTIVE: locked state ─────────────────────────── */
-        <div className="flex flex-col items-center gap-2.5 rounded-xl2 border border-secondary-500/20 bg-secondary-500/5 px-4 py-4">
-          <div className="flex items-center gap-2 text-secondary-600 dark:text-secondary-400">
+        <div className={cx(
+          'flex flex-col items-center justify-center gap-2 rounded-2xl border p-4 shadow-soft',
+          theme === 'whatsapp-dark'
+            ? 'border-[#005c4b]/40 bg-[#111b21]/80 text-[#e9edef]'
+            : theme === 'whatsapp-light'
+              ? 'border-emerald-500/30 bg-[#ffffff]/90 text-[#111b21]'
+              : 'border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-purple-500/10'
+        )}>
+          <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs">
             <ShieldAlert className="h-4 w-4" />
-            <span className="text-xs font-semibold">Bot is handling this conversation</span>
+            <span>AI Bot is handling real-time customer replies</span>
           </div>
-          <p className="text-[11px] text-muted-c text-center max-w-xs">
-            The AI bot is actively replying to this customer. To reply manually, switch to Human Mode first.
+          <p className="text-[11px] opacity-75 text-center max-w-sm">
+            AI Assistant is automatically analyzing incoming WhatsApp queries. Switch to Human Takeover to send manual messages.
           </p>
           <button
             onClick={onToggleBot}
-            className="flex items-center gap-1.5 rounded-lg bg-success-500/15 px-4 py-2 text-xs font-semibold text-success-600 dark:text-success-400 ring-1 ring-success-500/30 hover:bg-success-500/25 transition-all"
+            className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2 text-xs font-bold text-white shadow-md transition-all hover:scale-105 btn-tactile"
           >
-            <UserCheck className="h-3.5 w-3.5" />
+            <UserCheck className="h-4 w-4" />
             Take Over — Switch to Human Mode
           </button>
         </div>
       ) : (
         /* ── HUMAN MODE: full composer ────────────────────────── */
         <>
-          {/* Mode bar */}
-          <div className="mb-2 flex items-center gap-2">
-            <button
-              onClick={onToggleBot}
-              className="flex items-center gap-1.5 rounded-lg border border-base-c px-2.5 py-1 text-[11px] font-medium text-muted-c hover:text-primary-c transition-all"
-            >
-              <Bot className="h-3 w-3" />
-              Hand back to AI Bot
-            </button>
-            <div className="flex items-center gap-1 rounded-lg bg-success-500/10 px-2 py-0.5 text-[10px] font-semibold text-success-600 dark:text-success-400">
-              <UserCheck className="h-2.5 w-2.5" />
-              You are replying
+          {/* Status bar */}
+          <div className="mb-2.5 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Human Mode Active
+              </div>
+              <button
+                onClick={onToggleBot}
+                className="flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c px-3 py-1 text-[11px] font-semibold hover:border-emerald-500/40 transition-all shadow-xs"
+                title="Hand back conversation to AI Bot"
+              >
+                <Bot className="h-3.5 w-3.5 text-emerald-500" />
+                Hand Back to AI Bot
+              </button>
             </div>
-            <button className="flex items-center gap-1.5 rounded-lg border border-base-c px-2.5 py-1 text-[11px] font-medium text-muted-c transition-colors hover:text-primary-c">
-              <Zap className="h-3 w-3" /> Quick templates
-            </button>
+
+            {/* Quick Template Chips */}
+            <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {quickTemplates.map((t, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setDraft(t)}
+                  className="truncate max-w-[180px] rounded-lg border border-base-c bg-slate-100 dark:bg-ink-800/80 px-2.5 py-1 text-[10px] font-medium text-muted-c hover:text-primary-c hover:border-primary-500/40 transition-colors"
+                >
+                  <Zap className="h-2.5 w-2.5 inline mr-1 text-amber-500" />
+                  {t}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Attach menu */}
+          {/* Attachment menu */}
           {showAttach && (
-            <div className="mb-2 flex items-center gap-2 rounded-xl2 border border-base-c p-2 animate-slide-down">
+            <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-base-c/80 bg-card-c p-2.5 shadow-soft animate-slide-down">
               {[
-                { icon: ImageIcon, label: 'Photo', color: 'text-success-600' },
-                { icon: Paperclip, label: 'Document', color: 'text-primary-600' },
-                { icon: Mic, label: 'Voice', color: 'text-secondary-600' },
+                { icon: ImageIcon, label: 'Photo & Video', color: 'text-emerald-500' },
+                { icon: Paperclip, label: 'Document', color: 'text-indigo-500' },
+                { icon: Mic, label: 'Voice Note', color: 'text-amber-500' },
               ].map((a) => {
                 const Icon = a.icon;
                 return (
                   <button
                     key={a.label}
-                    onClick={() => setShowAttach(false)}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800"
+                    onClick={() => {
+                      setShowAttach(false);
+                      fileRef.current?.click();
+                    }}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
                   >
-                    <Icon className={cx('h-3.5 w-3.5', a.color)} /> {a.label}
+                    <Icon className={cx('h-4 w-4', a.color)} /> {a.label}
                   </button>
                 );
               })}
               <button
                 onClick={() => setShowAttach(false)}
-                className="ml-auto grid h-6 w-6 place-items-center rounded text-muted-c hover:text-primary-c"
+                className="ml-auto grid h-7 w-7 place-items-center rounded-lg text-muted-c hover:text-primary-c"
               >
-                <X className="h-3.5 w-3.5" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           )}
 
-          {/* Input bar */}
-          <div className="flex items-center gap-2 rounded-xl2 border border-base-c bg-card-c px-3 py-2 transition-colors focus-within:border-primary-500/40 focus-within:ring-2 focus-within:ring-primary-500/15">
+          {/* Input Bar */}
+          <div className={cx('flex items-center gap-2 rounded-2xl px-3.5 py-2.5 shadow-sm transition-all focus-within:ring-2 focus-within:ring-emerald-500/30', getInputStyle())}>
             <button
               onClick={() => setShowAttach((s) => !s)}
-              className="text-muted-c transition-colors hover:text-primary-c"
-              aria-label="Attach"
+              className="opacity-70 transition-opacity hover:opacity-100 p-1"
+              aria-label="Attach File"
+              title="Attach File / Document"
             >
-              <Paperclip className="h-4 w-4" />
+              <Paperclip className="h-4.5 w-4.5" />
             </button>
             <input ref={fileRef} type="file" className="hidden" />
 
             <button
-              className="text-muted-c transition-colors hover:text-primary-c"
-              aria-label="Emoji"
+              className="opacity-70 transition-opacity hover:opacity-100 p-1"
+              aria-label="Emoji Picker"
+              title="Insert Emoji"
             >
-              <Smile className="h-4 w-4" />
+              <Smile className="h-4.5 w-4.5" />
             </button>
 
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-              placeholder="Type a message…"
-              className="flex-1 bg-transparent text-sm text-primary-c placeholder:text-muted-c focus:outline-none"
+              placeholder="Type a message or paste AI prompt…"
+              className="flex-1 bg-transparent text-sm font-medium outline-none border-none focus:outline-none focus:ring-0"
             />
 
             <button
-              className="text-muted-c transition-colors hover:text-primary-c"
-              aria-label="Voice message"
+              className="opacity-70 transition-opacity hover:opacity-100 p-1"
+              aria-label="Record Voice Message"
+              title="Record Voice Note"
             >
-              <Mic className="h-4 w-4" />
+              <Mic className="h-4.5 w-4.5" />
             </button>
 
             <button
               onClick={handleSend}
               disabled={!draft.trim()}
               className={cx(
-                'grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white transition-all',
+                'grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white transition-all shadow-sm',
                 draft.trim()
-                  ? 'bg-gradient-accent hover:scale-105 active:scale-95'
-                  : 'bg-slate-300 dark:bg-ink-700 cursor-not-allowed',
+                  ? 'bg-emerald-600 hover:bg-emerald-700 hover:scale-105 active:scale-95 shadow-emerald-500/25'
+                  : 'bg-slate-400/50 opacity-60 cursor-not-allowed',
               )}
-              aria-label="Send"
+              aria-label="Send Message"
+              title="Send Message"
             >
               <Send className="h-4 w-4" />
             </button>
@@ -145,3 +193,5 @@ export function MessageComposer({
     </div>
   );
 }
+
+

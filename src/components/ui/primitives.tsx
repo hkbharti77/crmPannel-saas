@@ -86,24 +86,41 @@ export function Badge({
 export function Avatar({
   name,
   src,
-  size = 36,
+  size = 40,
   className,
 }: {
   name: string;
   src?: string;
-  size?: number;
+  size?: number | 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }) {
+  const sizePx = typeof size === 'number' ? size : {
+    xs: 24,
+    sm: 32,
+    md: 40,
+    lg: 48,
+    xl: 56,
+  }[size] || 40;
+
   const initials = name
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+    ? name
+        .split(' ')
+        .filter(Boolean)
+        .map((p) => p[0])
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : 'U';
+
   return (
     <div
-      className={cx('relative shrink-0 overflow-hidden rounded-full', className)}
-      style={{ width: size, height: size }}
+      className={cx('relative shrink-0 overflow-hidden rounded-full shadow-xs', className)}
+      style={{
+        width: `${sizePx}px`,
+        height: `${sizePx}px`,
+        minWidth: `${sizePx}px`,
+        minHeight: `${sizePx}px`,
+      }}
     >
       {src ? (
         <img
@@ -112,8 +129,9 @@ export function Avatar({
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="grid h-full w-full place-items-center bg-gradient-accent text-white font-semibold"
-          style={{ fontSize: size * 0.38 }}
+        <div
+          className="grid h-full w-full place-items-center bg-gradient-accent text-white font-bold leading-none select-none"
+          style={{ fontSize: `${Math.max(10, Math.round(sizePx * 0.38))}px` }}
         >
           {initials}
         </div>

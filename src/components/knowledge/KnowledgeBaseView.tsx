@@ -1,17 +1,20 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { cx } from '@/lib/types';
 import {
   Brain, Upload, Trash2, Download, AlertCircle, Loader2,
-  FileText, Sparkles, CheckCircle2, File,
+  FileText, Sparkles, CheckCircle2,
   Wand2, Save, RotateCcw, HelpCircle, Clock, User, RefreshCw,
-  Mic, Volume2, ChevronDown, ChevronUp, Radio, Check
+  Mic, Volume2, ChevronDown, ChevronUp, Radio, Check,
+  Zap, Database, BarChart3, Layers,
+  ArrowUpRight, Search, FileCode, CheckCircle
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
+import { fetchFaqs, type FaqItemDto } from '@/lib/faqApi';
 import { FaqManagementView } from './FaqManagementView';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
-import { fetchVoiceConfig, saveVoiceConfig, resetVoiceConfig } from '@/lib/flowFieldsApi';
+import { fetchVoiceConfig, saveVoiceConfig } from '@/lib/flowFieldsApi';
 
 interface RagDocumentDto {
   documentId: string;
@@ -91,6 +94,7 @@ const MAX_PERSONA_CHARS = 4000;
 export function KnowledgeBaseView() {
   const [activeTab, setActiveTab] = useState<'persona' | 'rag' | 'faq'>('persona');
   const [documents, setDocuments] = useState<RagDocumentDto[]>([]);
+  const [docSearchQuery, setDocSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -184,12 +188,31 @@ export function KnowledgeBaseView() {
     }
   }, []);
 
+  // ── FAQ State & Stats ──
+  const [faqs, setFaqs] = useState<FaqItemDto[]>([]);
+
+  const loadFaqs = useCallback(async () => {
+    const res = await fetchFaqs();
+    if (res.data) {
+      setFaqs(res.data);
+    }
+  }, []);
+
+  const faqStats = useMemo(() => {
+    const activeCount = faqs.filter(f => f.isActive !== false).length;
+    const totalHits = faqs.reduce((acc, f) => acc + (f.hitCount || 0), 0);
+    const highHitCount = faqs.filter(f => (f.hitCount || 0) > 5).length;
+    const categories = Array.from(new Set(['General', ...faqs.map(f => f.category || 'General')]));
+    return { activeCount, totalHits, highHitCount, totalCategories: categories.length };
+  }, [faqs]);
+
   useEffect(() => {
     Promise.all([
       fetchSubscriptionStatus(),
       loadPersona(),
       loadVoicePersona(),
       loadDocuments(),
+      loadFaqs(),
     ]).then(([subRes]) => {
       if (subRes.data) {
         const isPaidPlan = subRes.data.planId === 'PRO' || subRes.data.planId === 'ENTERPRISE';
@@ -197,7 +220,22 @@ export function KnowledgeBaseView() {
         setPlanLocked(!(isPaidPlan || hasFeature));
       }
     });
-  }, [loadPersona, loadVoicePersona, loadDocuments]);
+  }, [loadPersona, loadVoicePersona, loadDocuments, loadFaqs]);
+
+  // Calculated Stats
+  const totalChunks = useMemo(() => {
+    return documents.reduce((sum, doc) => sum + (doc.totalChunks || 0), 0);
+  }, [documents]);
+
+  const activeVoiceName = useMemo(() => {
+    const v = VOICE_MODELS.find(m => m.id === ttsVoiceId);
+    return v ? `${v.name} (${v.gender === 'female' ? '♀' : '♂'})` : 'Simran (♀)';
+  }, [ttsVoiceId]);
+
+  const filteredDocuments = useMemo(() => {
+    if (!docSearchQuery) return documents;
+    return documents.filter(doc => doc.name.toLowerCase().includes(docSearchQuery.toLowerCase()));
+  }, [documents, docSearchQuery]);
 
   // Save Persona Handler
   const handleSavePersona = async () => {
@@ -360,45 +398,122 @@ export function KnowledgeBaseView() {
   const charsRemaining = MAX_PERSONA_CHARS - personaPrompt.length;
 
   return (
-    <div className="mx-auto max-w-6xl p-4 lg:p-8 space-y-6">
+    <div className="mx-auto max-w-7xl p-3 sm:p-6 lg:p-8 space-y-6">
       {/* Top Page Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-slate-800 pb-5">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-base-c/80 pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              AI Persona &amp; Knowledge Base
-            </h1>
-            <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/60 px-2.5 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-              Enterprise RAG Engine
-            </span>
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-soft">
+              <Brain className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-primary-c tracking-tight">
+                AI Knowledge Base &amp; RAG Analytics
+              </h1>
+              <p className="text-xs text-muted-c">
+                Configure your tenant AI brand persona, trained document vector embeddings, and voice bot capabilities.
+              </p>
+            </div>
           </div>
-          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            Define your dynamic tenant AI persona, upload vector PDF policy documents, and manage instant FAQ knowledge.
-          </p>
         </div>
 
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => { loadPersona(); loadVoicePersona(); loadDocuments(); }}
-            className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs"
+            className="flex items-center gap-1.5 rounded-xl border border-base-c/80 bg-card-c px-3.5 py-2 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-all shadow-xs"
           >
-            <RefreshCw className={cx('h-3.5 w-3.5 text-slate-400', (loading || personaLoading || voiceLoading) && 'animate-spin')} />
-            Refresh
+            <RefreshCw className={cx('h-3.5 w-3.5 text-muted-c', (loading || personaLoading || voiceLoading) && 'animate-spin')} />
+            Sync Knowledge
           </button>
+        </div>
+      </div>
+
+      {/* ── STATS & ANALYTICS CARDS (Persistent Across All Tabs) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Total FAQs */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Total FAQs</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <HelpCircle className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-primary-c tabular-nums">{faqs.length}</span>
+            <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+              {faqStats.activeCount} Active
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">Indexed in fast-path vector search</p>
+        </div>
+
+        {/* Card 2: RAG Documents & Chunks */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>RAG Documents &amp; Chunks</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+              <FileText className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-primary-c tabular-nums">{documents.length} Docs</span>
+            <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
+              {totalChunks} Chunks
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">Quantized MiniLM-L6-v2 vector store</p>
+        </div>
+
+        {/* Card 3: Total Match Hits */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Total Match Hits</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+              <Zap className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-2xl font-black text-primary-c tabular-nums">{faqStats.totalHits}</span>
+            <span className="text-[11px] font-bold text-amber-600 dark:text-amber-400 flex items-center">
+              <ArrowUpRight className="h-3 w-3" /> Zero API Cost
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">≥85% vector similarity fast-path</p>
+        </div>
+
+        {/* Card 4: Voice Engine & Categories */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Voice Engine &amp; Categories</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+              <Mic className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-lg font-black text-primary-c truncate max-w-[140px]">{voiceAssistantName}</span>
+            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">
+              {faqStats.totalCategories} Categories
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c truncate">
+            {activeVoiceName} · Deepgram &amp; Sarvam
+          </p>
         </div>
       </div>
 
       {/* Enterprise Tab Bar */}
       <TabSwitcher
         tabs={[
-          { id: 'persona', label: 'AI Persona & Tone Rules', icon: <Brain className="h-4 w-4" /> },
-          { id: 'rag', label: `Document Embeddings (${documents.length})`, icon: <FileText className="h-4 w-4" /> },
-          { id: 'faq', label: 'Structured Q&A', icon: <HelpCircle className="h-4 w-4" /> }
+          { id: 'persona', label: 'AI Persona & Voice Engine', icon: <Brain className="h-4 w-4" /> },
+          { id: 'rag', label: `Document Embeddings (${documents.length})`, icon: <FileText className="h-4 w-4 text-indigo-500" /> },
+          { id: 'faq', label: 'Structured Q&A Knowledge', icon: <HelpCircle className="h-4 w-4" /> }
         ]}
         activeTab={activeTab}
         onChange={(id) => setActiveTab(id as 'persona' | 'rag' | 'faq')}
-        className="w-full justify-between [&>button]:flex-1"
+        className="w-full justify-between [&>button]:flex-1 bg-slate-100/80 dark:bg-ink-900/60 p-1 rounded-xl"
       />
+
+      {/* ── TAB 1: AI PERSONA & VOICE ── */}
       {activeTab === 'persona' && (
         <div className="space-y-5 animate-fade-in">
           {personaToast && (
@@ -416,53 +531,53 @@ export function KnowledgeBaseView() {
           )}
 
           {/* Architecture Banner */}
-          <div className="rounded-2xl border border-indigo-100 bg-indigo-50/60 dark:border-indigo-950/60 dark:bg-indigo-950/30 p-4">
+          <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-4">
             <div className="flex items-start gap-3">
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-xs">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-indigo-600 text-white shadow-soft">
                 <Sparkles className="h-4 w-4" />
               </div>
               <div className="space-y-1">
-                <h3 className="text-xs font-extrabold text-indigo-900 dark:text-indigo-200">
+                <h3 className="text-xs font-extrabold text-primary-c">
                   Layered Enterprise System Prompt Architecture
                 </h3>
-                <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 leading-relaxed">
-                  Your core AI behavior follows strict safety guidelines. The tenant persona below instructs the AI on brand voice, specific business policies, tone, and greetings while preserving strict system rules.
+                <p className="text-[11px] text-muted-c leading-relaxed">
+                  Your core AI behavior follows strict safety guidelines. The tenant persona below instructs the AI on brand voice, specific business policies, tone, and greetings while preserving strict system safety rules.
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-bold">
-                  <span className="rounded-md bg-white/80 dark:bg-indigo-900/80 px-2 py-0.5 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">1. Base Safety System Prompt</span>
-                  <span className="text-indigo-400">→</span>
+                  <span className="rounded-md bg-card-c px-2 py-0.5 text-primary-c border border-base-c">1. Base Safety System Prompt</span>
+                  <span className="text-muted-c">→</span>
                   <span className="rounded-md bg-purple-600 text-white px-2 py-0.5 shadow-xs">2. Tenant Persona (Custom Below)</span>
-                  <span className="text-indigo-400">→</span>
-                  <span className="rounded-md bg-white/80 dark:bg-indigo-900/80 px-2 py-0.5 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">3. RAG Knowledge Embeddings</span>
-                  <span className="text-indigo-400">→</span>
-                  <span className="rounded-md bg-white/80 dark:bg-indigo-900/80 px-2 py-0.5 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">4. User Query</span>
+                  <span className="text-muted-c">→</span>
+                  <span className="rounded-md bg-card-c px-2 py-0.5 text-primary-c border border-base-c">3. RAG Knowledge Embeddings</span>
+                  <span className="text-muted-c">→</span>
+                  <span className="rounded-md bg-card-c px-2 py-0.5 text-primary-c border border-base-c">4. User Query</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Persona Editor Card */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm space-y-4">
+          <div className="rounded-2xl border border-base-c/80 bg-card-c p-5 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold text-primary-c flex items-center gap-2">
                   <Wand2 className="h-4 w-4 text-purple-600" />
                   Custom AI Brand Persona &amp; Tone Instructions
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-muted-c">
                   Write detailed instructions defining how the AI should introduce itself, answer questions, and handle leads.
                 </p>
               </div>
 
-              {/* Industry Preset Selector Button */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-slate-500">Presets:</span>
+              {/* Industry Preset Selector Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-muted-c">Presets:</span>
                 <div className="flex flex-wrap gap-1.5">
                   {PERSONA_TEMPLATES.map((tmpl, idx) => (
                     <button
                       key={idx}
                       onClick={() => setPersonaPrompt(tmpl.prompt)}
-                      className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-200 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-all"
+                      className="rounded-lg border border-base-c/80 bg-slate-100/60 dark:bg-ink-850 px-2.5 py-1 text-[11px] font-semibold text-primary-c hover:border-purple-500 hover:bg-purple-500/10 transition-all"
                       title="Apply preset prompt"
                     >
                       {tmpl.label}
@@ -475,9 +590,9 @@ export function KnowledgeBaseView() {
             {/* Textarea */}
             <div className="relative">
               {personaLoading ? (
-                <div className="flex items-center justify-center py-16 border border-slate-200 rounded-xl bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+                <div className="flex items-center justify-center py-16 border border-base-c/80 rounded-xl bg-slate-50 dark:bg-ink-950">
                   <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-                  <span className="ml-2 text-xs text-slate-500">Loading AI Persona configuration...</span>
+                  <span className="ml-2 text-xs text-muted-c">Loading AI Persona configuration...</span>
                 </div>
               ) : (
                 <>
@@ -486,10 +601,10 @@ export function KnowledgeBaseView() {
                     value={personaPrompt}
                     onChange={(e) => setPersonaPrompt(e.target.value)}
                     placeholder="e.g. You are a knowledgeable assistant for GyanVaniAi Connect. Always maintain a warm, helpful, and professional tone. Highlight pricing details and urge leads to schedule a live product demo..."
-                    className="w-full rounded-xl border border-slate-200/90 bg-slate-50/50 p-4 text-xs text-slate-800 focus:border-purple-500 focus:bg-white focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-purple-400 font-mono leading-relaxed"
+                    className="w-full rounded-xl border border-base-c/80 bg-slate-50/50 p-4 text-xs text-primary-c focus:border-purple-500 focus:bg-card-c focus:outline-none dark:bg-ink-950 font-mono leading-relaxed"
                   />
                   <div className="mt-2 flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-3 text-slate-400">
+                    <div className="flex items-center gap-3 text-muted-c">
                       {personaUpdatedAt && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" /> Updated: {new Date(personaUpdatedAt).toLocaleString()}
@@ -501,7 +616,7 @@ export function KnowledgeBaseView() {
                         </span>
                       )}
                     </div>
-                    <span className={cx('font-semibold tabular-nums', charsRemaining < 200 ? 'text-amber-600 font-bold' : 'text-slate-400')}>
+                    <span className={cx('font-semibold tabular-nums', charsRemaining < 200 ? 'text-amber-600 font-bold' : 'text-muted-c')}>
                       {charsRemaining.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()} chars remaining
                     </span>
                   </div>
@@ -510,11 +625,11 @@ export function KnowledgeBaseView() {
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
+            <div className="flex items-center justify-between border-t border-base-c/80 pt-4">
               <button
                 onClick={() => setPersonaPrompt(savedPersona)}
                 disabled={!personaDirty || personaSaving}
-                className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 disabled:opacity-40 transition-all"
+                className="flex items-center gap-1.5 rounded-xl border border-base-c/80 bg-card-c px-3.5 py-2 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 disabled:opacity-40 transition-all"
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Revert Changes
               </button>
@@ -522,7 +637,7 @@ export function KnowledgeBaseView() {
               <button
                 onClick={handleSavePersona}
                 disabled={!personaDirty || personaSaving || charsRemaining < 0}
-                className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-indigo-700 hover:to-purple-700 disabled:opacity-40 transition-all"
+                className="flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-5 py-2 text-xs font-bold text-white shadow-soft disabled:opacity-40 transition-all"
               >
                 {personaSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 Save Text Persona
@@ -531,18 +646,18 @@ export function KnowledgeBaseView() {
           </div>
 
           {/* ─── Voice Assistant Persona Section ─── */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 p-5 shadow-sm space-y-4 mt-6">
+          <div className="rounded-2xl border border-base-c/80 bg-card-c p-5 shadow-xs space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-bold text-primary-c flex items-center gap-2">
                   <Mic className="h-4 w-4 text-indigo-600" />
-                  Voice Assistant Persona & Voice Engine
+                  Voice Assistant Persona &amp; Voice Engine
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-muted-c">
                   Configure your voice assistant's name, spoken persona, and cadence for voice calls.
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50/70 px-3 py-1 text-[11px] font-semibold text-indigo-700 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-300">
+              <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
                 <Radio className="h-3 w-3 animate-pulse text-indigo-500" />
                 <span>Deepgram + Sarvam HD</span>
               </div>
@@ -563,14 +678,14 @@ export function KnowledgeBaseView() {
             )}
 
             {voiceLoading ? (
-              <div className="flex items-center justify-center py-12 border border-slate-200 rounded-xl bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex items-center justify-center py-12 border border-base-c/80 rounded-xl bg-slate-50 dark:bg-ink-950">
                 <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                <span className="ml-2 text-xs text-slate-500">Loading Voice Assistant settings...</span>
+                <span className="ml-2 text-xs text-muted-c">Loading Voice Assistant settings...</span>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* Voice info alert */}
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-3.5 dark:border-indigo-800/50 dark:bg-indigo-950/20">
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-3.5">
                   <p className="text-xs text-indigo-800 dark:text-indigo-300 leading-relaxed">
                     <strong>Spoken Cadence Rule:</strong> Voice assistants speak in <strong>1 to 2 short sentences</strong> (under 35 words) in clear, natural spoken language so callers enjoy a fast, professional voice experience.
                   </p>
@@ -579,7 +694,7 @@ export function KnowledgeBaseView() {
                 {/* Assistant Name Input */}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">
                       Voice Assistant Name
                     </label>
                     <input
@@ -588,22 +703,22 @@ export function KnowledgeBaseView() {
                       onChange={(e) => setVoiceAssistantName(e.target.value)}
                       placeholder="e.g. Priya, Riya, Ananya"
                       maxLength={50}
-                      className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+                      className="w-full rounded-xl border border-base-c bg-card-c p-2.5 text-xs text-primary-c focus:border-indigo-500 focus:outline-none"
                     />
-                    <p className="mt-1 text-[11px] text-slate-500">
+                    <p className="mt-1 text-[11px] text-muted-c">
                       The bot will introduce itself with this name during calls.
                     </p>
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Speech Engine & Voice Model
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">
+                      Speech Engine &amp; Voice Model
                     </label>
-                    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-2.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-300">
+                    <div className="flex items-center gap-2 rounded-xl border border-base-c bg-slate-50/60 dark:bg-ink-900/50 p-2.5 text-xs text-primary-c">
                       <Volume2 className="h-4 w-4 text-indigo-500 shrink-0" />
                       <span className="font-medium">Deepgram Nova-2 + Sarvam AI &bull; 24kHz HD</span>
                     </div>
-                    <p className="mt-1 text-[11px] text-slate-500">
+                    <p className="mt-1 text-[11px] text-muted-c">
                       High-speed enterprise STT/TTS with sub-second latency.
                     </p>
                   </div>
@@ -632,10 +747,10 @@ export function KnowledgeBaseView() {
                             setVoicePersonaPrompt(t.prompt);
                             setShowVoiceTemplates(false);
                           }}
-                          className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-left hover:border-indigo-500/40 hover:bg-indigo-50/30 dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-indigo-950/20 transition-all"
+                          className="rounded-xl border border-base-c bg-slate-50/70 p-3 text-left hover:border-indigo-500/40 hover:bg-indigo-500/10 dark:bg-ink-900 transition-all"
                         >
-                          <span className="text-xs font-bold text-slate-900 dark:text-white">{t.label}</span>
-                          <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">{t.prompt}</p>
+                          <span className="text-xs font-bold text-primary-c">{t.label}</span>
+                          <p className="mt-1 text-[11px] text-muted-c line-clamp-2">{t.prompt}</p>
                         </button>
                       ))}
                     </div>
@@ -646,13 +761,13 @@ export function KnowledgeBaseView() {
                 <div className="pt-2">
                   <div className="mb-2 flex items-center gap-2">
                     <Volume2 className="h-4 w-4 text-indigo-500" />
-                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Voice Model</span>
-                    <span className="ml-auto text-[11px] text-slate-500">Sarvam AI · Multilingual HD</span>
+                    <span className="text-xs font-semibold text-primary-c">Voice Model</span>
+                    <span className="ml-auto text-[11px] text-muted-c">Sarvam AI · Multilingual HD</span>
                   </div>
 
                   {/* Female voices */}
                   <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-pink-500">
-                    <span>♀</span> Female
+                    <span>♀</span> Female Voices
                   </p>
                   <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                     {VOICE_MODELS.filter(v => v.gender === 'female').map((v) => (
@@ -663,8 +778,8 @@ export function KnowledgeBaseView() {
                         className={cx(
                           'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
                           ttsVoiceId === v.id
-                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-400/30 dark:bg-indigo-950/40'
-                            : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/20 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-indigo-950/10'
+                            ? 'border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-400/30'
+                            : 'border-base-c bg-card-c hover:border-indigo-300 hover:bg-indigo-500/5'
                         )}
                       >
                         {ttsVoiceId === v.id && (
@@ -672,15 +787,15 @@ export function KnowledgeBaseView() {
                             <Check className="h-2.5 w-2.5 text-white" />
                           </span>
                         )}
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">{v.name}</span>
-                        <span className="text-[10px] leading-tight text-slate-500">{v.style}</span>
+                        <span className="text-sm font-bold text-primary-c">{v.name}</span>
+                        <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
                       </button>
                     ))}
                   </div>
 
                   {/* Male voices */}
                   <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-sky-500">
-                    <span>♂</span> Male
+                    <span>♂</span> Male Voices
                   </p>
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     {VOICE_MODELS.filter(v => v.gender === 'male').map((v) => (
@@ -691,8 +806,8 @@ export function KnowledgeBaseView() {
                         className={cx(
                           'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
                           ttsVoiceId === v.id
-                            ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400/30 dark:bg-sky-950/40'
-                            : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/20 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-sky-950/10'
+                            ? 'border-sky-500 bg-sky-500/10 ring-2 ring-sky-400/30'
+                            : 'border-base-c bg-card-c hover:border-sky-300 hover:bg-sky-500/5'
                         )}
                       >
                         {ttsVoiceId === v.id && (
@@ -700,8 +815,8 @@ export function KnowledgeBaseView() {
                             <Check className="h-2.5 w-2.5 text-white" />
                           </span>
                         )}
-                        <span className="text-sm font-bold text-slate-900 dark:text-white">{v.name}</span>
-                        <span className="text-[10px] leading-tight text-slate-500">{v.style}</span>
+                        <span className="text-sm font-bold text-primary-c">{v.name}</span>
+                        <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
                       </button>
                     ))}
                   </div>
@@ -709,8 +824,8 @@ export function KnowledgeBaseView() {
 
                 {/* Voice Persona Instructions Textarea */}
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Voice Spoken Instructions & Persona
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">
+                    Voice Spoken Instructions &amp; Persona
                   </label>
                   <textarea
                     value={voicePersonaPrompt}
@@ -718,19 +833,19 @@ export function KnowledgeBaseView() {
                     rows={4}
                     placeholder="e.g. You are Priya, speaking warmly as the front-desk assistant of our business. Greet customers with 'Haan ji' or 'Hello', keep answers under 25 words, and politely ask how you can help them book..."
                     className={cx(
-                      'w-full rounded-xl border bg-white p-3.5 text-xs text-slate-900 leading-relaxed focus:outline-none transition-colors dark:bg-slate-950 dark:text-white',
+                      'w-full rounded-xl border bg-card-c p-3.5 text-xs text-primary-c leading-relaxed focus:outline-none transition-colors',
                       voiceCharOverLimit
                         ? 'border-rose-400 focus:border-rose-500'
-                        : 'border-slate-200 focus:border-indigo-500 dark:border-slate-700 dark:focus:border-indigo-400'
+                        : 'border-base-c focus:border-indigo-500'
                     )}
                   />
                   <div className="mt-1 flex items-center justify-between">
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-muted-c">
                       {voicePersonaPrompt.trim() ? 'Custom voice persona active' : 'Using default spoken receptionist persona'}
                     </p>
                     <span className={cx(
                       'text-[11px] font-medium tabular-nums',
-                      voiceCharOverLimit ? 'text-rose-500 font-bold' : 'text-slate-400'
+                      voiceCharOverLimit ? 'text-rose-500 font-bold' : 'text-muted-c'
                     )}>
                       {voicePersonaPrompt.length.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()}
                     </span>
@@ -738,14 +853,14 @@ export function KnowledgeBaseView() {
                 </div>
 
                 {/* Action Bar */}
-                <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
+                <div className="flex items-center justify-between border-t border-base-c/80 pt-4">
                   <button
                     onClick={() => {
                       setVoiceAssistantName(savedVoiceAssistantName);
                       setVoicePersonaPrompt(savedVoicePersonaPrompt);
                     }}
                     disabled={!voiceDirty || voiceSaving}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 disabled:opacity-40 transition-all"
+                    className="flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c px-3.5 py-2 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 disabled:opacity-40 transition-all"
                   >
                     <RotateCcw className="h-3.5 w-3.5" /> Revert Changes
                   </button>
@@ -753,7 +868,7 @@ export function KnowledgeBaseView() {
                   <button
                     onClick={handleSaveVoicePersona}
                     disabled={!voiceDirty || voiceSaving || voiceCharOverLimit}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 text-xs font-bold text-white shadow-md hover:from-indigo-700 hover:to-purple-700 disabled:opacity-40 transition-all"
+                    className="flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2 text-xs font-bold text-white shadow-soft disabled:opacity-40 transition-all"
                   >
                     {voiceSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save Voice Persona
@@ -782,7 +897,7 @@ export function KnowledgeBaseView() {
             </div>
           )}
 
-          {/* Upload Drop Zone */}
+          {/* Upload Drop Zone Card */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
             onDragLeave={() => setDragOver(false)}
@@ -792,10 +907,10 @@ export function KnowledgeBaseView() {
               if (e.dataTransfer.files?.[0]) handleFileUpload(e.dataTransfer.files[0]);
             }}
             className={cx(
-              'flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-8 text-center transition-all',
+              'flex flex-col items-center justify-center rounded-2xl border-2 border-dashed p-6 sm:p-8 text-center transition-all',
               dragOver
-                ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/30'
-                : 'border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900'
+                ? 'border-indigo-500 bg-indigo-500/10 scale-[1.005]'
+                : 'border-base-c/80 bg-card-c/90 shadow-xs'
             )}
           >
             <input
@@ -805,84 +920,140 @@ export function KnowledgeBaseView() {
               accept=".pdf,.txt,.docx,.csv,.md"
               className="hidden"
             />
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400">
+            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-soft mb-3">
               {uploading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Upload className="h-6 w-6" />}
             </div>
-            <h3 className="mt-3 text-sm font-bold text-slate-900 dark:text-white">
-              {uploading ? 'Processing document embeddings…' : 'Upload Vector Knowledge Document'}
+            <h3 className="text-base font-bold text-primary-c">
+              {uploading ? 'Processing & Parsing Document Embeddings…' : 'Upload Vector Knowledge Document'}
             </h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 max-w-md">
-              Drag &amp; drop PDF, DOCX, TXT, or CSV files (max 10MB). Text is parsed into vector chunks automatically.
+            <p className="mt-1 text-xs text-muted-c max-w-md leading-relaxed">
+              Drag &amp; drop PDF, DOCX, TXT, or CSV files (max 10MB). Text is automatically split into 384-dim Float32 vector embeddings.
             </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-bold">
+              <span className="rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 border border-indigo-500/20">PDF</span>
+              <span className="rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-0.5 border border-blue-500/20">DOCX</span>
+              <span className="rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 border border-purple-500/20">TXT</span>
+              <span className="rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 border border-emerald-500/20">CSV</span>
+              <span className="rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 border border-amber-500/20">MD</span>
+            </div>
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="mt-4 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-indigo-700 transition-all disabled:opacity-50"
+              className="mt-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-soft transition-all disabled:opacity-50 btn-tactile"
             >
-              Browse Local File
+              Select Document from Computer
             </button>
           </div>
 
-          {/* RAG Documents Table */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Trained Vector Embeddings ({documents.length})
-              </h3>
-              <span className="text-[11px] font-semibold text-slate-400">Model: Quantized MiniLM-L6-v2</span>
+          {/* RAG Vector Documents Table Container */}
+          <div className="rounded-2xl border border-base-c/80 bg-card-c overflow-hidden shadow-xs space-y-0">
+            {/* Header & Search Bar */}
+            <div className="p-4 border-b border-base-c/80 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-100/50 dark:bg-ink-950/40">
+              <div className="flex items-center gap-2">
+                <FileCode className="h-4 w-4 text-indigo-500" />
+                <h3 className="text-xs font-bold uppercase tracking-wider text-primary-c">
+                  Trained Vector Documents ({documents.length})
+                </h3>
+                <span className="rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-bold">
+                  MiniLM-L6-v2 · 384 Dim
+                </span>
+              </div>
+
+              {/* Search documents */}
+              <div className="relative w-full sm:w-64">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-c" />
+                <input
+                  type="text"
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                  placeholder="Filter documents by name..."
+                  className="w-full rounded-xl border border-base-c/80 bg-card-c pl-9 pr-3 py-1.5 text-xs text-primary-c placeholder:text-muted-c focus:border-indigo-500 focus:outline-none transition-all"
+                />
+              </div>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                <span className="ml-2 text-xs text-slate-500">Fetching document list...</span>
+                <span className="ml-2 text-xs text-muted-c">Fetching RAG document list...</span>
               </div>
-            ) : documents.length === 0 ? (
-              <div className="py-12 text-center text-xs text-slate-500">
-                No vector documents uploaded yet. Upload a PDF or TXT file above.
+            ) : filteredDocuments.length === 0 ? (
+              <div className="py-16 text-center text-xs text-muted-c space-y-2">
+                <FileText className="mx-auto h-10 w-10 text-muted-c/40" />
+                <p className="font-bold text-primary-c">No vector documents found</p>
+                <p className="text-[11px] text-muted-c max-w-xs mx-auto">
+                  {docSearchQuery ? 'No document matched your filter query.' : 'Upload a PDF, TXT or DOCX document above to train your AI.'}
+                </p>
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full text-left text-xs">
+                <table className="w-full text-left text-xs border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200/80 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/40 text-[11px] font-bold text-slate-500">
-                      <th className="px-4 py-3">Document Name</th>
-                      <th className="px-4 py-3">Vector Chunks</th>
-                      <th className="px-4 py-3">Embedding Dim</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                    <tr className="border-b border-base-c/80 bg-slate-100/60 dark:bg-ink-950/60 text-[11px] font-bold text-muted-c uppercase tracking-wider">
+                      <th className="py-3.5 px-4 min-w-[220px]">Document Name</th>
+                      <th className="py-3.5 px-4 w-32">Format</th>
+                      <th className="py-3.5 px-4 w-36">Vector Chunks</th>
+                      <th className="py-3.5 px-4 w-40">Embedding Model</th>
+                      <th className="py-3.5 px-4 w-28">Status</th>
+                      <th className="py-3.5 px-4 text-right w-24">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {documents.map((doc) => (
-                      <tr key={doc.documentId} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                        <td className="px-4 py-3 font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
-                          {doc.name}
-                        </td>
-                        <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-300">
-                          {doc.totalChunks} chunks
-                        </td>
-                        <td className="px-4 py-3 font-mono text-slate-500">
-                          {doc.embeddingSize || 384} float32
-                        </td>
-                        <td className="px-4 py-3 text-right space-x-2">
-                          <button
-                            onClick={() => handleDownloadDocument(doc.documentId, doc.name)}
-                            className="p-1 text-slate-400 hover:text-indigo-600"
-                            title="Download document"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteModal({ isOpen: true, docId: doc.documentId, docName: doc.name })}
-                            className="p-1 text-slate-400 hover:text-rose-600"
-                            title="Delete vector document"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                  <tbody className="divide-y divide-base-c/70">
+                    {filteredDocuments.map((doc) => {
+                      const ext = doc.name.split('.').pop()?.toUpperCase() || 'FILE';
+                      const extColor =
+                        ext === 'PDF' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' :
+                        ext === 'DOCX' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
+                        ext === 'CSV' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                        'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+
+                      return (
+                        <tr key={doc.documentId} className="hover:bg-slate-100/50 dark:hover:bg-ink-850/40 transition-colors">
+                          <td className="py-3.5 px-4 font-bold text-primary-c flex items-center gap-2.5">
+                            <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                              <FileText className="h-4 w-4" />
+                            </div>
+                            <span className="truncate max-w-sm">{doc.name}</span>
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className={cx('inline-block rounded-md px-2 py-0.5 text-[10px] font-bold border', extColor)}>
+                              {ext}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono font-semibold text-purple-600 dark:text-purple-400">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 text-[11px]">
+                              {doc.totalChunks} chunks
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-mono text-muted-c text-[11px]">
+                            {doc.vectorModel || 'MiniLM-L6-v2'} ({doc.embeddingSize || 384}d)
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold">
+                              <CheckCircle className="h-3 w-3" /> Indexed
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleDownloadDocument(doc.documentId, doc.name)}
+                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-indigo-600 hover:bg-indigo-500/10 transition-all"
+                                title="Download document"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setDeleteModal({ isOpen: true, docId: doc.documentId, docName: doc.name })}
+                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-rose-600 hover:bg-rose-500/10 transition-all"
+                                title="Delete vector document"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useWebSocket, type WsIncomingMessage } from '@/hooks/useWebSocket';
 import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
@@ -6,6 +6,7 @@ import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { InboxToolbar, type FilterId, type ChannelId } from './InboxToolbar';
 import { ConversationItem } from './ConversationItem';
 import type { Conversation } from './inboxTypes';
+import { useTheme } from '@/context/ThemeContext';
 import {
   fetchActiveChats,
   fetchMessageHistory,
@@ -34,6 +35,7 @@ import {
   UserCheck,
   Users,
   ArrowLeft,
+  ExternalLink,
 } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
@@ -147,7 +149,6 @@ export function InboxView() {
   }, [channel]);
 
   // ── Real-time WebSocket integration ──────────────────────────────
-  // Tracks messages pushed via WS so ChatPreview can display them instantly
   const [wsMessages, setWsMessages] = useState<Record<string, ApiMessage[]>>({});
 
   const handleWsMessage = useCallback((msg: WsIncomingMessage) => {
@@ -158,11 +159,9 @@ export function InboxView() {
 
     const now = new Date();
 
-    // 1. Update the conversation list
     setConversations((prev) => {
       const exists = prev.find((c) => c.id === contactId);
       if (exists) {
-        // Update existing conversation: bump lastMessage + move to top
         const updated = prev.map((c) =>
           c.id === contactId
             ? {
@@ -175,14 +174,12 @@ export function InboxView() {
               }
             : c
         );
-        // Sort: the updated conversation goes to the top
         return updated.sort((a, b) => {
           if (a.id === contactId) return -1;
           if (b.id === contactId) return 1;
           return 0;
         });
       } else {
-        // New contact not yet in the list — prepend it
         const newConv: Conversation = {
           id: contactId,
           name: msg.contactName || 'WhatsApp Contact',
@@ -200,7 +197,6 @@ export function InboxView() {
       }
     });
 
-    // 2. Append to wsMessages so ChatPreview can pick it up
     const apiMsg: ApiMessage = {
       id: msg.id || 'ws-' + Date.now(),
       content: msg.content,
@@ -249,7 +245,11 @@ export function InboxView() {
     return webSessions.filter((s) => {
       if (query) {
         const q = query.toLowerCase();
-        return s.sessionId.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
+        return (
+          s.sessionId.toLowerCase().includes(q) ||
+          s.id.toLowerCase().includes(q) ||
+          (s.lastMessage && s.lastMessage.toLowerCase().includes(q))
+        );
       }
       return true;
     });
@@ -277,31 +277,33 @@ export function InboxView() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl h-[calc(100vh-4.5rem)] p-3 lg:p-5 overflow-hidden">
-      <div className="grid h-full gap-4 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] overflow-hidden">
-        {/* Left: conversation list */}
-        <div className={cx("flex h-full flex-col overflow-hidden space-y-3", selectedId ? "hidden lg:flex" : "flex")}>
+    <div className="mx-auto max-w-7xl h-[calc(100vh-4rem)] p-2 sm:p-4 overflow-hidden">
+      <div className="grid h-full gap-3 sm:gap-4 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr] overflow-hidden">
+        {/* Left: Conversation List Panel */}
+        <div className={cx("flex h-full flex-col overflow-hidden space-y-3 bg-card-c/60 dark:bg-ink-900/40 p-3 rounded-2xl border border-base-c/80 shadow-xs", selectedId ? "hidden lg:flex" : "flex")}>
           {/* Header */}
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-primary-c">Inbox</h2>
+              <h2 className="text-lg font-bold text-primary-c flex items-center gap-2">
+                <span>Unified Inbox</span>
+              </h2>
               <p className="text-xs text-muted-c">
                 {channel === 'whatsapp'
                   ? `${counts.unread} unread · ${counts.bot} bot-handled`
-                  : `${webSessions.length} active webchat widget sessions`}
+                  : `${webSessions.length} active webchat sessions`}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={channel === 'whatsapp' ? loadChats : loadWebSessions}
                 disabled={channel === 'whatsapp' ? loading : loadingWeb}
-                className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800"
+                className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
                 title="Refresh sessions"
               >
                 <RefreshCw className={cx('h-4 w-4', (loading || loadingWeb) && 'animate-spin')} />
               </button>
-              <Badge variant="success" className="px-2.5 py-1">
-                <span className="h-1.5 w-1.5 rounded-full bg-success-500 animate-pulse" />
+              <Badge variant={channel === 'whatsapp' ? 'success' : 'primary'} className="px-2.5 py-1 text-xs font-semibold">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 {channel === 'whatsapp' ? 'Live WhatsApp' : 'Live WebChat'}
               </Badge>
             </div>
@@ -320,13 +322,14 @@ export function InboxView() {
             counts={counts}
           />
 
-          {/* List */}
-          <div className="flex-1 space-y-1.5 overflow-y-auto scrollbar-thin">
+          {/* List Area */}
+          <div className="flex-1 space-y-1.5 overflow-y-auto scrollbar-thin pr-1">
             {channel === 'whatsapp' ? (
               filteredWhatsApp.length === 0 ? (
-                <div className="flex flex-col items-center py-16 text-center">
-                  <MessageSquare className="h-10 w-10 text-muted-c/40" />
-                  <p className="mt-3 text-sm text-muted-c">No WhatsApp conversations found</p>
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                  <MessageSquare className="h-12 w-12 text-emerald-500/40 mb-2" />
+                  <p className="text-sm font-bold text-primary-c">No WhatsApp conversations found</p>
+                  <p className="text-xs text-muted-c max-w-xs mt-1">Incoming WhatsApp messages will automatically show up here in real-time.</p>
                 </div>
               ) : (
                 filteredWhatsApp.map((c) => (
@@ -339,50 +342,72 @@ export function InboxView() {
                 ))
               )
             ) : filteredWebSessions.length === 0 ? (
-              <div className="flex flex-col items-center py-16 text-center">
-                <Globe className="h-10 w-10 text-muted-c/40" />
-                <p className="mt-3 text-sm text-muted-c">No WebChat widget sessions found</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Globe className="h-12 w-12 text-indigo-500/40 mb-2" />
+                <p className="text-sm font-bold text-primary-c">No WebChat widget sessions found</p>
+                <p className="text-xs text-muted-c max-w-xs mt-1">Active customer sessions on your website widget will appear here.</p>
               </div>
             ) : (
-              filteredWebSessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setSelectedId(s.id)}
-                  className={cx(
-                    'group relative flex w-full gap-3 rounded-xl2 p-3 text-left transition-all',
-                    s.id === (selectedId || selectedWeb?.id)
-                      ? 'bg-gradient-accent-soft ring-1 ring-primary-500/20'
-                      : 'hover:bg-slate-50 dark:hover:bg-ink-850/60',
-                  )}
-                >
-                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-accent text-white font-bold">
-                    <Globe className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="truncate text-sm font-semibold text-primary-c">
-                        {s.sessionId || 'Website Visitor'}
-                      </p>
-                      <span className="text-[11px] text-muted-c">
-                        {s.updatedAt ? new Date(s.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Recent'}
-                      </span>
+              filteredWebSessions.map((s) => {
+                const isSelected = s.id === (selectedId || selectedWeb?.id);
+                const senderIcon = s.lastMessageSender === 'USER' ? (
+                  <UserCheck className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                ) : (
+                  <Bot className="h-3.5 w-3.5 text-purple-500 shrink-0" />
+                );
+
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedId(s.id)}
+                    className={cx(
+                      'group relative flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all border',
+                      isSelected
+                        ? 'bg-indigo-500/10 border-indigo-500/30 shadow-xs dark:bg-indigo-500/15'
+                        : 'border-transparent hover:bg-slate-100/70 dark:hover:bg-ink-850/60 hover:border-base-c/50',
+                    )}
+                  >
+                    {/* Active Left Accent Indicator */}
+                    {isSelected && (
+                      <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-indigo-600 shadow-xs" />
+                    )}
+
+                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-600 text-white font-bold shadow-soft">
+                      <Globe className="h-5 w-5" />
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-muted-c">
-                      ID: {s.id.substring(0, 18)}…
-                    </p>
-                    <div className="mt-1 flex items-center gap-1">
-                      <Badge variant="primary" className="text-[9px]">
-                        <Bot className="h-2.5 w-2.5" /> WebBot Thread
-                      </Badge>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-sm font-bold text-primary-c">
+                          {s.sessionId || 'Website Visitor'}
+                        </p>
+                        <span className="shrink-0 text-[11px] text-muted-c">
+                          {s.updatedAt ? timeAgo(new Date(s.updatedAt)) : 'Recent'}
+                        </span>
+                      </div>
+
+                      {/* Latest Message Snippet */}
+                      <div className="mt-1 flex items-center gap-1.5 min-w-0">
+                        {senderIcon}
+                        <p className="truncate text-xs font-medium text-primary-c/90">
+                          {s.lastMessage || 'No messages recorded'}
+                        </p>
+                      </div>
+
+                      <div className="mt-2 flex items-center gap-1">
+                        <Badge variant="primary" className="text-[9px] py-0.5 px-1.5 font-bold">
+                          <Bot className="h-2.5 w-2.5" /> WebBot Active
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
 
-        {/* Right: conversation / session preview */}
+        {/* Right: Detail Preview Pane */}
         <div className={cx("h-full overflow-hidden", selectedId ? "block" : "hidden lg:block")}>
           {channel === 'whatsapp' ? (
             selectedWa ? (
@@ -432,14 +457,13 @@ export function InboxView() {
 
 function EmptyState() {
   return (
-    <GlassCard className="flex h-full flex-col items-center justify-center p-12 text-center">
-      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-accent-soft">
-        <MessageSquare className="h-8 w-8 text-primary-600 dark:text-primary-400" />
+    <GlassCard className="flex h-full flex-col items-center justify-center p-12 text-center rounded-2xl border border-base-c/80">
+      <div className="grid h-16 w-16 place-items-center rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 mb-4">
+        <MessageSquare className="h-8 w-8" />
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-primary-c">Select a conversation</h3>
-      <p className="mt-1 max-w-xs text-sm text-secondary-c">
-        Choose a chat from the list to preview messages, or open the full chat
-        room for the complete experience.
+      <h3 className="text-lg font-bold text-primary-c">Select a Conversation</h3>
+      <p className="mt-1.5 max-w-xs text-xs text-muted-c leading-relaxed">
+        Choose a WhatsApp or WebChat thread from the list on the left to preview real-time messages and quick controls.
       </p>
     </GlassCard>
   );
@@ -453,11 +477,31 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
   onBotToggle: (newBotPaused: boolean) => Promise<void>;
   onBack: () => void;
 }) {
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
   const [messages, setMessages] = useState<ApiMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [menuSending, setMenuSending] = useState(false);
   const [togglingBot, setTogglingBot] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef<boolean>(true);
+  const shouldForceScrollRef = useRef<boolean>(true);
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight <= 120;
+  };
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
 
   const loadHistory = async () => {
     if (!conv.id || !conv.id.includes('-')) return;
@@ -468,12 +512,12 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
   };
 
   useEffect(() => {
+    shouldForceScrollRef.current = true;
     loadHistory();
-    onClearWsMessages(); // Clear buffered WS messages on conversation switch (we just loaded full history)
+    onClearWsMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conv.id]);
 
-  // Append real-time WebSocket messages to the chat preview
   useEffect(() => {
     if (wsMessages.length === 0) return;
     setMessages((prev) => {
@@ -482,6 +526,16 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
       return newMsgs.length > 0 ? [...prev, ...newMsgs] : prev;
     });
   }, [wsMessages]);
+
+  // Auto-scroll to latest message on thread opening or when user is at bottom
+  useEffect(() => {
+    if (messages.length > 0) {
+      if (shouldForceScrollRef.current || isAtBottomRef.current) {
+        scrollToBottom();
+        shouldForceScrollRef.current = false;
+      }
+    }
+  }, [messages, scrollToBottom]);
 
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -495,6 +549,7 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
     setSending(false);
 
     if (success) {
+      shouldForceScrollRef.current = true;
       setMessages((prev) => [
         ...prev,
         {
@@ -514,39 +569,52 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
   };
 
   return (
-    <GlassCard className="flex h-full flex-col overflow-hidden">
-      {/* Chat header */}
-      <div className="flex items-center gap-3 border-b border-base-c p-4">
+    <div className={cx(
+      'flex h-full flex-col overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200',
+      isDark ? 'bg-[#0b141a] border-[#222d34]' : 'bg-[#efeae2] border-[#e9edef]'
+    )}>
+      {/* Header */}
+      <div className={cx(
+        'flex items-center gap-3 border-b px-4 py-3 transition-colors duration-200 shrink-0',
+        isDark ? 'bg-[#202c33] text-[#e9edef] border-[#222d34]' : 'bg-[#f0f2f5] text-[#111b21] border-[#e9edef]'
+      )}>
         <button
           onClick={onBack}
-          className="lg:hidden p-1.5 -ml-2 rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800"
+          className={cx(
+            'lg:hidden p-1.5 -ml-1 rounded-lg transition-colors',
+            isDark ? 'hover:bg-[#374248] text-[#aebac1]' : 'hover:bg-[#e9edef] text-[#54656f]'
+          )}
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="relative">
-          <Avatar name={conv.name} size={40} />
-          {/* Green dot = active WhatsApp session (last message within 24h) */}
+
+        <div className="relative shrink-0">
+          <Avatar name={conv.name} size={40} className="ring-2 ring-emerald-500/30" />
           <span className={cx(
             'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card-c',
-            conv.status === 'online' ? 'bg-success-500' : 'bg-slate-300 dark:bg-ink-700'
+            conv.status === 'online' ? 'bg-emerald-500' : 'bg-slate-400'
           )} />
         </div>
+
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-primary-c">{conv.name}</p>
-          <p className="truncate text-xs text-muted-c">
-            {conv.status === 'online'
-              ? '🟢 Active session (within 24h)'
-              : '⚪ Session expired'}
+          <p className="truncate text-sm sm:text-base font-bold">{conv.name}</p>
+          <p className={cx(
+            'truncate text-xs',
+            isDark ? 'text-[#8696a0]' : 'text-[#667781]'
+          )}>
+            {conv.status === 'online' ? '🟢 Active WhatsApp Session (24h Window)' : '⚪ Session Expired'}
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+
+        {/* Header Actions */}
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
           <button
             onClick={handleSendMenu}
             disabled={menuSending}
-            className="flex items-center gap-1 text-xs font-medium rounded-lg border border-primary-500/30 bg-primary-500/10 px-2.5 py-1 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20"
+            className="flex items-center gap-1 text-xs font-semibold rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all shrink-0"
           >
             <MenuSquare className="h-3.5 w-3.5" />
-            {menuSending ? 'Sending…' : 'Send Menu'}
+            <span className="hidden xs:inline sm:inline">{menuSending ? 'Sending…' : 'Send Menu'}</span>
           </button>
           
           {conv.leadStatus === 'UNASSIGNED' && conv.leadId && (
@@ -558,42 +626,37 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
                     headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
                   });
                   if (res.ok) {
-                    // Update state or refresh
                     window.location.reload();
                   } else {
-                    alert('Could not claim lead. Perhaps you reached your limit?');
+                    alert('Could not claim lead.');
                   }
                 } catch (err) {
                   console.error(err);
                 }
               }}
-              className="flex items-center gap-1 rounded-lg bg-gradient-accent px-3 py-1.5 text-xs font-bold text-white shadow-soft hover:shadow-glow transition-all"
+              className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-soft hover:bg-emerald-700 transition-all shrink-0"
             >
               <Users className="h-3.5 w-3.5" />
               Claim Lead
             </button>
           )}
 
-          {/* Bot / Human mode toggle */}
+          {/* Bot / Human Mode Toggle */}
           <button
             onClick={async () => {
               setTogglingBot(true);
-              // isBotHandled=true means bot is active → toggling pauses it (human takes over)
-              // isBotHandled=false means human mode → toggling resumes bot
               await onBotToggle(!conv.isBotHandled);
               setTogglingBot(false);
             }}
             disabled={togglingBot}
             title={conv.isBotHandled ? 'Switch to Human mode' : 'Switch to Bot mode'}
             className={cx(
-              'flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50',
-              conv.isBotHandled
-                ? 'border-primary-500/30 bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20'
-                : 'border-success-500/30 bg-success-500/10 text-success-600 dark:text-success-400 hover:bg-success-500/20'
+              'flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-white transition-all disabled:opacity-50 shrink-0 shadow-xs',
+              conv.isBotHandled ? 'bg-purple-600 hover:bg-purple-700' : 'bg-emerald-600 hover:bg-emerald-700'
             )}
           >
             {conv.isBotHandled ? (
-              <><Bot className="h-3.5 w-3.5" />{togglingBot ? '…' : 'Bot Active'}</>
+              <><Bot className="h-3.5 w-3.5" />{togglingBot ? '…' : 'AI Bot Active'}</>
             ) : (
               <><UserCheck className="h-3.5 w-3.5" />{togglingBot ? '…' : 'Human Mode'}</>
             )}
@@ -604,116 +667,148 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
               onClick={async () => {
                 setTogglingBot(true);
                 await resolveLiveChat(conv.id);
-                await onBotToggle(false); // Resumes bot
+                await onBotToggle(false);
                 setTogglingBot(false);
               }}
               disabled={togglingBot}
               title="Resolve support chat and resume bot"
-              className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
+              className="flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50 shrink-0"
             >
               <Check className="h-3.5 w-3.5" />
               {togglingBot ? '…' : 'Resolve Chat'}
             </button>
           )}
+
+          {/* Open Full Chat Room Button */}
+          <button
+            onClick={onOpenChat}
+            className="flex items-center gap-1 rounded-lg bg-emerald-600/15 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/25 px-2.5 py-1.5 text-xs font-bold transition-all shrink-0 border border-emerald-500/30"
+            title="Open full interactive chatroom"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            <span className="hidden xl:inline">Full View</span>
+          </button>
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
-        <div className="flex items-center justify-center">
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-medium text-muted-c dark:bg-ink-800">
-            Today
+      {/* Messages Canvas */}
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className={cx(
+          'flex-1 space-y-3 overflow-y-auto p-3 sm:p-4 scrollbar-thin transition-colors duration-200',
+          isDark ? 'bg-[#0b141a]' : 'bg-[#efeae2]'
+        )}
+        style={{
+          backgroundImage: isDark
+            ? 'radial-gradient(circle at 50% 50%, rgba(18, 28, 36, 0.5), transparent)'
+            : 'radial-gradient(circle at 50% 50%, rgba(220, 215, 205, 0.4), transparent)',
+        }}
+      >
+        <div className="flex justify-center">
+          <span className={cx(
+            'rounded-lg px-3 py-1 text-[11px] font-medium border shadow-xs text-center',
+            isDark ? 'bg-[#182229] text-[#8696a0] border-[#222d34]' : 'bg-[#ffffff] text-[#54656f] border-[#e9edef]'
+          )}>
+            🔒 Official WhatsApp API Session · Encrypted
           </span>
         </div>
 
         {messages.length > 0 ? (
-          messages.map((m) => (
-            <div
-              key={m.id}
-              className={cx(
-                'flex',
-                m.direction === 'OUTGOING' ? 'justify-end' : 'justify-start'
-              )}
-            >
+          messages.map((m) => {
+            const isOutgoing = m.direction === 'OUTGOING';
+            return (
               <div
-                className={cx(
-                  'max-w-[75%] rounded-2xl px-4 py-2.5 text-sm',
-                  m.direction === 'OUTGOING'
-                    ? 'rounded-tr-sm bg-gradient-accent text-white'
-                    : 'rounded-tl-sm bg-slate-100 text-primary-c dark:bg-ink-800'
-                )}
+                key={m.id}
+                className={cx('flex', isOutgoing ? 'justify-end' : 'justify-start')}
               >
-                <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-tight">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
-                </div>
-                <div className="mt-1 text-[10px] opacity-70 text-right">
-                  {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                <div
+                  className={cx(
+                    'max-w-[80%] rounded-2xl px-3.5 py-2 text-sm shadow-xs border',
+                    isOutgoing
+                      ? isDark
+                        ? 'bg-[#005c4b] text-[#e9edef] border-[#005c4b] rounded-tr-xs'
+                        : 'bg-[#d9fdd3] text-[#111b21] border-[#c2f6b8] rounded-tr-xs'
+                      : isDark
+                        ? 'bg-[#202c33] text-[#e9edef] border-[#222d34] rounded-tl-xs'
+                        : 'bg-[#ffffff] text-[#111b21] border-[#e9edef] rounded-tl-xs'
+                  )}
+                >
+                  <div className="prose prose-sm max-w-none break-words leading-relaxed dark:prose-invert">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
+                  </div>
+                  <div className={cx(
+                    'mt-1 text-[10px] text-right font-medium',
+                    isOutgoing
+                      ? isDark ? 'text-[#8696a0]' : 'text-[#667781]'
+                      : isDark ? 'text-[#8696a0]' : 'text-[#667781]'
+                  )}>
+                    {m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-c">
-            <MessageSquare className="h-8 w-8 opacity-40 mb-2" />
-            <p className="text-xs font-medium text-primary-c">No messages yet in this conversation</p>
-            <p className="text-[11px] text-muted-c mt-0.5">Send a message below to start chatting over WhatsApp.</p>
+          <div className="flex flex-col items-center justify-center py-20 text-center text-muted-c">
+            <MessageSquare className="h-10 w-10 opacity-30 mb-2 text-emerald-500" />
+            <p className="text-sm font-bold text-primary-c">No messages yet in this conversation</p>
+            <p className="text-xs mt-1 opacity-70">Send a message below to start chatting over WhatsApp.</p>
           </div>
         )}
       </div>
 
-      {/* Quick actions & input */}
-      <div className="border-t border-base-c p-3">
+      {/* Input / Controls Bar */}
+      <div className={cx(
+        'border-t p-3 transition-colors duration-200 shrink-0',
+        isDark ? 'bg-[#202c33] border-[#222d34]' : 'bg-[#f0f2f5] border-[#e9edef]'
+      )}>
         {conv.isBotHandled ? (
-          /* Bot active — lock input */
-          <div className="flex flex-col items-center gap-2 rounded-xl2 border border-secondary-500/20 bg-secondary-500/5 px-3 py-3">
-            <p className="text-[11px] font-semibold text-secondary-600 dark:text-secondary-400">
-              🤖 Bot is handling this chat
-            </p>
-            <p className="text-[10px] text-muted-c text-center">
-              Switch to Human Mode to reply manually
-            </p>
+          <div className={cx(
+            'flex flex-col sm:flex-row items-center justify-between gap-2 rounded-xl p-3 border',
+            isDark ? 'bg-[#182229] border-[#222d34]' : 'bg-[#ffffff] border-[#e9edef]'
+          )}>
+            <div className="flex items-center gap-2 text-xs">
+              <Bot className="h-4 w-4 text-purple-500 shrink-0 animate-bounce" />
+              <span className="font-semibold text-primary-c">AI Bot is automatically replying to incoming messages</span>
+            </div>
             <button
               onClick={async () => {
                 setTogglingBot(true);
-                await onBotToggle(true); // botPaused = true → human mode
+                await onBotToggle(true);
                 setTogglingBot(false);
               }}
               disabled={togglingBot}
-              className="flex items-center gap-1.5 rounded-lg bg-success-500/15 px-3 py-1.5 text-xs font-semibold text-success-600 dark:text-success-400 ring-1 ring-success-500/30 hover:bg-success-500/25 transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 transition-all disabled:opacity-50 shrink-0"
             >
-              <UserCheck className="h-3 w-3" />
-              {togglingBot ? 'Switching…' : 'Take Over'}
+              <UserCheck className="h-3.5 w-3.5" />
+              {togglingBot ? 'Switching…' : 'Take Over (Human Mode)'}
             </button>
           </div>
         ) : (
-          /* Human mode — show input */
-          <>
-            <form onSubmit={handleSend} className="flex items-center gap-2 rounded-xl2 border border-base-c bg-card-c px-3 py-2">
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type a WhatsApp message…"
-                className="flex-1 bg-transparent text-sm text-primary-c placeholder:text-muted-c focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={sending}
-                className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-accent text-white transition-transform hover:scale-105 disabled:opacity-50"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </form>
-          </>
+          <form onSubmit={handleSend} className="flex items-center gap-2">
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type a WhatsApp reply message…"
+              className={cx(
+                'flex-1 rounded-xl px-4 py-2.5 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500/30 border',
+                isDark
+                  ? 'bg-[#2a3942] text-[#e9edef] placeholder-[#8696a0] border-[#374248]'
+                  : 'bg-[#ffffff] text-[#111b21] placeholder-[#667781] border-[#e9edef]'
+              )}
+            />
+            <button
+              type="submit"
+              disabled={sending || !input.trim()}
+              className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-600 text-white transition-all hover:bg-emerald-700 disabled:opacity-50 shadow-soft shrink-0"
+            >
+              <Send className="h-4 w-4" />
+            </button>
+          </form>
         )}
-
-        <button
-          onClick={onOpenChat}
-          className="mt-2 w-full rounded-lg bg-gradient-accent-soft py-2 text-xs font-medium text-primary-600 transition-colors hover:bg-gradient-accent hover:text-white dark:text-primary-300"
-        >
-          Open full chat room
-        </button>
       </div>
-    </GlassCard>
+    </div>
   );
 }
 
@@ -728,6 +823,24 @@ function WebChatPreview({
 }) {
   const [messages, setMessages] = useState<WebChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef<boolean>(true);
+  const shouldForceScrollRef = useRef<boolean>(true);
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight <= 120;
+  };
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
 
   const loadDetails = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -737,6 +850,7 @@ function WebChatPreview({
   }, [session.id]);
 
   useEffect(() => {
+    shouldForceScrollRef.current = true;
     setMessages([]);
     loadDetails(true);
     const interval = setInterval(() => {
@@ -745,52 +859,66 @@ function WebChatPreview({
     return () => clearInterval(interval);
   }, [session.id, loadDetails]);
 
+  // Auto-scroll to bottom whenever session changes or when user is at bottom
+  useEffect(() => {
+    if (messages.length > 0) {
+      if (shouldForceScrollRef.current || isAtBottomRef.current) {
+        scrollToBottom();
+        shouldForceScrollRef.current = false;
+      }
+    }
+  }, [messages, scrollToBottom]);
+
   return (
-    <GlassCard className="flex h-full flex-col overflow-hidden">
+    <GlassCard className="flex h-full flex-col overflow-hidden rounded-2xl border border-base-c/80">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-base-c p-4">
+      <div className="flex items-center gap-3 border-b border-base-c/80 px-4 py-3 bg-card-c/80 shrink-0">
         <button
           onClick={onBack}
-          className="lg:hidden p-1.5 -ml-2 rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800"
+          className="lg:hidden p-1.5 -ml-1 rounded-lg text-muted-c hover:bg-slate-100 dark:hover:bg-ink-800"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-accent text-white font-bold">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-600 text-white font-bold shadow-soft shrink-0">
           <Globe className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-primary-c">
+          <p className="truncate text-sm font-bold text-primary-c">
             {session.sessionId || 'Website Visitor Session'}
           </p>
           <p className="truncate text-xs text-muted-c">
             Created: {session.createdAt ? new Date(session.createdAt).toLocaleString() : 'N/A'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="primary">
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant="primary" className="px-2.5 py-1">
             <Bot className="h-3 w-3" /> WebBot Active
           </Badge>
           <button
             onClick={onDelete}
-            className="flex items-center gap-1 rounded-lg border border-danger-500/30 bg-danger-500/10 px-2.5 py-1.5 text-xs font-medium text-danger-600 dark:text-danger-400 hover:bg-danger-500/20"
+            className="flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2.5 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all"
             title="Delete Session"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            Delete
+            Delete Thread
           </button>
         </div>
       </div>
 
       {/* Message thread */}
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 space-y-3 overflow-y-auto p-4 scrollbar-thin bg-card-c/30"
+      >
         <div className="flex items-center justify-center">
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-medium text-muted-c dark:bg-ink-800">
-            Web Chat Thread History
+          <span className="rounded-full bg-slate-100/80 dark:bg-ink-800 px-3 py-1 text-[10px] font-semibold text-muted-c border border-base-c/50">
+            WebChat Widget History
           </span>
         </div>
 
         {loading ? (
-          <div className="py-12 text-center text-xs text-muted-c">Loading chat thread…</div>
+          <div className="py-16 text-center text-xs text-muted-c">Loading chat thread…</div>
         ) : messages.length > 0 ? (
           messages.map((m) => (
             <div
@@ -802,16 +930,16 @@ function WebChatPreview({
             >
               <div
                 className={cx(
-                  'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm',
+                  'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm shadow-xs border',
                   m.sender === 'USER'
-                    ? 'rounded-tl-sm bg-slate-100 text-primary-c dark:bg-ink-800'
-                    : 'rounded-tr-sm bg-gradient-accent text-white'
+                    ? 'rounded-tl-xs bg-slate-100 text-primary-c dark:bg-ink-800 border-base-c'
+                    : 'rounded-tr-xs bg-indigo-600 text-white border-indigo-700'
                 )}
               >
-                <div className="mb-0.5 text-[10px] font-bold opacity-80">
+                <div className="mb-1 text-[10px] font-bold opacity-80 uppercase tracking-wider">
                   {m.sender === 'USER' ? 'Website Visitor' : 'AI WebBot'}
                 </div>
-                <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-tight">
+                <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>
                 </div>
                 <div className="mt-1 text-[10px] opacity-70 text-right">
@@ -821,7 +949,7 @@ function WebChatPreview({
             </div>
           ))
         ) : (
-          <div className="py-12 text-center text-xs text-muted-c">
+          <div className="py-20 text-center text-xs text-muted-c">
             No messages recorded in this website session yet.
           </div>
         )}

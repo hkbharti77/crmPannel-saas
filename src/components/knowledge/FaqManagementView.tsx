@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { cx } from '@/lib/types';
 import {
   HelpCircle, Plus, Search, Trash2, Edit3, CheckCircle,
   AlertCircle, Sparkles, RefreshCw, Zap, Loader2, X,
   Upload, FileText, Download, FileSpreadsheet, Layers, Check,
-  ChevronLeft, ChevronRight, CheckSquare, Square, AlertTriangle
+  ChevronLeft, ChevronRight, AlertTriangle, MessageSquare,
+  BarChart3, CheckCircle2, ArrowUpRight
 } from 'lucide-react';
 import {
   fetchFaqs, createFaq, updateFaq, deleteFaq, createBatchFaqs,
@@ -62,23 +63,37 @@ export function FaqManagementView() {
     loadFaqs();
   }, []);
 
-  // Reset pagination to page 1 on search or category filter change
+  // Reset pagination on filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery, selectedCategory]);
 
-  const categories = Array.from(new Set(['General', ...faqs.map(f => f.category || 'General')]));
+  const categories = useMemo(() => {
+    return Array.from(new Set(['General', ...faqs.map(f => f.category || 'General')]));
+  }, [faqs]);
 
-  const filteredFaqs = faqs.filter(faq => {
-    const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          faq.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (faq.keywords && faq.keywords.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCat = selectedCategory === 'ALL' || (faq.category || 'General') === selectedCategory;
-    return matchesSearch && matchesCat;
-  });
+  // Analytics Metrics
+  const faqStats = useMemo(() => {
+    const activeCount = faqs.filter(f => f.isActive !== false).length;
+    const totalHits = faqs.reduce((acc, f) => acc + (f.hitCount || 0), 0);
+    const highHitCount = faqs.filter(f => (f.hitCount || 0) > 5).length;
+    return { activeCount, totalHits, highHitCount, totalCategories: categories.length };
+  }, [faqs, categories]);
+
+  const filteredFaqs = useMemo(() => {
+    return faqs.filter(faq => {
+      const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            faq.answer.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (faq.keywords && faq.keywords.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesCat = selectedCategory === 'ALL' || (faq.category || 'General') === selectedCategory;
+      return matchesSearch && matchesCat;
+    });
+  }, [faqs, searchQuery, selectedCategory]);
 
   const totalPages = Math.max(1, Math.ceil(filteredFaqs.length / itemsPerPage));
-  const paginatedFaqs = filteredFaqs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedFaqs = useMemo(() => {
+    return filteredFaqs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredFaqs, currentPage, itemsPerPage]);
 
   const handleOpenCreate = () => {
     setEditingFaq(null);
@@ -208,9 +223,7 @@ export function FaqManagementView() {
     }
   };
 
-  // ─────────────────────────────────────────────────────────────
-  // BULK UPLOAD HANDLERS
-  // ─────────────────────────────────────────────────────────────
+  // Bulk Upload Templates & Processors
   const downloadTemplate = (format: 'csv' | 'excel') => {
     const csvContent = 
       `Question,Answer,Category,Keywords\n` +
@@ -232,7 +245,6 @@ export function FaqManagementView() {
     const raw = text.trim();
     if (!raw) return [];
 
-    // Try parsing as JSON first
     if (raw.startsWith('[') && raw.endsWith(']')) {
       try {
         const parsed = JSON.parse(raw);
@@ -254,8 +266,6 @@ export function FaqManagementView() {
     if (lines.length === 0) return [];
 
     const items: Partial<FaqItemDto>[] = [];
-    
-    // Check if the first line is a header
     const firstLineLower = lines[0].toLowerCase();
     const hasHeader = firstLineLower.includes('question') && (firstLineLower.includes('answer') || firstLineLower.includes('category'));
     const startIndex = hasHeader ? 1 : 0;
@@ -288,17 +298,6 @@ export function FaqManagementView() {
           keywords: row[3] ? row[3].trim() : '',
           isActive: true,
         });
-      } else if (row.length === 1 && row[0]) {
-        const parts = row[0].split(/\s*->\s*|\s*\|\s*|\s*:\s*(?=A:)/i);
-        if (parts.length >= 2) {
-          items.push({
-            question: parts[0].replace(/^q:\s*/i, '').trim(),
-            answer: parts[1].replace(/^a:\s*/i, '').trim(),
-            category: 'General',
-            keywords: '',
-            isActive: true,
-          });
-        }
       }
     }
     return items;
@@ -347,34 +346,33 @@ export function FaqManagementView() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Header Banner */}
-      <div className="rounded-2xl border border-base-c bg-card-c p-6 shadow-sm relative overflow-hidden">
-        <div className="absolute right-0 top-0 h-full w-1/3 bg-gradient-to-l from-primary-500/10 to-transparent pointer-events-none" />
+      <div className="rounded-2xl border border-base-c/80 bg-card-c p-5 sm:p-6 shadow-xs relative overflow-hidden">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between relative z-10">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className="grid h-9 w-9 place-items-center rounded-xl bg-primary-500/15 text-primary-500">
+              <div className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-soft">
                 <Zap className="h-5 w-5" />
               </div>
-              <h2 className="text-xl font-bold text-primary-c">High-Confidence FAQ Engine</h2>
+              <h2 className="text-lg sm:text-xl font-bold text-primary-c">Verified High-Confidence FAQ Engine</h2>
               <span className="rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 px-2.5 py-0.5 text-[10px] font-bold">
-                85% Threshold Fast Path
+                85% Match Fast Path
               </span>
             </div>
-            <p className="text-xs text-muted-c">
-              Pre-approved FAQ answers matching user queries with &ge;85% vector similarity respond instantly with zero LLM API cost & zero latency.
+            <p className="text-xs text-muted-c max-w-2xl leading-relaxed">
+              Pre-approved answers matching customer queries with &ge;85% vector similarity respond instantly with zero LLM API cost &amp; zero latency.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
             {faqs.length > 0 && (
               <button
                 onClick={() => setShowDeleteAllModal(true)}
-                className="flex items-center justify-center gap-2 rounded-xl border border-danger-500/30 bg-danger-500/10 px-3.5 py-2.5 text-xs font-bold text-danger-500 hover:bg-danger-500/20 shadow-sm transition-all"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all shrink-0"
                 title="Delete all FAQs permanently"
               >
-                <Trash2 className="h-4 w-4" /> Delete All ({faqs.length})
+                <Trash2 className="h-3.5 w-3.5" /> Delete All ({faqs.length})
               </button>
             )}
             <button
@@ -383,13 +381,13 @@ export function FaqManagementView() {
                 setParsedFaqs([]);
                 setShowBulkModal(true);
               }}
-              className="flex items-center justify-center gap-2 rounded-xl border border-base-c bg-card-c px-4 py-2.5 text-xs font-bold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-850 shadow-sm transition-all"
+              className="flex items-center justify-center gap-1.5 rounded-xl border border-base-c/80 bg-card-c px-3.5 py-2 text-xs font-bold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-all shrink-0"
             >
-              <Upload className="h-4 w-4 text-sky-500" /> Bulk Upload FAQs
+              <Upload className="h-3.5 w-3.5 text-indigo-500" /> Bulk Import FAQs
             </button>
             <button
               onClick={handleOpenCreate}
-              className="flex items-center justify-center gap-2 rounded-xl bg-gradient-accent px-4 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-90 transition-all"
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-soft transition-all shrink-0"
             >
               <Plus className="h-4 w-4" /> Add Single FAQ
             </button>
@@ -400,13 +398,13 @@ export function FaqManagementView() {
       {/* Notifications */}
       {notification && (
         <div className={cx(
-          "flex items-center justify-between rounded-xl border p-4 text-xs font-medium transition-all",
+          "flex items-center justify-between rounded-xl border p-4 text-xs font-semibold transition-all",
           notification.type === 'success'
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-            : "border-danger-500/30 bg-danger-500/10 text-danger-500"
+            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            : "border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
         )}>
           <div className="flex items-center gap-2">
-            {notification.type === 'success' ? <CheckCircle className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
+            {notification.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertCircle className="h-4 w-4 shrink-0" />}
             <span>{notification.msg}</span>
           </div>
           <button onClick={() => setNotification(null)} className="opacity-70 hover:opacity-100">
@@ -415,28 +413,28 @@ export function FaqManagementView() {
         </div>
       )}
 
-      {/* Controls Bar */}
+      {/* Controls & Category Filter Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
+          <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search FAQs, keywords, or answers..."
-            className="w-full rounded-xl border border-base-c bg-card-c pl-9 pr-4 py-2 text-xs text-primary-c focus:border-primary-500 focus:outline-none"
+            placeholder="Search questions, answers or keywords..."
+            className="w-full rounded-xl border border-base-c/80 bg-card-c pl-10 pr-4 py-2 text-xs sm:text-sm text-primary-c placeholder:text-muted-c focus:border-emerald-500 focus:outline-none transition-all shadow-xs"
           />
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-          <span className="text-xs text-muted-c font-medium shrink-0">Category:</span>
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+          <span className="text-xs text-muted-c font-semibold shrink-0">Category:</span>
           <button
             onClick={() => setSelectedCategory('ALL')}
             className={cx(
-              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0",
+              "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 btn-tactile",
               selectedCategory === 'ALL'
-                ? "bg-primary-500 text-white shadow-sm"
-                : "border border-base-c bg-card-c text-muted-c hover:text-primary-c"
+                ? "bg-emerald-600 text-white shadow-soft font-bold"
+                : "border border-base-c/80 bg-card-c text-secondary-c hover:text-primary-c"
             )}
           >
             All ({faqs.length})
@@ -446,10 +444,10 @@ export function FaqManagementView() {
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={cx(
-                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0",
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-all shrink-0 btn-tactile",
                 selectedCategory === cat
-                  ? "bg-primary-500 text-white shadow-sm"
-                  : "border border-base-c bg-card-c text-muted-c hover:text-primary-c"
+                  ? "bg-emerald-600 text-white shadow-soft font-bold"
+                  : "border border-base-c/80 bg-card-c text-secondary-c hover:text-primary-c"
               )}
             >
               {cat}
@@ -457,19 +455,19 @@ export function FaqManagementView() {
           ))}
           <button
             onClick={loadFaqs}
-            className="rounded-lg border border-base-c bg-card-c p-1.5 text-muted-c hover:text-primary-c transition-all shrink-0"
+            className="rounded-lg border border-base-c/80 bg-card-c p-2 text-muted-c hover:text-primary-c transition-all shrink-0"
             title="Refresh FAQs"
           >
-            <RefreshCw className={cx("h-4 w-4", loading && "animate-spin")} />
+            <RefreshCw className={cx("h-3.5 w-3.5", loading && "animate-spin")} />
           </button>
         </div>
       </div>
 
       {/* Dynamic Multi-Selection Floating Action Bar */}
       {selectedFaqIds.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-primary-500/10 p-3.5 text-xs text-primary-c shadow-sm animate-in fade-in">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-primary-c shadow-xs animate-in fade-in">
           <div className="flex items-center gap-3">
-            <span className="flex h-6 items-center rounded-full bg-primary-500 px-3 text-[11px] font-bold text-white shadow-sm">
+            <span className="flex h-6 items-center rounded-full bg-emerald-600 px-3 text-[11px] font-bold text-white shadow-xs">
               {selectedFaqIds.length} Selected
             </span>
             <span className="text-secondary-c">
@@ -481,20 +479,20 @@ export function FaqManagementView() {
             {selectedFaqIds.length < filteredFaqs.length && (
               <button
                 onClick={handleSelectAllFiltered}
-                className="rounded-xl border border-primary-500/30 bg-card-c px-3 py-1.5 font-bold text-primary-500 hover:bg-primary-500/10 transition-all text-xs"
+                className="rounded-xl border border-emerald-500/30 bg-card-c px-3 py-1.5 font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all text-xs"
               >
                 Select All {filteredFaqs.length} Filtered
               </button>
             )}
             <button
               onClick={handleClearSelection}
-              className="rounded-xl border border-base-c bg-card-c px-3 py-1.5 font-bold text-muted-c hover:text-primary-c transition-all text-xs"
+              className="rounded-xl border border-base-c/80 bg-card-c px-3 py-1.5 font-bold text-muted-c hover:text-primary-c transition-all text-xs"
             >
               Clear Selection
             </button>
             <button
               onClick={() => setShowBatchDeleteModal(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-danger-500 px-4 py-1.5 font-bold text-white shadow-sm hover:bg-danger-600 transition-all text-xs"
+              className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-1.5 font-bold text-white shadow-xs hover:bg-rose-700 transition-all text-xs"
             >
               <Trash2 className="h-3.5 w-3.5" /> Delete Selected ({selectedFaqIds.length})
             </button>
@@ -504,54 +502,54 @@ export function FaqManagementView() {
 
       {/* FAQ Data Table with 10-Row Pagination */}
       {loading ? (
-        <div className="grid h-48 place-items-center rounded-2xl border border-base-c bg-card-c">
+        <div className="grid h-56 place-items-center rounded-2xl border border-base-c/80 bg-card-c">
           <div className="flex items-center gap-2 text-xs text-muted-c">
-            <Loader2 className="h-5 w-5 animate-spin text-primary-500" /> Loading FAQ Database...
+            <Loader2 className="h-5 w-5 animate-spin text-emerald-600" /> Loading FAQ Database...
           </div>
         </div>
       ) : filteredFaqs.length === 0 ? (
-        <div className="grid h-48 place-items-center rounded-2xl border border-dashed border-base-c bg-card-c p-6 text-center">
+        <div className="grid h-56 place-items-center rounded-2xl border border-dashed border-base-c/80 bg-card-c p-6 text-center">
           <div className="space-y-2">
-            <HelpCircle className="mx-auto h-8 w-8 text-muted-c opacity-50" />
-            <p className="text-sm font-semibold text-primary-c">No FAQs Found</p>
+            <HelpCircle className="mx-auto h-10 w-10 text-muted-c opacity-40" />
+            <p className="text-base font-bold text-primary-c">No FAQs Found</p>
             <p className="text-xs text-muted-c max-w-sm mx-auto">
               {searchQuery ? "No FAQ matched your search query." : "Add or bulk upload FAQs to activate the high-confidence 85% fast-path."}
             </p>
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-base-c bg-card-c shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-base-c/80 bg-card-c shadow-xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-base-c bg-slate-500/5 text-[11px] font-bold text-muted-c uppercase tracking-wider">
-                  <th className="py-3 px-3 w-10 text-center">
+                <tr className="border-b border-base-c/80 bg-slate-100/60 dark:bg-ink-950/50 text-[11px] font-bold text-muted-c uppercase tracking-wider">
+                  <th className="py-3.5 px-3 w-10 text-center">
                     <input
                       type="checkbox"
                       checked={paginatedFaqs.length > 0 && paginatedFaqs.every(f => f.id && selectedFaqIds.includes(f.id))}
                       onChange={handleSelectAllPage}
-                      className="rounded border-base-c text-primary-500 focus:ring-primary-500 h-4 w-4 cursor-pointer align-middle"
+                      className="rounded border-base-c text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer align-middle"
                       title="Select all on current page"
                     />
                   </th>
-                  <th className="py-3 px-4 w-20">Status</th>
-                  <th className="py-3 px-4 min-w-[220px]">Question</th>
-                  <th className="py-3 px-4 min-w-[300px]">Answer</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Keywords</th>
-                  <th className="py-3 px-4 text-center">Hits</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4 w-24">Status</th>
+                  <th className="py-3.5 px-4 min-w-[240px]">Question (Vector Trigger)</th>
+                  <th className="py-3.5 px-4 min-w-[320px]">Direct Response Answer</th>
+                  <th className="py-3.5 px-4 w-28">Category</th>
+                  <th className="py-3.5 px-4 w-32">Keywords</th>
+                  <th className="py-3.5 px-4 text-center w-16">Hits</th>
+                  <th className="py-3.5 px-4 text-right w-24">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-base-c">
+              <tbody className="divide-y divide-base-c/70">
                 {paginatedFaqs.map(faq => {
                   const isSelected = !!(faq.id && selectedFaqIds.includes(faq.id));
                   return (
                     <tr
                       key={faq.id}
                       className={cx(
-                        "hover:bg-slate-500/5 transition-colors",
-                        isSelected && "bg-primary-500/5 dark:bg-primary-500/10",
+                        "hover:bg-slate-100/50 dark:hover:bg-ink-850/40 transition-colors",
+                        isSelected && "bg-emerald-500/10 dark:bg-emerald-500/15",
                         !faq.isActive && "opacity-60 bg-slate-500/5"
                       )}
                     >
@@ -561,97 +559,109 @@ export function FaqManagementView() {
                           type="checkbox"
                           checked={isSelected}
                           onChange={() => faq.id && handleToggleSelect(faq.id)}
-                          className="rounded border-base-c text-primary-500 focus:ring-primary-500 h-4 w-4 cursor-pointer align-middle"
+                          className="rounded border-base-c text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer align-middle"
                         />
                       </td>
-                    {/* Status Toggle */}
-                    <td className="py-3.5 px-4 align-top">
-                      <button
-                        onClick={() => handleToggleActive(faq)}
-                        className={cx(
-                          "rounded-full px-2.5 py-1 text-[10px] font-bold cursor-pointer transition-all",
-                          faq.isActive ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25" : "bg-slate-500/15 text-muted-c hover:bg-slate-500/25"
-                        )}
-                        title={faq.isActive ? "Click to deactivate" : "Click to activate"}
-                      >
-                        {faq.isActive ? 'Active' : 'Inactive'}
-                      </button>
-                    </td>
 
-                    {/* Question */}
-                    <td className="py-3.5 px-4 align-top font-bold text-primary-c">
-                      {faq.question}
-                    </td>
-
-                    {/* Answer */}
-                    <td className="py-3.5 px-4 align-top text-secondary-c max-w-sm">
-                      <div className="line-clamp-3 whitespace-pre-line" title={faq.answer}>
-                        {faq.answer}
-                      </div>
-                    </td>
-
-                    {/* Category */}
-                    <td className="py-3.5 px-4 align-top">
-                      <span className="inline-block rounded-full bg-primary-500/10 text-primary-500 px-2.5 py-0.5 text-[10px] font-bold">
-                        {faq.category || 'General'}
-                      </span>
-                    </td>
-
-                    {/* Keywords */}
-                    <td className="py-3.5 px-4 align-top text-muted-c text-[11px] max-w-[140px] truncate" title={faq.keywords || ''}>
-                      {faq.keywords ? faq.keywords : <span className="opacity-40">-</span>}
-                    </td>
-
-                    {/* Hits */}
-                    <td className="py-3.5 px-4 align-top text-center font-bold text-primary-c">
-                      {faq.hitCount || 0}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 align-top text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+                      {/* Status Toggle */}
+                      <td className="py-3.5 px-4 align-top">
                         <button
-                          onClick={() => handleOpenEdit(faq)}
-                          className="rounded-lg border border-base-c p-1.5 text-muted-c hover:text-primary-500 hover:bg-primary-500/10 transition-all"
-                          title="Edit FAQ"
+                          onClick={() => handleToggleActive(faq)}
+                          className={cx(
+                            "rounded-full px-2.5 py-1 text-[10px] font-bold cursor-pointer transition-all border",
+                            faq.isActive
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25"
+                              : "bg-slate-500/15 text-muted-c border-slate-500/30 hover:bg-slate-500/25"
+                          )}
+                          title={faq.isActive ? "Click to deactivate" : "Click to activate"}
                         >
-                          <Edit3 className="h-3.5 w-3.5" />
+                          {faq.isActive ? 'Active' : 'Inactive'}
                         </button>
-                        {deleteConfirmId === faq.id ? (
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => faq.id && handleDelete(faq.id)}
-                              className="rounded-lg bg-danger-500 text-white px-2 py-1 text-[10px] font-bold hover:bg-danger-600 transition-all"
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              onClick={() => setDeleteConfirmId(null)}
-                              className="rounded-lg border border-base-c p-1 text-muted-c hover:text-primary-c"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
+                      </td>
+
+                      {/* Question */}
+                      <td className="py-3.5 px-4 align-top font-bold text-primary-c">
+                        <div className="flex items-start gap-1.5">
+                          <MessageSquare className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                          <span>{faq.question}</span>
+                        </div>
+                      </td>
+
+                      {/* Answer */}
+                      <td className="py-3.5 px-4 align-top text-secondary-c max-w-md">
+                        <div className="line-clamp-3 whitespace-pre-line leading-relaxed text-xs" title={faq.answer}>
+                          {faq.answer}
+                        </div>
+                      </td>
+
+                      {/* Category */}
+                      <td className="py-3.5 px-4 align-top">
+                        <span className="inline-block rounded-md bg-purple-500/10 border border-purple-500/20 text-purple-600 dark:text-purple-400 px-2 py-0.5 text-[10px] font-bold">
+                          {faq.category || 'General'}
+                        </span>
+                      </td>
+
+                      {/* Keywords */}
+                      <td className="py-3.5 px-4 align-top text-muted-c text-[11px] max-w-[140px] truncate" title={faq.keywords || ''}>
+                        {faq.keywords ? (
+                          <span className="font-mono text-[10px] text-muted-c">{faq.keywords}</span>
                         ) : (
-                          <button
-                            onClick={() => faq.id && setDeleteConfirmId(faq.id)}
-                            className="rounded-lg border border-base-c p-1.5 text-muted-c hover:text-danger-500 hover:bg-danger-500/10 transition-all"
-                            title="Delete FAQ"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          <span className="opacity-40">-</span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
+                      </td>
+
+                      {/* Hits */}
+                      <td className="py-3.5 px-4 align-top text-center">
+                        <span className="inline-flex items-center justify-center rounded-full bg-slate-100 dark:bg-ink-800 px-2 py-0.5 text-[11px] font-bold text-primary-c tabular-nums">
+                          {faq.hitCount || 0}
+                        </span>
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 align-top text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleOpenEdit(faq)}
+                            className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-emerald-600 hover:bg-emerald-500/10 transition-all"
+                            title="Edit FAQ"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                          {deleteConfirmId === faq.id ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => faq.id && handleDelete(faq.id)}
+                                className="rounded-lg bg-rose-600 text-white px-2 py-1 text-[10px] font-bold hover:bg-rose-700 transition-all"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="rounded-lg border border-base-c/80 p-1 text-muted-c hover:text-primary-c"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => faq.id && setDeleteConfirmId(faq.id)}
+                              className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-rose-600 hover:bg-rose-500/10 transition-all"
+                              title="Delete FAQ"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
             </table>
           </div>
 
           {/* 10-Row Pagination Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-base-c px-4 py-3 bg-card-c text-xs text-muted-c">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-base-c/80 px-4 py-3 bg-card-c text-xs text-muted-c">
             <div>
               Showing <strong className="text-primary-c">{((currentPage - 1) * itemsPerPage) + 1}</strong> to <strong className="text-primary-c">{Math.min(currentPage * itemsPerPage, filteredFaqs.length)}</strong> of <strong className="text-primary-c">{filteredFaqs.length}</strong> FAQs
             </div>
@@ -660,7 +670,7 @@ export function FaqManagementView() {
               <button
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                className="flex items-center gap-1 rounded-lg border border-base-c px-3 py-1.5 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-850 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-1 rounded-lg border border-base-c/80 bg-card-c px-3 py-1.5 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 <ChevronLeft className="h-4 w-4" /> Previous
               </button>
@@ -672,7 +682,7 @@ export function FaqManagementView() {
               <button
                 disabled={currentPage >= totalPages}
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                className="flex items-center gap-1 rounded-lg border border-base-c px-3 py-1.5 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-850 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                className="flex items-center gap-1 rounded-lg border border-base-c/80 bg-card-c px-3 py-1.5 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
               >
                 Next <ChevronRight className="h-4 w-4" />
               </button>
@@ -684,10 +694,10 @@ export function FaqManagementView() {
       {/* SINGLE FAQ CREATE / EDIT MODAL */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-lg rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-base-c pb-3">
+          <div className="w-full max-w-lg rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-base-c/80 pb-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary-500" />
+                <Sparkles className="h-5 w-5 text-emerald-500" />
                 <h3 className="text-base font-bold text-primary-c">
                   {editingFaq ? 'Edit FAQ Item' : 'Add New FAQ Item'}
                 </h3>
@@ -699,13 +709,13 @@ export function FaqManagementView() {
 
             <form onSubmit={handleSave} className="space-y-4 text-xs">
               <div>
-                <label className="font-bold text-primary-c">Question (Triggers 85% Similarity Match)</label>
+                <label className="font-bold text-primary-c">Question (Triggers 85% Vector Match)</label>
                 <input
                   type="text"
                   value={formQuestion}
                   onChange={(e) => setFormQuestion(e.target.value)}
                   placeholder="e.g. What are your store operating hours?"
-                  className="w-full rounded-xl border border-base-c bg-card-c px-3 py-2 text-xs text-primary-c focus:border-primary-500 focus:outline-none mt-1"
+                  className="w-full rounded-xl border border-base-c/80 bg-card-c px-3 py-2 text-xs text-primary-c focus:border-emerald-500 focus:outline-none mt-1"
                   required
                 />
               </div>
@@ -717,7 +727,7 @@ export function FaqManagementView() {
                   value={formAnswer}
                   onChange={(e) => setFormAnswer(e.target.value)}
                   placeholder="Enter exact pre-approved response to return directly without LLM hallucination..."
-                  className="w-full rounded-xl border border-base-c bg-card-c p-3 text-xs text-primary-c focus:border-primary-500 focus:outline-none mt-1"
+                  className="w-full rounded-xl border border-base-c/80 bg-card-c p-3 text-xs text-primary-c focus:border-emerald-500 focus:outline-none mt-1"
                   required
                 />
               </div>
@@ -730,7 +740,7 @@ export function FaqManagementView() {
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value)}
                     placeholder="e.g. Pricing, General, Returns"
-                    className="w-full rounded-xl border border-base-c bg-card-c px-3 py-2 text-xs text-primary-c focus:border-primary-500 focus:outline-none mt-1"
+                    className="w-full rounded-xl border border-base-c/80 bg-card-c px-3 py-2 text-xs text-primary-c focus:border-emerald-500 focus:outline-none mt-1"
                   />
                 </div>
                 <div>
@@ -740,23 +750,23 @@ export function FaqManagementView() {
                     value={formKeywords}
                     onChange={(e) => setFormKeywords(e.target.value)}
                     placeholder="e.g. hours, open, time"
-                    className="w-full rounded-xl border border-base-c bg-card-c px-3 py-2 text-xs text-primary-c focus:border-primary-500 focus:outline-none mt-1"
+                    className="w-full rounded-xl border border-base-c/80 bg-card-c px-3 py-2 text-xs text-primary-c focus:border-emerald-500 focus:outline-none mt-1"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 pt-3 border-t border-base-c">
+              <div className="flex justify-end gap-2 pt-3 border-t border-base-c/80">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
+                  className="rounded-xl border border-base-c/80 px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-accent px-5 py-2 text-xs font-bold text-white shadow-sm hover:opacity-90 transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2 text-xs font-bold text-white shadow-soft transition-all disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
                   {editingFaq ? 'Save Changes' : 'Create & Index Vector'}
@@ -767,20 +777,18 @@ export function FaqManagementView() {
         </div>
       )}
 
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* BULK UPLOAD MODAL SCREEN WITH TWO CARDS */}
-      {/* ───────────────────────────────────────────────────────────── */}
+      {/* BULK UPLOAD MODAL SCREEN */}
       {showBulkModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-base-c bg-card-c p-6 space-y-6 shadow-2xl">
+          <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl border border-base-c/80 bg-card-c p-6 space-y-6 shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-base-c pb-4">
+            <div className="flex items-center justify-between border-b border-base-c/80 pb-4">
               <div className="flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-sky-500/15 text-sky-500">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
                   <Upload className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-primary-c">Bulk FAQ Import & Vector Ingestion</h3>
+                  <h3 className="text-lg font-bold text-primary-c">Bulk FAQ Import &amp; Vector Ingestion</h3>
                   <p className="text-xs text-muted-c">Upload multiple CSV/Excel files to batch index FAQs into the vector database.</p>
                 </div>
               </div>
@@ -792,19 +800,19 @@ export function FaqManagementView() {
             {/* TWO CARDS GRID */}
             <div className="grid gap-6 md:grid-cols-2">
               {/* CARD 1: DOWNLOAD TEMPLATES */}
-              <div className="rounded-2xl border border-base-c bg-slate-50/50 dark:bg-ink-850/40 p-5 space-y-4 flex flex-col justify-between">
+              <div className="rounded-2xl border border-base-c/80 bg-slate-50/50 dark:bg-ink-900/40 p-5 space-y-4 flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/15 text-emerald-500">
+                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
                       <FileSpreadsheet className="h-4 w-4" />
                     </div>
-                    <h4 className="text-sm font-bold text-primary-c">Card 1: Download Templates</h4>
+                    <h4 className="text-sm font-bold text-primary-c">1. Download Templates</h4>
                   </div>
-                  <p className="text-xs text-secondary-c leading-relaxed">
-                    Download sample FAQ file templates containing pre-formatted headers (<code className="text-primary-500 font-mono">Question, Answer, Category, Keywords</code>).
+                  <p className="text-xs text-muted-c leading-relaxed">
+                    Download sample FAQ file templates containing pre-formatted headers (<code className="text-emerald-600 dark:text-emerald-400 font-mono">Question, Answer, Category, Keywords</code>).
                   </p>
 
-                  <div className="rounded-xl border border-base-c bg-card-c p-3 text-[11px] font-mono space-y-1 text-muted-c">
+                  <div className="rounded-xl border border-base-c/80 bg-card-c p-3 text-[11px] font-mono space-y-1 text-muted-c">
                     <div className="font-bold text-primary-c">Supported Headers:</div>
                     <div>• Question (Required)</div>
                     <div>• Answer (Required)</div>
@@ -813,33 +821,32 @@ export function FaqManagementView() {
                   </div>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-base-c">
+                <div className="space-y-2 pt-2 border-t border-base-c/80">
                   <button
                     onClick={() => downloadTemplate('csv')}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-base-c bg-card-c px-4 py-2.5 text-xs font-bold text-primary-c hover:border-primary-500/40 transition-all"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-base-c/80 bg-card-c px-4 py-2.5 text-xs font-bold text-primary-c hover:border-emerald-500/40 transition-all"
                   >
                     <Download className="h-4 w-4 text-emerald-500" /> Download CSV Format Template (.csv)
                   </button>
                   <button
                     onClick={() => downloadTemplate('excel')}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-base-c bg-card-c px-4 py-2.5 text-xs font-bold text-primary-c hover:border-primary-500/40 transition-all"
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border border-base-c/80 bg-card-c px-4 py-2.5 text-xs font-bold text-primary-c hover:border-indigo-500/40 transition-all"
                   >
-                    <Download className="h-4 w-4 text-sky-500" /> Download Excel Format Template (.txt/.csv)
+                    <Download className="h-4 w-4 text-indigo-500" /> Download Excel Format Template (.txt/.csv)
                   </button>
                 </div>
               </div>
 
               {/* CARD 2: DRAG & DROP MULTI-FILE UPLOAD */}
-              <div className="rounded-2xl border border-base-c bg-slate-50/50 dark:bg-ink-850/40 p-5 space-y-4 flex flex-col justify-between">
+              <div className="rounded-2xl border border-base-c/80 bg-slate-50/50 dark:bg-ink-900/40 p-5 space-y-4 flex flex-col justify-between">
                 <div className="space-y-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="grid h-8 w-8 place-items-center rounded-xl bg-purple-500/15 text-purple-500">
+                    <div className="grid h-8 w-8 place-items-center rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400">
                       <Layers className="h-4 w-4" />
                     </div>
-                    <h4 className="text-sm font-bold text-primary-c">Card 2: Multi-File Drag & Drop</h4>
+                    <h4 className="text-sm font-bold text-primary-c">2. Multi-File Drag &amp; Drop</h4>
                   </div>
 
-                  {/* Dropzone */}
                   <div
                     onDragOver={(e) => { e.preventDefault(); setBulkDragOver(true); }}
                     onDragLeave={() => setBulkDragOver(false)}
@@ -854,8 +861,8 @@ export function FaqManagementView() {
                     className={cx(
                       "grid h-36 place-items-center rounded-2xl border-2 border-dashed p-4 text-center cursor-pointer transition-all",
                       bulkDragOver
-                        ? "border-primary-500 bg-primary-500/10"
-                        : "border-base-c bg-card-c hover:border-primary-500/50"
+                        ? "border-emerald-500 bg-emerald-500/10"
+                        : "border-base-c/80 bg-card-c hover:border-emerald-500/50"
                     )}
                   >
                     <input
@@ -872,15 +879,14 @@ export function FaqManagementView() {
                     />
 
                     <div className="space-y-1">
-                      <Upload className="mx-auto h-7 w-7 text-primary-500" />
+                      <Upload className="mx-auto h-7 w-7 text-emerald-500" />
                       <p className="text-xs font-bold text-primary-c">
-                        Drag & Drop multiple files here, or <span className="text-primary-500 underline">Browse</span>
+                        Drag &amp; Drop multiple files here, or <span className="text-emerald-600 dark:text-emerald-400 underline">Browse</span>
                       </p>
                       <p className="text-[10px] text-muted-c">Supports multiple .CSV files at once</p>
                     </div>
                   </div>
 
-                  {/* File List & Parsed Summary */}
                   {bulkFiles.length > 0 && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-semibold text-primary-c">
@@ -890,15 +896,15 @@ export function FaqManagementView() {
 
                       <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
                         {bulkFiles.map((file, idx) => (
-                          <div key={idx} className="flex items-center justify-between rounded-lg border border-base-c bg-card-c p-2 text-xs">
+                          <div key={idx} className="flex items-center justify-between rounded-lg border border-base-c/80 bg-card-c p-2 text-xs">
                             <div className="flex items-center gap-2 truncate">
-                              <FileText className="h-4 w-4 text-primary-500 shrink-0" />
+                              <FileText className="h-4 w-4 text-indigo-500 shrink-0" />
                               <span className="truncate font-medium text-primary-c">{file.name}</span>
                               <span className="text-[10px] text-muted-c">({(file.size / 1024).toFixed(1)} KB)</span>
                             </div>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleRemoveBulkFile(idx); }}
-                              className="text-muted-c hover:text-danger-500 p-1"
+                              className="text-muted-c hover:text-rose-500 p-1"
                             >
                               <X className="h-3.5 w-3.5" />
                             </button>
@@ -912,7 +918,7 @@ export function FaqManagementView() {
                 <button
                   onClick={handleBulkSubmit}
                   disabled={parsedFaqs.length === 0 || bulkUploading}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-accent px-5 py-3 text-xs font-bold text-white shadow-md hover:opacity-90 transition-all disabled:opacity-40"
+                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-3 text-xs font-bold text-white shadow-soft transition-all disabled:opacity-40"
                 >
                   {bulkUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                   {bulkUploading ? 'Generating Embeddings...' : `Upload & Vector Index ${parsedFaqs.length} FAQs`}
@@ -926,20 +932,20 @@ export function FaqManagementView() {
       {/* SINGLE FAQ DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-sm rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl text-center">
-            <Trash2 className="mx-auto h-10 w-10 text-danger-500" />
+          <div className="w-full max-w-sm rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-4 shadow-2xl text-center">
+            <Trash2 className="mx-auto h-10 w-10 text-rose-500" />
             <h3 className="text-base font-bold text-primary-c">Delete FAQ Item</h3>
             <p className="text-xs text-muted-c">Are you sure you want to delete this FAQ item from the knowledge store?</p>
             <div className="flex justify-center gap-2 pt-2">
               <button
                 onClick={() => setDeleteConfirmId(null)}
-                className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
+                className="rounded-xl border border-base-c/80 px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirmId)}
-                className="rounded-xl bg-danger-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-danger-600"
+                className="rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700"
               >
                 Delete
               </button>
@@ -951,8 +957,8 @@ export function FaqManagementView() {
       {/* BATCH DELETE CONFIRMATION MODAL */}
       {showBatchDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-sm rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl text-center">
-            <div className="grid h-12 w-12 place-items-center rounded-full bg-danger-500/15 text-danger-500 mx-auto">
+          <div className="w-full max-w-sm rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-4 shadow-2xl text-center">
+            <div className="grid h-12 w-12 place-items-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 mx-auto">
               <Trash2 className="h-6 w-6" />
             </div>
             <h3 className="text-base font-bold text-primary-c">Delete Selected FAQs?</h3>
@@ -964,7 +970,7 @@ export function FaqManagementView() {
                 type="button"
                 onClick={() => setShowBatchDeleteModal(false)}
                 disabled={batchDeleting}
-                className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
+                className="rounded-xl border border-base-c/80 px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
               >
                 Cancel
               </button>
@@ -972,7 +978,7 @@ export function FaqManagementView() {
                 type="button"
                 onClick={handleBatchDeleteSubmit}
                 disabled={batchDeleting}
-                className="flex items-center gap-1.5 rounded-xl bg-danger-500 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-danger-600 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 disabled:opacity-50"
               >
                 {batchDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 {batchDeleting ? 'Deleting...' : `Delete ${selectedFaqIds.length} FAQs`}
@@ -985,20 +991,20 @@ export function FaqManagementView() {
       {/* DELETE ALL CONFIRMATION MODAL */}
       {showDeleteAllModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md rounded-2xl border border-base-c bg-card-c p-6 space-y-4 shadow-2xl text-center">
-            <div className="grid h-14 w-14 place-items-center rounded-full bg-danger-500/15 text-danger-500 mx-auto">
+          <div className="w-full max-w-md rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-4 shadow-2xl text-center">
+            <div className="grid h-14 w-14 place-items-center rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 mx-auto">
               <AlertTriangle className="h-7 w-7" />
             </div>
             <h3 className="text-lg font-bold text-primary-c">Delete Entire FAQ Database?</h3>
             <p className="text-xs text-muted-c leading-relaxed">
-              ⚠️ This will permanently remove all <strong className="text-primary-c">{faqs.length} FAQ items</strong> and their vector embeddings from your workspace. This action <strong className="text-danger-500">cannot be undone</strong>.
+              ⚠️ This will permanently remove all <strong className="text-primary-c">{faqs.length} FAQ items</strong> and their vector embeddings from your workspace. This action <strong className="text-rose-500">cannot be undone</strong>.
             </p>
             <div className="flex justify-center gap-3 pt-3">
               <button
                 type="button"
                 onClick={() => setShowDeleteAllModal(false)}
                 disabled={deletingAll}
-                className="rounded-xl border border-base-c px-5 py-2.5 text-xs font-bold text-muted-c hover:text-primary-c"
+                className="rounded-xl border border-base-c/80 px-5 py-2.5 text-xs font-bold text-muted-c hover:text-primary-c"
               >
                 Cancel
               </button>
@@ -1006,7 +1012,7 @@ export function FaqManagementView() {
                 type="button"
                 onClick={handleDeleteAllSubmit}
                 disabled={deletingAll}
-                className="flex items-center gap-2 rounded-xl bg-danger-500 px-5 py-2.5 text-xs font-bold text-white shadow-md hover:bg-danger-600 disabled:opacity-50"
+                className="flex items-center gap-2 rounded-xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-rose-700 disabled:opacity-50"
               >
                 {deletingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 {deletingAll ? 'Deleting All FAQs...' : `Yes, Delete All ${faqs.length} FAQs`}

@@ -4,18 +4,18 @@ import type { Conversation, ConversationStatus, ConversationTag } from './inboxT
 import { Bot, Check, CheckCheck } from 'lucide-react';
 
 const STATUS_STYLES: Record<ConversationStatus, { dot: string; label: string; text: string }> = {
-  online: { dot: 'bg-success-500', label: 'Online', text: 'text-success-600 dark:text-success-400' },
-  typing: { dot: 'bg-warning-500', label: 'typing…', text: 'text-warning-600 dark:text-warning-400' },
-  away: { dot: 'bg-warning-400', label: 'Away', text: 'text-warning-600 dark:text-warning-400' },
+  online: { dot: 'bg-emerald-500', label: 'Online', text: 'text-emerald-600 dark:text-emerald-400' },
+  typing: { dot: 'bg-amber-500', label: 'typing…', text: 'text-amber-600 dark:text-amber-400' },
+  away: { dot: 'bg-amber-400', label: 'Away', text: 'text-amber-600 dark:text-amber-400' },
   offline: { dot: 'bg-slate-300 dark:bg-ink-700', label: 'Offline', text: 'text-muted-c' },
 };
 
 const TAG_STYLES: Record<ConversationTag, string> = {
-  NEW: 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300',
-  HOT: 'bg-danger-100 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300',
-  VIP: 'bg-gradient-accent text-white',
-  RETURNING: 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300',
-  BOT: 'bg-secondary-100 text-secondary-700 dark:bg-secondary-500/15 dark:text-secondary-300',
+  NEW: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30',
+  HOT: 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30',
+  VIP: 'bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/40',
+  RETURNING: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30',
+  BOT: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30',
 };
 
 export function ConversationItem({
@@ -30,45 +30,45 @@ export function ConversationItem({
   const status = STATUS_STYLES[conv.status];
   const senderIcon =
     conv.lastMessageSender === 'me' ? (
-      <CheckCheck className="h-3.5 w-3.5 text-primary-500" />
+      <CheckCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
     ) : conv.lastMessageSender === 'bot' ? (
-      <Bot className="h-3.5 w-3.5 text-secondary-500" />
+      <Bot className="h-3.5 w-3.5 text-purple-500 shrink-0" />
     ) : null;
 
   return (
     <button
       onClick={onClick}
       className={cx(
-        'group relative flex w-full gap-3 rounded-xl2 p-3 text-left transition-all',
+        'group relative flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all duration-150 border',
         active
-          ? 'bg-gradient-accent-soft ring-1 ring-primary-500/20'
-          : 'hover:bg-slate-50 dark:hover:bg-ink-850/60',
+          ? 'bg-emerald-500/10 border-emerald-500/30 shadow-xs dark:bg-emerald-500/15'
+          : 'border-transparent hover:bg-slate-100/70 dark:hover:bg-ink-850/60 hover:border-base-c/50',
       )}
     >
-      {/* Active accent bar */}
+      {/* Active Left Accent Indicator */}
       {active && (
-        <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-gradient-accent" />
+        <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500 shadow-xs" />
       )}
 
-      {/* Avatar with status dot */}
-      <div className="relative shrink-0">
-        <Avatar name={conv.name} size={44} />
+      {/* Uniform Avatar with Status Badge */}
+      <div className="relative shrink-0 w-11 h-11">
+        <Avatar name={conv.name} size={44} className="ring-2 ring-emerald-500/20" />
         <span
           className={cx(
-            'absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-card-c',
+            'absolute -bottom-0.5 -right-0.5 z-10 h-3.5 w-3.5 rounded-full ring-2 ring-white dark:ring-slate-900 shadow-xs',
             status.dot,
             conv.status === 'typing' && 'animate-pulse',
           )}
         />
       </div>
 
-      {/* Body */}
+      {/* Item Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <p
             className={cx(
               'truncate text-sm',
-              conv.unread > 0 ? 'font-bold text-primary-c' : 'font-medium text-primary-c',
+              conv.unread > 0 ? 'font-bold text-primary-c' : 'font-semibold text-primary-c/90',
             )}
           >
             {conv.name}
@@ -76,71 +76,74 @@ export function ConversationItem({
           <span
             className={cx(
               'shrink-0 text-[11px]',
-              conv.unread > 0 ? 'font-semibold text-primary-600 dark:text-primary-400' : 'text-muted-c',
+              conv.unread > 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-muted-c',
             )}
           >
             {conv.timestamp}
           </span>
         </div>
 
-        {/* Last message */}
-        <div className="mt-0.5 flex items-center gap-1.5">
+        {/* Last Message Snippet */}
+        <div className="mt-1 flex items-center gap-1.5 min-w-0">
           {senderIcon}
           <p
             className={cx(
               'truncate text-xs',
-              conv.unread > 0 ? 'font-medium text-secondary-c' : 'text-muted-c',
+              conv.unread > 0 ? 'font-semibold text-primary-c' : 'text-muted-c',
             )}
           >
-            {conv.lastMessage}
+            {conv.lastMessage || 'No recent messages'}
           </p>
         </div>
 
-        {/* Tags + unread + bot badge */}
-          <div className="mt-1.5 flex items-center justify-between gap-2">
+        {/* Badges & Tags Row */}
+        <div className="mt-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 flex-wrap">
             {conv.tags.map((t) => (
               <span
                 key={t}
                 className={cx(
-                  'inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide',
+                  'inline-flex items-center rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase',
                   TAG_STYLES[t],
                 )}
               >
                 {t}
               </span>
             ))}
-            {/* Bot/Human mode badge */}
+
+            {/* Bot/Human Status Pill */}
             <span
               className={cx(
-                'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wide',
+                'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wide border',
                 conv.isBotHandled
-                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'
-                  : 'bg-success-100 text-success-700 dark:bg-success-500/15 dark:text-success-300'
+                  ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
               )}
             >
               {conv.isBotHandled ? <Bot className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
               {conv.isBotHandled ? 'Bot' : 'Human'}
             </span>
+
             {conv.assignedTo && (
-              <span className="text-[10px] text-muted-c">
+              <span className="text-[10px] text-muted-c font-medium truncate max-w-[90px]">
                 · {conv.assignedTo}
               </span>
             )}
             {conv.leadStatus === 'LIMIT_REACHED' && (
-              <span className="inline-flex items-center rounded bg-danger-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-danger-700 dark:bg-danger-500/15 dark:text-danger-300">
+              <span className="inline-flex items-center rounded-md bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 text-[9px] font-bold text-rose-600 dark:text-rose-400">
                 LIMIT REACHED
               </span>
             )}
             {conv.leadStatus === 'UNASSIGNED' && (
-              <span className="inline-flex items-center rounded bg-warning-100 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">
+              <span className="inline-flex items-center rounded-md bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-400">
                 UNASSIGNED
               </span>
             )}
           </div>
 
+          {/* Unread Pill */}
           {conv.unread > 0 && (
-            <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-gradient-accent px-1.5 text-[10px] font-bold text-white">
+            <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white shadow-soft">
               {conv.unread}
             </span>
           )}

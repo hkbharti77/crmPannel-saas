@@ -25,24 +25,49 @@ import {
   RefreshCw,
   MessageSquare,
 } from 'lucide-react';
-
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTheme } from '@/context/ThemeContext';
+
+export type ChatTheme = 'whatsapp-dark' | 'whatsapp-light';
 
 export function ChatRoomView() {
   const { contactId } = useParams<{ contactId: string }>();
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const onBack = () => navigate('/inbox');
   const [messages, setMessages] = useState<Message[]>([]);
   const [contactDetails, setContactDetails] = useState<ContactDTO | null>(null);
   const [draft, setDraft] = useState('');
   const [botMode, setBotMode] = useState(true);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [suggestionIdx, setSuggestionIdx] = useState<number>(0);
+  const [, setSuggestionIdx] = useState<number>(0);
   const [showContext, setShowContext] = useState(true);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sendingMenu, setSendingMenu] = useState(false);
   const [togglingBot, setTogglingBot] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef<boolean>(true);
+  const shouldForceScrollRef = useRef<boolean>(true);
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    isAtBottomRef.current = scrollHeight - scrollTop - clientHeight <= 120;
+  };
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, []);
+
+  const chatTheme: ChatTheme = theme === 'dark' ? 'whatsapp-dark' : 'whatsapp-light';
+
+  const displayName = contactDetails?.name || contactDetails?.phone || (contactId ? `Contact (${contactId.slice(0, 8)})` : 'WhatsApp Chat');
+  const displayPhone = contactDetails?.phone || contactId || '';
 
   const loadData = async () => {
     if (!contactId || !contactId.includes('-')) return;
@@ -96,6 +121,7 @@ export function ChatRoomView() {
   };
 
   useEffect(() => {
+    shouldForceScrollRef.current = true;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contactId]);
@@ -141,7 +167,6 @@ export function ChatRoomView() {
     };
 
     setMessages((prev) => {
-      // Check if message ID or exact text + time already exists (prevent duplicate optimistic rendering)
       if (prev.some((m) => m.id === newMessage.id || (m.text === newMessage.text && Math.abs(Date.now() - (parseInt(m.id.replace('m', '')) || 0)) < 3000))) {
         return prev;
       }
@@ -152,12 +177,18 @@ export function ChatRoomView() {
   useWebSocket(handleWsMessage);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+    if (messages.length > 0) {
+      if (shouldForceScrollRef.current || isAtBottomRef.current) {
+        scrollToBottom();
+        shouldForceScrollRef.current = false;
+      }
+    }
+  }, [messages, scrollToBottom]);
 
   const currentSuggestions = AI_SUGGESTIONS;
 
   const handleSend = async (text: string) => {
+    shouldForceScrollRef.current = true;
     const newMessage: Message = {
       id: `m${Date.now()}`,
       sender: botMode ? 'bot' : 'me',
@@ -181,12 +212,11 @@ export function ChatRoomView() {
     setBotMode(nextMode);
     setShowSuggestions(!nextMode);
 
-    // Insert a system message so the user sees the mode switch in chat
     const systemMsg: Message = {
       id: `sys-${Date.now()}`,
       sender: 'system',
       type: 'system',
-      text: nextMode ? '🤖 Bot resumed — AI is now handling replies' : '👤 Human takeover — you are now replying manually',
+      text: nextMode ? '🤖 AI Bot Resumed — Automatically handling responses' : '👤 Human Takeover — You are replying manually',
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setMessages((prev) => [...prev, systemMsg]);
@@ -213,55 +243,81 @@ export function ChatRoomView() {
     setSuggestionIdx((i: number) => (i + 1) % 3);
   };
 
-  const displayName = contactDetails?.name || contactDetails?.waId || 'WhatsApp Lead';
-  const displayPhone = contactDetails?.phone || contactDetails?.waId || '';
-
   return (
-    <div className="mx-auto flex h-[calc(100vh-4.5rem)] max-w-7xl p-2 lg:p-3 overflow-hidden">
-      <div className="flex w-full gap-0 overflow-hidden rounded-xl2 border border-base-c glass lg:gap-4 lg:border-0 lg:bg-transparent lg:backdrop-blur-none">
-        {/* Main chat */}
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl2 border border-base-c bg-card-c lg:glass">
-          {/* Chat header */}
-          <div className="flex items-center gap-3 border-b border-base-c px-3 py-2.5 lg:px-4">
-            <button
-              onClick={onBack}
-              className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800"
-              aria-label="Back to inbox"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
+    <div className="flex h-[calc(100vh-4rem)] flex-col gap-3 p-2 sm:p-4">
+      <div className="flex flex-1 gap-4 overflow-hidden">
+        {/* Main Chat Area */}
+        <div className={cx(
+          'flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200',
+          chatTheme === 'whatsapp-dark' ? 'border-[#222d34]' : 'border-[#e9edef]'
+        )}>
+          {/* Header */}
+          <div className={cx(
+            'flex items-center justify-between border-b px-3 sm:px-4 py-2.5 transition-colors duration-200',
+            chatTheme === 'whatsapp-dark'
+              ? 'bg-[#202c33] text-[#e9edef] border-[#222d34]'
+              : 'bg-[#f0f2f5] text-[#111b21] border-[#e9edef]'
+          )}>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <button
+                onClick={onBack}
+                className={cx(
+                  'grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors',
+                  chatTheme === 'whatsapp-dark'
+                    ? 'hover:bg-[#374248] text-[#aebac1]'
+                    : 'hover:bg-[#e9edef] text-[#54656f]'
+                )}
+                title="Back to inbox"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </button>
 
-            <div className="relative">
-              <Avatar name={displayName} size={40} />
-              <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-success-500 ring-2 ring-card-c" />
+              <div className="relative shrink-0">
+                <Avatar name={displayName} size="md" className="ring-2 ring-emerald-500/30" />
+                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="truncate text-sm sm:text-base font-semibold">{displayName}</h2>
+                  <span className="hidden sm:inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    Online
+                  </span>
+                </div>
+                <p className={cx(
+                  'truncate text-xs',
+                  chatTheme === 'whatsapp-dark' ? 'text-[#8696a0]' : 'text-[#667781]'
+                )}>
+                  {displayPhone}
+                </p>
+              </div>
             </div>
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-primary-c">{displayName}</p>
-              <p className="truncate text-xs text-success-600 dark:text-success-400">
-                {displayPhone ? `${displayPhone} · WhatsApp Live` : 'WhatsApp Live'}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {/* Bot / Human mode toggle — prominent in the header */}
+            {/* Header Right Action Controls */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={handleToggleBot}
                 disabled={togglingBot}
-                title={botMode ? 'Switch to Human mode (take over)' : 'Switch to Bot mode (let AI handle)'}
                 className={cx(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50',
+                  'flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50',
                   botMode
-                    ? 'bg-secondary-500/15 text-secondary-600 dark:text-secondary-400 ring-1 ring-secondary-500/30 hover:bg-secondary-500/25'
-                    : 'bg-success-500/15 text-success-600 dark:text-success-400 ring-1 ring-success-500/30 hover:bg-success-500/25',
+                    ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-xs'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
                 )}
               >
                 {botMode ? (
-                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5 shrink-0" />} <span className="hidden xs:inline sm:inline">Bot Active</span><span className="xs:hidden sm:hidden">Bot</span></>  
+                  <>
+                    {togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Bot className="h-3.5 w-3.5 shrink-0" />}
+                    <span className="hidden xs:inline sm:inline">AI Bot Active</span>
+                  </>
                 ) : (
-                  <>{togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5 shrink-0" />} <span className="hidden xs:inline sm:inline">Human Mode</span><span className="xs:hidden sm:hidden">Human</span></>  
+                  <>
+                    {togglingBot ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <UserCheck className="h-3.5 w-3.5 shrink-0" />}
+                    <span className="hidden xs:inline sm:inline">Human Mode</span>
+                  </>
                 )}
               </button>
+
               {contactId && contactId.includes('-') && (
                 <button
                   onClick={handleSendMenu}
@@ -277,7 +333,12 @@ export function ChatRoomView() {
               <button
                 onClick={loadData}
                 disabled={loadingHistory}
-                className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800"
+                className={cx(
+                  'grid h-8 w-8 place-items-center rounded-lg transition-colors',
+                  chatTheme === 'whatsapp-dark'
+                    ? 'hover:bg-[#374248] text-[#aebac1]'
+                    : 'hover:bg-[#e9edef] text-[#54656f]'
+                )}
                 title="Refresh messages"
               >
                 <RefreshCw className={cx('h-4 w-4', loadingHistory && 'animate-spin')} />
@@ -289,7 +350,9 @@ export function ChatRoomView() {
                   'grid h-8 w-8 place-items-center rounded-lg transition-colors',
                   showContext
                     ? 'text-primary-600 bg-primary-500/10 dark:text-primary-400'
-                    : 'text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800',
+                    : chatTheme === 'whatsapp-dark'
+                      ? 'hover:bg-[#374248] text-[#aebac1]'
+                      : 'hover:bg-[#e9edef] text-[#54656f]'
                 )}
                 aria-label="Toggle lead panel"
               >
@@ -298,49 +361,65 @@ export function ChatRoomView() {
             </div>
           </div>
 
-          {/* Messages */}
+          {/* Messages Canvas */}
           <div
             ref={scrollRef}
-            className="flex-1 space-y-3 overflow-y-auto p-3 scrollbar-thin lg:p-4"
+            onScroll={handleScroll}
+            className={cx(
+              'flex-1 space-y-3 overflow-y-auto p-3 scrollbar-thin lg:p-4 transition-colors duration-200',
+              chatTheme === 'whatsapp-dark' ? 'bg-[#0b141a]' : 'bg-[#efeae2]'
+            )}
             style={{
-              backgroundImage: 'radial-gradient(circle at 20% 80%, rgba(124,58,237,0.04), transparent 50%), radial-gradient(circle at 80% 20%, rgba(37,99,235,0.04), transparent 50%)',
+              backgroundImage: chatTheme === 'whatsapp-dark'
+                ? 'radial-gradient(circle at 50% 50%, rgba(18, 28, 36, 0.5), transparent)'
+                : 'radial-gradient(circle at 50% 50%, rgba(220, 215, 205, 0.4), transparent)',
             }}
           >
-            {/* Date separator */}
-            <div className="flex justify-center">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-medium text-muted-c dark:bg-ink-800">
-                Today · Real WhatsApp Session
+            {/* Encryption & Session Badge */}
+            <div className="flex justify-center my-1">
+              <span className={cx(
+                'rounded-lg px-3 py-1 text-[11px] font-medium border shadow-xs text-center max-w-md',
+                chatTheme === 'whatsapp-dark'
+                  ? 'bg-[#182229] text-[#8696a0] border-[#222d34]'
+                  : 'bg-[#ffffff] text-[#54656f] border-[#e9edef]'
+              )}>
+                🔒 End-to-End Encrypted · Official WhatsApp API Session
               </span>
             </div>
 
             {messages.length > 0 ? (
               messages.map((msg) => (
-                <MessageBubble key={msg.id} msg={msg} />
+                <MessageBubble key={msg.id} msg={msg} theme={chatTheme} />
               ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center text-muted-c">
-                <MessageSquare className="h-10 w-10 opacity-30 mb-3" />
-                <p className="text-sm font-semibold text-primary-c">No messages yet in this conversation</p>
-                <p className="text-xs mt-1 text-muted-c">Send a message below or click "Send Menu" to trigger the WhatsApp bot menu.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center text-muted-c">
+                <MessageSquare className="h-12 w-12 opacity-30 mb-3 text-emerald-500" />
+                <p className="text-base font-bold">No messages yet in this conversation</p>
+                <p className="text-xs mt-1 max-w-sm opacity-70">Send a message below or click "Send Menu" to initiate automated customer onboarding.</p>
               </div>
             )}
 
-            {/* Typing indicator */}
+            {/* AI Typing Animation Indicator */}
             {botMode && messages.length > 0 && (
-              <div className="flex items-end gap-2">
-                <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-secondary-500/15">
-                  <Bot className="h-3.5 w-3.5 text-secondary-600 dark:text-secondary-400" />
+              <div className="flex items-end gap-2.5">
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-soft">
+                  <Bot className="h-4 w-4" />
                 </div>
-                <div className="flex items-center gap-1 rounded-2xl rounded-tl-sm bg-secondary-500/10 px-4 py-3">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-secondary-400 [animation-delay:0ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-secondary-400 [animation-delay:150ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-secondary-400 [animation-delay:300ms]" />
+                <div className={cx(
+                  'flex items-center gap-1.5 rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs border',
+                  chatTheme === 'whatsapp-dark'
+                    ? 'bg-[#202c33] border-[#222d34]'
+                    : 'bg-[#ffffff] border-[#e9edef]'
+                )}>
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-500 [animation-delay:0ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-500 [animation-delay:150ms]" />
+                  <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-500 [animation-delay:300ms]" />
                 </div>
               </div>
             )}
           </div>
 
-          {/* AI suggestions */}
+          {/* AI Suggestions Floating Bar */}
           {showSuggestions && !botMode && (
             <AiSuggestions
               suggestions={currentSuggestions}
@@ -350,19 +429,20 @@ export function ChatRoomView() {
             />
           )}
 
-          {/* Composer */}
+          {/* Message Composer */}
           <MessageComposer
             onSend={handleSend}
             draft={draft}
             setDraft={setDraft}
             botMode={botMode}
             onToggleBot={handleToggleBot}
+            theme={chatTheme}
           />
         </div>
 
-        {/* Lead context panel */}
+        {/* Lead Context Drawer */}
         {showContext && (
-          <div className="hidden w-72 shrink-0 overflow-hidden rounded-xl2 border border-base-c bg-card-c xl:block lg:glass">
+          <div className="hidden w-80 shrink-0 overflow-hidden rounded-2xl border border-base-c/80 bg-card-c/95 lg:backdrop-blur-md xl:block shadow-md">
             <LeadContextPanel contact={contactDetails} />
           </div>
         )}
