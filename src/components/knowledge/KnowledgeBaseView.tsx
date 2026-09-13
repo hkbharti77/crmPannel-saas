@@ -4,7 +4,7 @@ import {
   Brain, Upload, Trash2, Download, AlertCircle, Loader2,
   FileText, Sparkles, CheckCircle2, File,
   Wand2, Save, RotateCcw, HelpCircle, Clock, User, RefreshCw,
-  Mic, Volume2, ChevronDown, ChevronUp, Radio
+  Mic, Volume2, ChevronDown, ChevronUp, Radio, Check
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { apiFetch } from '@/lib/api';
@@ -73,6 +73,19 @@ const VOICE_PERSONA_TEMPLATES = [
   },
 ];
 
+const VOICE_MODELS = [
+  // Female
+  { id: 'simran',  name: 'Simran',  gender: 'female', style: 'Warm & Professional (Hindi/Eng)' },
+  { id: 'priya',   name: 'Priya',   gender: 'female', style: 'Soft & Friendly (Marathi/Eng)' },
+  { id: 'neha',    name: 'Neha',    gender: 'female', style: 'Clear & Direct (Gujarati/Eng)' },
+  // Male
+  { id: 'rahul',   name: 'Rahul',   gender: 'male',   style: 'Deep & Confident (Hindi/Eng)' },
+  { id: 'rohan',   name: 'Rohan',   gender: 'male',   style: 'Smooth & Neutral (Bengali/Eng)' },
+  { id: 'amit',    name: 'Amit',    gender: 'male',   style: 'Friendly & Casual' },
+] as const;
+
+type VoiceModelId = typeof VOICE_MODELS[number]['id'];
+
 const MAX_PERSONA_CHARS = 4000;
 
 export function KnowledgeBaseView() {
@@ -100,6 +113,8 @@ export function KnowledgeBaseView() {
   const [savedVoiceGreetingText, setSavedVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
   const [savedVoicePersonaPrompt, setSavedVoicePersonaPrompt] = useState('');
+  const [ttsVoiceId, setTtsVoiceId] = useState<VoiceModelId>('simran');
+  const [savedTtsVoiceId, setSavedTtsVoiceId] = useState<VoiceModelId>('simran');
   const [voiceLoading, setVoiceLoading] = useState(true);
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceToast, setVoiceToast] = useState<string | null>(null);
@@ -109,7 +124,8 @@ export function KnowledgeBaseView() {
   const voiceDirty =
     voiceAssistantName !== savedVoiceAssistantName ||
     voiceGreetingText !== savedVoiceGreetingText ||
-    voicePersonaPrompt !== savedVoicePersonaPrompt;
+    voicePersonaPrompt !== savedVoicePersonaPrompt ||
+    ttsVoiceId !== savedTtsVoiceId;
   const voiceCharOverLimit = voicePersonaPrompt.length > MAX_PERSONA_CHARS;
 
   // Status & Notifications
@@ -142,15 +158,18 @@ export function KnowledgeBaseView() {
     const res = await fetchVoiceConfig();
     setVoiceLoading(false);
     if (res.data) {
-      const name = res.data.voiceAssistantName || 'Priya';
-      const greeting = res.data.voiceGreetingText || 'Hello! How can I help you today?';
-      const prompt = res.data.voicePersonaPrompt || '';
+      const name = res.data.assistantName || 'Priya';
+      const greeting = res.data.greetingText || 'Hello! How can I help you today?';
+      const prompt = res.data.personaPrompt || '';
+      const voiceId = (res.data.ttsVoiceId as VoiceModelId) || 'simran';
       setVoiceAssistantName(name);
       setSavedVoiceAssistantName(name);
       setVoiceGreetingText(greeting);
       setSavedVoiceGreetingText(greeting);
       setVoicePersonaPrompt(prompt);
       setSavedVoicePersonaPrompt(prompt);
+      setTtsVoiceId(voiceId);
+      setSavedTtsVoiceId(voiceId);
     } else if (res.error) {
       setVoiceError(res.error);
     }
@@ -219,16 +238,22 @@ export function KnowledgeBaseView() {
     setVoiceToast(null);
 
     const res = await saveVoiceConfig({
-      voiceAssistantName,
-      voiceGreetingText,
-      voicePersonaPrompt,
+      assistantName: voiceAssistantName,
+      greetingText: voiceGreetingText,
+      personaPrompt: voicePersonaPrompt,
+      ttsVoiceId,
     });
 
     setVoiceSaving(false);
     if (!res.error) {
-      setSavedVoiceAssistantName(voiceAssistantName);
-      setSavedVoiceGreetingText(voiceGreetingText);
-      setSavedVoicePersonaPrompt(voicePersonaPrompt);
+      if (res.data) {
+        setSavedVoiceAssistantName(res.data.assistantName);
+        setSavedVoiceGreetingText(res.data.greetingText);
+        setSavedVoicePersonaPrompt(res.data.personaPrompt);
+        const vid = (res.data.ttsVoiceId as VoiceModelId) || 'simran';
+        setTtsVoiceId(vid);
+        setSavedTtsVoiceId(vid);
+      }
       setVoiceToast('Voice Assistant Persona saved successfully!');
       setTimeout(() => setVoiceToast(null), 4000);
     } else {
@@ -354,10 +379,10 @@ export function KnowledgeBaseView() {
 
         <div className="flex items-center gap-2.5">
           <button
-            onClick={() => { loadPersona(); loadDocuments(); }}
+            onClick={() => { loadPersona(); loadVoicePersona(); loadDocuments(); }}
             className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-xs"
           >
-            <RefreshCw className={cx('h-3.5 w-3.5 text-slate-400', (loading || personaLoading) && 'animate-spin')} />
+            <RefreshCw className={cx('h-3.5 w-3.5 text-slate-400', (loading || personaLoading || voiceLoading) && 'animate-spin')} />
             Refresh
           </button>
         </div>
@@ -615,6 +640,71 @@ export function KnowledgeBaseView() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* ─── Voice Model Picker (Male / Female) ─── */}
+                <div className="pt-2">
+                  <div className="mb-2 flex items-center gap-2">
+                    <Volume2 className="h-4 w-4 text-indigo-500" />
+                    <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Voice Model</span>
+                    <span className="ml-auto text-[11px] text-slate-500">Sarvam AI · Multilingual HD</span>
+                  </div>
+
+                  {/* Female voices */}
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-pink-500">
+                    <span>♀</span> Female
+                  </p>
+                  <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                    {VOICE_MODELS.filter(v => v.gender === 'female').map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setTtsVoiceId(v.id as VoiceModelId)}
+                        className={cx(
+                          'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
+                          ttsVoiceId === v.id
+                            ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-400/30 dark:bg-indigo-950/40'
+                            : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50/20 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-indigo-950/10'
+                        )}
+                      >
+                        {ttsVoiceId === v.id && (
+                          <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500">
+                            <Check className="h-2.5 w-2.5 text-white" />
+                          </span>
+                        )}
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{v.name}</span>
+                        <span className="text-[10px] leading-tight text-slate-500">{v.style}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Male voices */}
+                  <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-sky-500">
+                    <span>♂</span> Male
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {VOICE_MODELS.filter(v => v.gender === 'male').map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setTtsVoiceId(v.id as VoiceModelId)}
+                        className={cx(
+                          'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
+                          ttsVoiceId === v.id
+                            ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400/30 dark:bg-sky-950/40'
+                            : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/20 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-sky-950/10'
+                        )}
+                      >
+                        {ttsVoiceId === v.id && (
+                          <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500">
+                            <Check className="h-2.5 w-2.5 text-white" />
+                          </span>
+                        )}
+                        <span className="text-sm font-bold text-slate-900 dark:text-white">{v.name}</span>
+                        <span className="text-[10px] leading-tight text-slate-500">{v.style}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Voice Persona Instructions Textarea */}

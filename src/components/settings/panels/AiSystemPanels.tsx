@@ -15,7 +15,6 @@ import {
 import { PanelHeader, FieldRow, Toggle, SectionCard, StatPill } from './_shared';
 import { apiFetch } from '@/lib/api';
 import { fetchTickets, createTicket, type TicketDTO } from '@/lib/ticketsApi';
-import { fetchVoiceConfig, saveVoiceConfig, resetVoiceConfig, type VoiceAssistantConfigDTO } from '@/lib/flowFieldsApi';
 
 /* ─── Persona Template Presets ─── */
 const PERSONA_TEMPLATES = [
@@ -68,15 +67,13 @@ const VOICE_PERSONA_TEMPLATES = [
 /* ─── Deepgram Aura Voice Models ─── */
 const VOICE_MODELS = [
   // Female
-  { id: 'aura-asteria-en', name: 'Asteria', gender: 'female', style: 'Warm & Professional', sample: 'Hello! How can I help you today?' },
-  { id: 'aura-luna-en',    name: 'Luna',    gender: 'female', style: 'Soft & Friendly',     sample: 'Welcome! I am happy to assist you.' },
-  { id: 'aura-stella-en',  name: 'Stella',  gender: 'female', style: 'Strong & Clear',      sample: 'Good day! What can I do for you?' },
-  { id: 'aura-hera-en',    name: 'Hera',    gender: 'female', style: 'Authoritative',       sample: 'Hello, how may I assist you today?' },
-  { id: 'aura-athena-en',  name: 'Athena',  gender: 'female', style: 'Calm & Academic',     sample: 'Hi there! Feel free to ask me anything.' },
+  { id: 'simran',  name: 'Simran',  gender: 'female', style: 'Warm & Professional (Hindi/Eng)' },
+  { id: 'priya',   name: 'Priya',   gender: 'female', style: 'Soft & Friendly (Marathi/Eng)' },
+  { id: 'neha',    name: 'Neha',    gender: 'female', style: 'Clear & Direct (Gujarati/Eng)' },
   // Male
-  { id: 'aura-arcas-en',   name: 'Arcas',   gender: 'male',   style: 'Deep & Confident',    sample: 'Hello! How can I help you today?' },
-  { id: 'aura-orion-en',   name: 'Orion',   gender: 'male',   style: 'Smooth & Neutral',    sample: 'Good day! What can I do for you?' },
-  { id: 'aura-angus-en',   name: 'Angus',   gender: 'male',   style: 'Friendly & Casual',   sample: 'Hey there! How can I assist you?' },
+  { id: 'rahul',   name: 'Rahul',   gender: 'male',   style: 'Deep & Confident (Hindi/Eng)' },
+  { id: 'rohan',   name: 'Rohan',   gender: 'male',   style: 'Smooth & Neutral (Bengali/Eng)' },
+  { id: 'amit',    name: 'Amit',    gender: 'male',   style: 'Friendly & Casual' },
 ] as const;
 
 type VoiceModelId = typeof VOICE_MODELS[number]['id'];
@@ -117,8 +114,8 @@ export function KnowledgeBasePanel() {
   const [savedVoiceGreetingText, setSavedVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
   const [savedVoicePersonaPrompt, setSavedVoicePersonaPrompt] = useState('');
-  const [ttsVoiceId, setTtsVoiceId] = useState<VoiceModelId>('aura-asteria-en');
-  const [savedTtsVoiceId, setSavedTtsVoiceId] = useState<VoiceModelId>('aura-asteria-en');
+  const [ttsVoiceId, setTtsVoiceId] = useState<VoiceModelId>('simran');
+  const [savedTtsVoiceId, setSavedTtsVoiceId] = useState<VoiceModelId>('simran');
   const [voiceLoading, setVoiceLoading] = useState(true);
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceToast, setVoiceToast] = useState<string | null>(null);
@@ -138,7 +135,7 @@ export function KnowledgeBasePanel() {
   // ── Load Persona on Mount ──
   useEffect(() => {
     loadPersona();
-    loadVoicePersona();
+    loadVoiceConfig();
   }, []);
 
   const loadPersona = async () => {
@@ -153,100 +150,83 @@ export function KnowledgeBasePanel() {
     setPersonaLoading(false);
   };
 
-  const loadVoicePersona = async () => {
-    setVoiceLoading(true);
-    const res = await fetchVoiceConfig();
-    if (res.data) {
-      const name = res.data.voiceAssistantName || 'Priya';
-      const greeting = res.data.voiceGreetingText || 'Hello! How can I help you today?';
-      const prompt = res.data.voicePersonaPrompt || '';
-      const voiceId = (res.data.ttsVoiceId as VoiceModelId) || 'aura-asteria-en';
-      setVoiceAssistantName(name);
-      setSavedVoiceAssistantName(name);
-      setVoiceGreetingText(greeting);
-      setSavedVoiceGreetingText(greeting);
-      setVoicePersonaPrompt(prompt);
-      setSavedVoicePersonaPrompt(prompt);
-      setTtsVoiceId(voiceId);
-      setSavedTtsVoiceId(voiceId);
-    }
-    setVoiceLoading(false);
-  };
-
   const savePersona = async () => {
     if (charOverLimit) return;
     setPersonaSaving(true);
     setPersonaError(null);
-    const res = await apiFetch<{ aiPersonaUpdatedAt?: string }>('/api/v1/settings/ai/persona', {
-      method: 'PUT',
+    setPersonaToast(null);
+
+    const res = await apiFetch<{ aiPersonaUpdatedAt: string }>('/api/v1/settings/ai/persona', {
+      method: 'POST',
       body: JSON.stringify({ aiPersonaPrompt: personaPrompt }),
     });
-    setPersonaSaving(false);
+
     if (res.error) {
-      setPersonaError(res.error);
-      setTimeout(() => setPersonaError(null), 4000);
+      setPersonaError(res.error.message || 'Failed to save persona.');
     } else {
       setSavedPersona(personaPrompt);
-      setPersonaUpdatedAt(res.data?.aiPersonaUpdatedAt || new Date().toISOString());
-      setPersonaToast('AI Persona saved successfully!');
+      if (res.data?.aiPersonaUpdatedAt) {
+        setPersonaUpdatedAt(res.data.aiPersonaUpdatedAt);
+      }
+      setPersonaToast('Persona saved successfully!');
       setTimeout(() => setPersonaToast(null), 3000);
     }
+    setPersonaSaving(false);
+  };
+
+  const loadVoiceConfig = async () => {
+    setVoiceLoading(true);
+    const res = await apiFetch<any>('/api/v1/settings/voice/config');
+    if (res.data) {
+      setVoiceAssistantName(res.data.assistantName || 'Priya');
+      setSavedVoiceAssistantName(res.data.assistantName || 'Priya');
+      setVoiceGreetingText(res.data.greetingText || 'Hello! How can I help you today?');
+      setSavedVoiceGreetingText(res.data.greetingText || 'Hello! How can I help you today?');
+      setVoicePersonaPrompt(res.data.personaPrompt || '');
+      setSavedVoicePersonaPrompt(res.data.personaPrompt || '');
+      setTtsVoiceId(res.data.ttsVoiceId || 'simran');
+      setSavedTtsVoiceId(res.data.ttsVoiceId || 'simran');
+    }
+    setVoiceLoading(false);
   };
 
   const saveVoicePersona = async () => {
     if (voiceCharOverLimit) return;
     setVoiceSaving(true);
     setVoiceError(null);
-    const res = await saveVoiceConfig({
-      voiceAssistantName,
-      voiceGreetingText,
-      voicePersonaPrompt,
-      ttsVoiceId,
+    setVoiceToast(null);
+
+    const payload = {
+      assistantName: voiceAssistantName,
+      greetingText: voiceGreetingText,
+      personaPrompt: voicePersonaPrompt,
+      ttsVoiceId: ttsVoiceId,
+    };
+
+    const res = await apiFetch<any>('/api/v1/settings/voice/config', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
-    setVoiceSaving(false);
+
     if (res.error) {
-      setVoiceError(res.error);
-      setTimeout(() => setVoiceError(null), 4000);
+      setVoiceError(res.error.message || 'Failed to save voice configuration.');
     } else {
-      if (res.data) {
-        setVoiceAssistantName(res.data.voiceAssistantName);
-        setSavedVoiceAssistantName(res.data.voiceAssistantName);
-        setVoiceGreetingText(res.data.voiceGreetingText);
-        setSavedVoiceGreetingText(res.data.voiceGreetingText);
-        setVoicePersonaPrompt(res.data.voicePersonaPrompt);
-        setSavedVoicePersonaPrompt(res.data.voicePersonaPrompt);
-        const vid = (res.data.ttsVoiceId as VoiceModelId) || 'aura-asteria-en';
-        setTtsVoiceId(vid);
-        setSavedTtsVoiceId(vid);
-      }
-      setVoiceToast('Voice Assistant configuration saved successfully!');
+      setSavedVoiceAssistantName(voiceAssistantName);
+      setSavedVoiceGreetingText(voiceGreetingText);
+      setSavedVoicePersonaPrompt(voicePersonaPrompt);
+      setSavedTtsVoiceId(ttsVoiceId);
+      setVoiceToast('Voice configuration saved successfully!');
       setTimeout(() => setVoiceToast(null), 3000);
     }
-  };
-
-  const handleResetVoiceDefaults = async () => {
-    setVoiceSaving(true);
-    setVoiceError(null);
-    const res = await resetVoiceConfig();
     setVoiceSaving(false);
-    if (res.error) {
-      setVoiceError(res.error);
-      setTimeout(() => setVoiceError(null), 4000);
-    } else if (res.data) {
-      setVoiceAssistantName(res.data.voiceAssistantName);
-      setSavedVoiceAssistantName(res.data.voiceAssistantName);
-      setVoiceGreetingText(res.data.voiceGreetingText);
-      setSavedVoiceGreetingText(res.data.voiceGreetingText);
-      setVoicePersonaPrompt(res.data.voicePersonaPrompt);
-      setSavedVoicePersonaPrompt(res.data.voicePersonaPrompt);
-      const vid = (res.data.ttsVoiceId as VoiceModelId) || 'aura-asteria-en';
-      setTtsVoiceId(vid);
-      setSavedTtsVoiceId(vid);
-      setVoiceToast('Voice Assistant reset to system defaults!');
-      setTimeout(() => setVoiceToast(null), 3000);
-    }
   };
 
+  const handleResetVoiceDefaults = () => {
+    setVoiceAssistantName('Priya');
+    setVoiceGreetingText('Hello! How can I help you today?');
+    setVoicePersonaPrompt('');
+    setTtsVoiceId('aura-asteria-en');
+  };
 
   const statusMeta: Record<string, { label: string; variant: 'success' | 'warning' }> = {
     trained: { label: 'Trained', variant: 'success' },
@@ -436,10 +416,10 @@ export function KnowledgeBasePanel() {
                 </label>
                 <div className="flex items-center gap-2 rounded-xl border border-base-c bg-slate-50/60 p-2.5 text-xs text-secondary-c dark:bg-slate-900/50">
                   <Volume2 className="h-4 w-4 text-indigo-500 shrink-0" />
-                  <span className="font-medium">Deepgram Aura (Asteria/Priya) &bull; 24kHz HD</span>
+                  <span className="font-medium">Sarvam AI (Multilingual) &bull; 24kHz HD</span>
                 </div>
                 <p className="mt-1 text-[11px] text-muted-c">
-                  High-speed enterprise STT/TTS with sub-second latency.
+                  High-speed enterprise STT/TTS optimized for Indian languages.
                 </p>
               </div>
             </div>
@@ -449,7 +429,7 @@ export function KnowledgeBasePanel() {
               <div className="mb-2 flex items-center gap-2">
                 <Volume2 className="h-4 w-4 text-indigo-500" />
                 <span className="text-xs font-semibold text-secondary-c">Voice Model</span>
-                <span className="ml-auto text-[11px] text-muted-c">Deepgram Aura · 24 kHz HD</span>
+                <span className="ml-auto text-[11px] text-muted-c">Sarvam AI · HD</span>
               </div>
 
               {/* Female voices */}
@@ -552,9 +532,10 @@ export function KnowledgeBasePanel() {
                       key={t.label}
                       type="button"
                       onClick={() => {
-                        setVoiceAssistantName(t.name);
-                        setVoiceGreetingText(t.greeting);
-                        setVoicePersonaPrompt(t.prompt);
+                        const currentName = voiceAssistantName || t.name;
+                        const customizedPrompt = t.prompt.replace(/Priya|Riya|Ananya|Aryan/gi, currentName);
+                        setVoicePersonaPrompt(customizedPrompt);
+                        setVoiceAssistantName(currentName);
                         setShowVoiceTemplates(false);
                       }}
                       className="rounded-xl border border-base-c bg-card-c p-3 text-left hover:border-indigo-500/40 hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-all"
