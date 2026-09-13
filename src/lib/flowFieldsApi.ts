@@ -48,12 +48,12 @@ export async function saveFlowIntent(flowType: FormFlowType, intentDescription: 
 export interface VoiceAssistantConfigDTO {
   id?: string;
   tenantId?: string;
-  voiceAssistantName: string;
-  voiceGreetingText: string;
-  voicePersonaPrompt: string;
+  assistantName: string;
+  greetingText: string;
+  personaPrompt: string;
   /** Deepgram Aura voice model ID. e.g. "aura-asteria-en" (female) or "aura-arcas-en" (male) */
   ttsVoiceId?: string;
-  isSystemDefault?: boolean;
+  enabled?: boolean;
   version?: number;
 }
 
