@@ -65,6 +65,22 @@ const VOICE_PERSONA_TEMPLATES = [
   },
 ];
 
+/* ─── Deepgram Aura Voice Models ─── */
+const VOICE_MODELS = [
+  // Female
+  { id: 'aura-asteria-en', name: 'Asteria', gender: 'female', style: 'Warm & Professional', sample: 'Hello! How can I help you today?' },
+  { id: 'aura-luna-en',    name: 'Luna',    gender: 'female', style: 'Soft & Friendly',     sample: 'Welcome! I am happy to assist you.' },
+  { id: 'aura-stella-en',  name: 'Stella',  gender: 'female', style: 'Strong & Clear',      sample: 'Good day! What can I do for you?' },
+  { id: 'aura-hera-en',    name: 'Hera',    gender: 'female', style: 'Authoritative',       sample: 'Hello, how may I assist you today?' },
+  { id: 'aura-athena-en',  name: 'Athena',  gender: 'female', style: 'Calm & Academic',     sample: 'Hi there! Feel free to ask me anything.' },
+  // Male
+  { id: 'aura-arcas-en',   name: 'Arcas',   gender: 'male',   style: 'Deep & Confident',    sample: 'Hello! How can I help you today?' },
+  { id: 'aura-orion-en',   name: 'Orion',   gender: 'male',   style: 'Smooth & Neutral',    sample: 'Good day! What can I do for you?' },
+  { id: 'aura-angus-en',   name: 'Angus',   gender: 'male',   style: 'Friendly & Casual',   sample: 'Hey there! How can I assist you?' },
+] as const;
+
+type VoiceModelId = typeof VOICE_MODELS[number]['id'];
+
 const MAX_PERSONA_CHARS = 5000;
 const MAX_GREETING_CHARS = 500;
 const MAX_NAME_CHARS = 50;
@@ -101,6 +117,8 @@ export function KnowledgeBasePanel() {
   const [savedVoiceGreetingText, setSavedVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
   const [savedVoicePersonaPrompt, setSavedVoicePersonaPrompt] = useState('');
+  const [ttsVoiceId, setTtsVoiceId] = useState<VoiceModelId>('aura-asteria-en');
+  const [savedTtsVoiceId, setSavedTtsVoiceId] = useState<VoiceModelId>('aura-asteria-en');
   const [voiceLoading, setVoiceLoading] = useState(true);
   const [voiceSaving, setVoiceSaving] = useState(false);
   const [voiceToast, setVoiceToast] = useState<string | null>(null);
@@ -110,7 +128,8 @@ export function KnowledgeBasePanel() {
   const voiceDirty =
     voiceAssistantName !== savedVoiceAssistantName ||
     voiceGreetingText !== savedVoiceGreetingText ||
-    voicePersonaPrompt !== savedVoicePersonaPrompt;
+    voicePersonaPrompt !== savedVoicePersonaPrompt ||
+    ttsVoiceId !== savedTtsVoiceId;
   const voiceCharOverLimit =
     voicePersonaPrompt.length > MAX_PERSONA_CHARS ||
     voiceGreetingText.length > MAX_GREETING_CHARS ||
@@ -141,12 +160,15 @@ export function KnowledgeBasePanel() {
       const name = res.data.voiceAssistantName || 'Priya';
       const greeting = res.data.voiceGreetingText || 'Hello! How can I help you today?';
       const prompt = res.data.voicePersonaPrompt || '';
+      const voiceId = (res.data.ttsVoiceId as VoiceModelId) || 'aura-asteria-en';
       setVoiceAssistantName(name);
       setSavedVoiceAssistantName(name);
       setVoiceGreetingText(greeting);
       setSavedVoiceGreetingText(greeting);
       setVoicePersonaPrompt(prompt);
       setSavedVoicePersonaPrompt(prompt);
+      setTtsVoiceId(voiceId);
+      setSavedTtsVoiceId(voiceId);
     }
     setVoiceLoading(false);
   };
@@ -179,6 +201,7 @@ export function KnowledgeBasePanel() {
       voiceAssistantName,
       voiceGreetingText,
       voicePersonaPrompt,
+      ttsVoiceId,
     });
     setVoiceSaving(false);
     if (res.error) {
@@ -192,6 +215,9 @@ export function KnowledgeBasePanel() {
         setSavedVoiceGreetingText(res.data.voiceGreetingText);
         setVoicePersonaPrompt(res.data.voicePersonaPrompt);
         setSavedVoicePersonaPrompt(res.data.voicePersonaPrompt);
+        const vid = (res.data.ttsVoiceId as VoiceModelId) || 'aura-asteria-en';
+        setTtsVoiceId(vid);
+        setSavedTtsVoiceId(vid);
       }
       setVoiceToast('Voice Assistant configuration saved successfully!');
       setTimeout(() => setVoiceToast(null), 3000);
@@ -213,6 +239,9 @@ export function KnowledgeBasePanel() {
       setSavedVoiceGreetingText(res.data.voiceGreetingText);
       setVoicePersonaPrompt(res.data.voicePersonaPrompt);
       setSavedVoicePersonaPrompt(res.data.voicePersonaPrompt);
+      const vid = (res.data.ttsVoiceId as VoiceModelId) || 'aura-asteria-en';
+      setTtsVoiceId(vid);
+      setSavedTtsVoiceId(vid);
       setVoiceToast('Voice Assistant reset to system defaults!');
       setTimeout(() => setVoiceToast(null), 3000);
     }
@@ -413,6 +442,95 @@ export function KnowledgeBasePanel() {
                   High-speed enterprise STT/TTS with sub-second latency.
                 </p>
               </div>
+            </div>
+
+            {/* ─── Voice Model Picker (Male / Female) ─── */}
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Volume2 className="h-4 w-4 text-indigo-500" />
+                <span className="text-xs font-semibold text-secondary-c">Voice Model</span>
+                <span className="ml-auto text-[11px] text-muted-c">Deepgram Aura · 24 kHz HD</span>
+              </div>
+
+              {/* Female voices */}
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-pink-500">
+                <span>♀</span> Female
+              </p>
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                {VOICE_MODELS.filter(v => v.gender === 'female').map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setTtsVoiceId(v.id as VoiceModelId)}
+                    className={cx(
+                      'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
+                      ttsVoiceId === v.id
+                        ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-400/30 dark:bg-indigo-950/40'
+                        : 'border-base-c bg-card-c hover:border-indigo-300 hover:bg-indigo-50/20 dark:hover:bg-indigo-950/10'
+                    )}
+                  >
+                    {ttsVoiceId === v.id && (
+                      <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500">
+                        <Check className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    )}
+                    <span className="text-sm font-bold text-primary-c">{v.name}</span>
+                    <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Male voices */}
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-sky-500">
+                <span>♂</span> Male
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {VOICE_MODELS.filter(v => v.gender === 'male').map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setTtsVoiceId(v.id as VoiceModelId)}
+                    className={cx(
+                      'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
+                      ttsVoiceId === v.id
+                        ? 'border-sky-500 bg-sky-50 ring-2 ring-sky-400/30 dark:bg-sky-950/40'
+                        : 'border-base-c bg-card-c hover:border-sky-300 hover:bg-sky-50/20 dark:hover:bg-sky-950/10'
+                    )}
+                  >
+                    {ttsVoiceId === v.id && (
+                      <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500">
+                        <Check className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    )}
+                    <span className="text-sm font-bold text-primary-c">{v.name}</span>
+                    <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Selected voice info */}
+              {(() => {
+                const selected = VOICE_MODELS.find(v => v.id === ttsVoiceId);
+                if (!selected) return null;
+                return (
+                  <div className="mt-2 flex items-center gap-2 rounded-lg border border-base-c bg-slate-50/60 px-3 py-2 text-xs dark:bg-slate-900/40">
+                    <Volume2 className="h-3.5 w-3.5 shrink-0 text-indigo-400" />
+                    <span className="font-medium text-primary-c">{selected.name}</span>
+                    <span
+                      className={cx(
+                        'rounded-full px-2 py-0.5 text-[10px] font-bold',
+                        selected.gender === 'female'
+                          ? 'bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300'
+                          : 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+                      )}
+                    >
+                      {selected.gender === 'female' ? '♀ Female' : '♂ Male'}
+                    </span>
+                    <span className="text-muted-c">{selected.style}</span>
+                    <span className="ml-auto italic text-[11px] text-muted-c">&ldquo;{selected.sample}&rdquo;</span>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Voice Templates */}

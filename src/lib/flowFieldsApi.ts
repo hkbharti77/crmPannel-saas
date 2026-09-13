@@ -51,6 +51,8 @@ export interface VoiceAssistantConfigDTO {
   voiceAssistantName: string;
   voiceGreetingText: string;
   voicePersonaPrompt: string;
+  /** Deepgram Aura voice model ID. e.g. "aura-asteria-en" (female) or "aura-arcas-en" (male) */
+  ttsVoiceId?: string;
   isSystemDefault?: boolean;
   version?: number;
 }
