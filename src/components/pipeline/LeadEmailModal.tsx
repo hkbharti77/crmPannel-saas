@@ -94,6 +94,10 @@ export function LeadEmailModal({ isOpen, onClose }: LeadEmailModalProps) {
     setCustBody('');
   };
 
+  const insertPlaceholderTag = (placeholder: string) => {
+    setCustBody(prev => prev + (prev.endsWith(' ') || prev.length === 0 ? '' : ' ') + placeholder);
+  };
+
   const insertSampleHtml = () => {
     setCustBody(HTML_SAMPLE);
   };
@@ -109,6 +113,12 @@ export function LeadEmailModal({ isOpen, onClose }: LeadEmailModalProps) {
       .replace(/{{contactEmail}}/g, 'alex.morgan@example.com')
       .replace(/{{ownerName}}/g, 'Sales Team');
     
+    // Basic sanitization: strip script tags & inline event handlers (on* attributes)
+    rendered = rendered
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/\s*on\w+\s*=\s*(['"]).*?\1/gi, '')
+      .replace(/\s*on\w+\s*=\s*[^>\s]+/gi, '');
+
     // If text does not contain HTML tags, convert newlines to <br/>
     if (!/<[a-z][\s\S]*>/i.test(rendered)) {
       rendered = rendered.replace(/\n/g, '<br/>');
@@ -220,11 +230,19 @@ export function LeadEmailModal({ isOpen, onClose }: LeadEmailModalProps) {
 
                 <div className="flex flex-wrap gap-2">
                   {PLACEHOLDERS.map(p => (
-                    <span key={p} className="rounded-lg border border-indigo-200 bg-white px-2.5 py-0.5 font-mono text-[11px] font-medium text-indigo-800 shadow-2xs dark:border-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300">{p}</span>
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => insertPlaceholderTag(p)}
+                      title={`Click to insert ${p} into email template body`}
+                      className="rounded-lg border border-indigo-200 bg-white px-2.5 py-1 font-mono text-[11px] font-semibold text-indigo-700 shadow-2xs hover:bg-indigo-600 hover:text-white dark:border-indigo-800 dark:bg-indigo-900/50 dark:text-indigo-300 dark:hover:bg-indigo-600 dark:hover:text-white transition-all cursor-pointer"
+                    >
+                      + {p}
+                    </button>
                   ))}
                 </div>
                 <p className="mt-2.5 text-[11px] text-indigo-900/70 dark:text-indigo-400 leading-relaxed">
-                  Full HTML tags (e.g. <code>&lt;b&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;p&gt;</code>, <code>&lt;div style="..."&gt;</code>, <code>&lt;a href="..."&gt;</code>) and inline CSS are fully supported! Placeholders will be replaced automatically.
+                  Click any placeholder above to insert it into your email body. Full HTML tags (e.g. <code>&lt;b&gt;</code>, <code>&lt;strong&gt;</code>, <code>&lt;p&gt;</code>, <code>&lt;div style="..."&gt;</code>, <code>&lt;a href="..."&gt;</code>) and inline CSS are fully supported!
                 </p>
               </div>
 
