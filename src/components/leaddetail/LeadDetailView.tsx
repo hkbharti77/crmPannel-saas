@@ -187,7 +187,28 @@ export function LeadDetailView() {
       });
     });
     if (phone && phone !== 'N/A') {
-      window.location.href = `tel:${phone}`;
+      window.location.href = `tel:${phone.replace(/\s+/g, '')}`;
+    }
+  };
+
+  const handleChat = () => {
+    navigate('/chatroom', { state: { leadId: activeLeadId, phone: phone !== 'N/A' ? phone : undefined } });
+  };
+
+  const handleWhatsApp = () => {
+    if (phone && phone !== 'N/A') {
+      const cleanPhone = phone.replace(/[^0-9+]/g, '');
+      window.open(`https://wa.me/${cleanPhone}`, '_blank');
+    } else {
+      alert('No valid WhatsApp phone number available for this lead.');
+    }
+  };
+
+  const handleEmail = () => {
+    if (email && email !== 'Not provided' && email !== 'N/A') {
+      window.location.href = `mailto:${email}`;
+    } else {
+      alert('No email address registered for this lead.');
     }
   };
 
@@ -227,14 +248,19 @@ export function LeadDetailView() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-4 p-4 lg:p-6">
-      <LeadDetailHeader
-        lead={lead}
-        onBack={onBack}
-        onCall={handleCall}
-        onBook={() => setShowBookModal(true)}
-        onAssign={() => setShowAssignModal(true)}
-        onStageChange={handleStageChange}
-      />
+      <div className="sticky top-0 z-20 -mx-4 px-4 pt-1 pb-3 backdrop-blur-md bg-slate-50/70 dark:bg-ink-950/70 transition-all">
+        <LeadDetailHeader
+          lead={lead}
+          onBack={onBack}
+          onChat={handleChat}
+          onWhatsApp={handleWhatsApp}
+          onCall={handleCall}
+          onEmail={handleEmail}
+          onBook={() => setShowBookModal(true)}
+          onAssign={() => setShowAssignModal(true)}
+          onStageChange={handleStageChange}
+        />
+      </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
         {/* Left: tabbed content */}
