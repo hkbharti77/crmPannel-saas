@@ -28,6 +28,9 @@ export type Campaign = {
   uniqueClicks?: number;
   bounces?: number;
   unsubscribes?: number;
+  uniqueRepliedCount?: number;
+  totalReplyMessagesCount?: number;
+  replyRatePercentage?: number;
   clickToOpenRate?: number;
   bounceRate?: number;
   unsubscribeRate?: number;

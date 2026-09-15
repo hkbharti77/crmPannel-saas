@@ -28,11 +28,14 @@ export type CustomEmailDTO = {
   uniqueClicks?: number;
   bounces?: number;
   unsubscribes?: number;
+  uniqueRepliedCount?: number;
+  totalReplyMessagesCount?: number;
   openRate?: number;
   clickRate?: number;
   clickToOpenRate?: number;
   bounceRate?: number;
   unsubscribeRate?: number;
+  replyRatePercentage?: number;
 };
 
 export type CustomEmailRequest = {

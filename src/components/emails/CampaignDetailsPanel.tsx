@@ -13,6 +13,7 @@ import {
   Send,
   MailOpen,
   MousePointerClick,
+  MessageSquare,
   AlertTriangle,
   LogOut,
   XCircle
@@ -63,6 +64,9 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
         clickRate: dto.clickRate || 0,
         uniqueOpens: dto.uniqueOpens || 0,
         uniqueClicks: dto.uniqueClicks || 0,
+        uniqueRepliedCount: dto.uniqueRepliedCount || 0,
+        totalReplyMessagesCount: dto.totalReplyMessagesCount || 0,
+        replyRatePercentage: dto.replyRatePercentage || 0,
         bounces: dto.bounces || 0,
         unsubscribes: dto.unsubscribes || 0,
         clickToOpenRate: dto.clickToOpenRate || 0,
@@ -199,7 +203,6 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       </GlassCard>
 
       {/* Campaign Details & Timeline */}
-      {/* Campaign Details & Timeline */}
       <GlassCard className="p-6 sm:p-8">
          <h3 className="text-xs font-black text-primary-c mb-6 uppercase tracking-widest flex items-center gap-2">
            <Clock className="h-4 w-4 text-primary-500" />
@@ -275,11 +278,10 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       )}
 
       {/* Performance Funnel */}
-      {/* Performance Funnel */}
       {(campaign.status === 'sent' || campaign.status === 'completed' || campaign.status === 'sending' || campaign.status === 'paused' || campaign.status === 'cancelled') && (
         <div className="space-y-4">
           <h3 className="text-xs font-black text-primary-c uppercase tracking-widest pl-2">Engagement Funnel</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Delivered */}
             <GlassCard className="p-6 relative overflow-hidden group hover:border-blue-500/30 hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300">
                <div className="absolute -top-4 -right-4 p-8 opacity-5 group-hover:opacity-10 group-hover:rotate-12 transition-all duration-500">
@@ -342,6 +344,29 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
                    <p className="text-5xl font-black text-primary-c tabular-nums tracking-tighter">{campaign.uniqueClicks || 0}</p>
                  </div>
                  <p className="text-xs font-bold text-muted-c mt-3">Recipients who clicked a link</p>
+               </div>
+            </GlassCard>
+
+            {/* Unique Replies */}
+            <GlassCard className="p-6 relative overflow-hidden group hover:border-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300">
+               <div className="absolute -top-4 -right-4 p-8 opacity-5 group-hover:opacity-10 group-hover:rotate-12 transition-all duration-500">
+                 <MessageSquare className="h-32 w-32 text-indigo-500" />
+               </div>
+               <div className="relative z-10">
+                 <div className="flex items-center justify-between mb-6">
+                   <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center ring-1 ring-indigo-500/20">
+                     <MessageSquare className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                   </div>
+                   <div className="flex items-center gap-1.5 bg-indigo-500/10 px-3 py-1.5 rounded-xl border border-indigo-500/20">
+                     <span className="text-sm font-black text-indigo-700 dark:text-indigo-400 tabular-nums">{campaign.replyRatePercentage || 0}%</span>
+                     <span className="text-[10px] font-bold text-indigo-600/70 dark:text-indigo-400/70 uppercase">Rate</span>
+                   </div>
+                 </div>
+                 <p className="text-[10px] font-black text-secondary-c uppercase tracking-widest mb-2">Unique Replies</p>
+                 <div className="flex items-baseline gap-2">
+                   <p className="text-5xl font-black text-primary-c tabular-nums tracking-tighter">{campaign.uniqueRepliedCount || 0}</p>
+                 </div>
+                 <p className="text-xs font-bold text-muted-c mt-3">{campaign.totalReplyMessagesCount || 0} total reply message{campaign.totalReplyMessagesCount === 1 ? '' : 's'} received</p>
                </div>
             </GlassCard>
           </div>
