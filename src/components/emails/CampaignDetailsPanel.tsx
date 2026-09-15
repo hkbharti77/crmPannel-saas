@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { Campaign, CAMPAIGN_STATUS_META } from './emailData';
-import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaignById } from '@/lib/emailsApi';
+import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaignById, fetchCampaignInboundReplies, EmailInboundMessageDTO } from '@/lib/emailsApi';
 import {
   ArrowLeft,
   Clock,
@@ -16,7 +16,10 @@ import {
   MessageSquare,
   AlertTriangle,
   LogOut,
-  XCircle
+  XCircle,
+  Eye,
+  Inbox,
+  X
 } from 'lucide-react';
 
 interface CampaignDetailsPanelProps {
@@ -26,6 +29,8 @@ interface CampaignDetailsPanelProps {
 
 export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPanelProps) {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
+  const [replies, setReplies] = useState<EmailInboundMessageDTO[]>([]);
+  const [selectedReply, setSelectedReply] = useState<EmailInboundMessageDTO | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +41,12 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       if (res.error) throw new Error(res.error);
       const dto = res.data;
       if (!dto) throw new Error('Campaign not found');
+
+      // Load replies
+      const repliesRes = await fetchCampaignInboundReplies(campaignId);
+      if (repliesRes.data) {
+        setReplies(repliesRes.data);
+      }
       
       const formatDate = (dStr?: string) => dStr ? new Date(dStr).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : undefined;
       
@@ -279,7 +290,7 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
 
       {/* Performance Funnel */}
       {(campaign.status === 'sent' || campaign.status === 'completed' || campaign.status === 'sending' || campaign.status === 'paused' || campaign.status === 'cancelled') && (
-        <div className="space-y-4">
+        <div className="space-y-6">
           <h3 className="text-xs font-black text-primary-c uppercase tracking-widest pl-2">Engagement Funnel</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Delivered */}
@@ -405,6 +416,107 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
               </div>
             </GlassCard>
           </div>
+
+          {/* Customer Email Replies List Section */}
+          <GlassCard className="p-6 sm:p-8 mt-8 border-indigo-500/20 ring-1 ring-indigo-500/10">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xs font-black text-primary-c uppercase tracking-widest flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-indigo-500" />
+                Customer Email Replies ({replies.length})
+              </h3>
+            </div>
+
+            {replies.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-indigo-500/5 rounded-2xl border border-dashed border-indigo-500/20">
+                <Inbox className="h-10 w-10 text-indigo-400 mb-3" />
+                <p className="text-sm font-bold text-primary-c">No Email Replies Recorded Yet</p>
+                <p className="text-xs text-secondary-c mt-1 max-w-md">When recipients reply to this campaign, their responses will automatically appear here with full thread details.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-base-c rounded-xl border border-base-c overflow-hidden">
+                {replies.map((reply) => (
+                  <div key={reply.id} className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-white/50 dark:hover:bg-ink-800/50 transition-colors">
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-sm text-primary-c truncate">{reply.fromEmail}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                          {reply.attributionStatus}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-secondary-c truncate">{reply.subject || 'Re: Campaign Reply'}</p>
+                      <p className="text-xs text-muted-c line-clamp-2 italic">"{reply.replySnippet || reply.textBody || 'No text snippet'}"</p>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                      <span className="text-[11px] font-medium text-muted-c">
+                        {new Date(reply.receivedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <button
+                        onClick={() => setSelectedReply(reply)}
+                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> View Message
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Full Reply Viewer Modal */}
+      {selectedReply && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <GlassCard className="relative w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-6 sm:p-8 shadow-2xl border-indigo-500/30">
+            <button
+              onClick={() => setSelectedReply(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-secondary-c hover:bg-base-c transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                <MessageSquare className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div className="min-w-0">
+                <h4 className="text-base font-bold text-primary-c truncate">{selectedReply.fromEmail}</h4>
+                <p className="text-xs text-muted-c">{new Date(selectedReply.receivedAt).toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="border-t border-b border-base-c py-3 mb-4 space-y-1">
+              <p className="text-xs font-bold text-secondary-c"><span className="text-muted-c font-normal">Subject:</span> {selectedReply.subject || 'No Subject'}</p>
+              <p className="text-xs font-bold text-secondary-c"><span className="text-muted-c font-normal">Provider:</span> {selectedReply.provider} ({selectedReply.providerMessageId})</p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div className="bg-slate-50 dark:bg-ink-950 p-4 rounded-xl border border-base-c font-mono text-xs text-primary-c whitespace-pre-wrap leading-relaxed">
+                {selectedReply.textBody || selectedReply.replySnippet || 'No text content.'}
+              </div>
+
+              {selectedReply.htmlBody && (
+                <div className="space-y-2">
+                  <p className="text-xs font-bold text-muted-c uppercase tracking-wider">HTML View</p>
+                  <div 
+                    className="bg-white p-4 rounded-xl border border-base-c text-sm text-slate-800 overflow-x-auto max-h-60"
+                    dangerouslySetInnerHTML={{ __html: selectedReply.htmlBody }}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setSelectedReply(null)}
+                className="px-4 py-2 rounded-xl bg-primary-500 text-white font-bold text-xs hover:bg-primary-600 transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </GlassCard>
         </div>
       )}
     </div>

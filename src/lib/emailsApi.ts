@@ -308,3 +308,31 @@ export async function deleteEmailSuppression(id: string): Promise<{ success: boo
   return { success: true, error: null };
 }
 
+export type EmailInboundMessageDTO = {
+  id: string;
+  campaignId?: string;
+  recipientId?: string;
+  campaignRecipientId?: string;
+  replyToken?: string;
+  provider: string;
+  providerMessageId: string;
+  messageId?: string;
+  inReplyTo?: string;
+  fromEmail: string;
+  toEmail: string;
+  subject?: string;
+  textBody?: string;
+  htmlBody?: string;
+  replySnippet?: string;
+  attributionStatus: string;
+  receivedAt: string;
+  createdAt: string;
+};
+
+export async function fetchCampaignInboundReplies(campaignId: string): Promise<{ data: EmailInboundMessageDTO[] | null; error: string | null }> {
+  const res = await apiFetch<EmailInboundMessageDTO[]>(`/api/v1/custom-emails/${campaignId}/replies`);
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data || [], error: null };
+}
+
+
