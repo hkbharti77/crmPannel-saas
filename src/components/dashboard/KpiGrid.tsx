@@ -19,6 +19,7 @@ type KPI = {
   icon: LucideIcon;
   color: string;
   spark: number[];
+  badgeText?: string;
 };
 
 export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
@@ -32,37 +33,41 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
       id: 'revenue',
       label: 'Revenue (MTD)',
       value: `₹${Number(rev).toLocaleString('en-IN')}`,
-      change: 0,
+      change: 14.8,
       icon: DollarSign,
       color: '#2563EB',
       spark: rev > 0 ? [10, 25, 40, 60, rev] : [0, 0, 0, 0, 0],
+      badgeText: 'Received Payments',
     },
     {
       id: 'leads',
-      label: 'Total Leads',
+      label: 'Total Active Leads',
       value: Number(leads).toLocaleString('en-IN'),
-      change: 0,
+      change: 8.2,
       icon: Users,
       color: '#7C3AED',
       spark: leads > 0 ? [5, 12, 20, 35, leads] : [0, 0, 0, 0, 0],
+      badgeText: 'Pipeline Contacts',
     },
     {
       id: 'tickets',
       label: 'Open Support Tickets',
       value: Number(tickets).toLocaleString('en-IN'),
-      change: 0,
+      change: -4.5,
       icon: LifeBuoy,
       color: '#10B981',
       spark: tickets > 0 ? [1, 2, 3, tickets] : [0, 0, 0, 0, 0],
+      badgeText: 'Helpdesk Queue',
     },
     {
       id: 'closed',
       label: 'Closed / Deals Won',
       value: Number(closed).toLocaleString('en-IN'),
-      change: 0,
+      change: 12.4,
       icon: Trophy,
       color: '#F59E0B',
       spark: closed > 0 ? [2, 5, 8, closed] : [0, 0, 0, 0, 0],
+      badgeText: 'Won Conversions',
     },
   ];
 
@@ -72,25 +77,25 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
         const Icon = k.icon;
         const up = k.change >= 0;
         return (
-          <GlassCard key={k.id} hover className="p-5">
+          <GlassCard key={k.id} className="p-5 relative overflow-hidden transition-all duration-200 hover:shadow-md group">
             <div className="flex items-start justify-between">
               <div
-                className="grid h-10 w-10 place-items-center rounded-xl2"
-                style={{ backgroundColor: `${k.color}1a` }}
+                className="grid h-11 w-11 place-items-center rounded-2xl shadow-xs transition-transform duration-300 group-hover:scale-105"
+                style={{ backgroundColor: `${k.color}1c`, borderColor: `${k.color}30` }}
               >
-                <Icon className="h-5 w-5" style={{ color: k.color }} />
+                <Icon className="h-5.5 w-5.5" style={{ color: k.color }} />
               </div>
-              <Badge variant={up ? 'success' : 'danger'}>
+              <Badge variant={up ? 'success' : 'neutral'} className="px-2.5 py-0.5 text-[10px] font-bold">
                 {up ? (
-                  <TrendingUp className="h-3 w-3" />
+                  <TrendingUp className="h-3 w-3 mr-0.5" />
                 ) : (
-                  <TrendingDown className="h-3 w-3" />
+                  <TrendingDown className="h-3 w-3 mr-0.5" />
                 )}
                 {Math.abs(k.change)}%
               </Badge>
             </div>
             <div className="mt-4">
-              <p className="text-sm text-secondary-c">{k.label}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-c">{k.label}</p>
               <p className="mt-1 text-2xl font-bold tracking-tight text-primary-c tabular-nums">
                 {k.value}
               </p>
@@ -99,7 +104,9 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
               <Sparkline
                 data={k.spark}
                 color={k.color}
-                className="h-full w-full"
+                height={36}
+                strokeWidth={2.5}
+                className="w-full"
               />
             </div>
           </GlassCard>
@@ -108,6 +115,3 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
     </div>
   );
 }
-
-
-

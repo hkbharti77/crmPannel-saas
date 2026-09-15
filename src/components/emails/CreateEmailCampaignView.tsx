@@ -1453,10 +1453,25 @@ export function CreateEmailCampaignView() {
                 </div>
 
                 {/* Email Body Content Window */}
-                <div className="p-5 space-y-4 min-h-[250px] text-xs leading-relaxed text-slate-800 dark:text-slate-200">
-                  <div
-                    dangerouslySetInnerHTML={{ __html: renderedBodyPreview }}
-                    className="prose prose-xs dark:prose-invert max-w-none"
+                  <iframe
+                    srcDoc={`
+                      <!DOCTYPE html>
+                      <html>
+                        <head>
+                          <meta charset="utf-8">
+                          <style>
+                            body { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.6; color: #334155; margin: 0; padding: 8px; }
+                            strong { color: #4f46e5; }
+                          </style>
+                        </head>
+                        <body>
+                          ${renderedBodyPreview}
+                        </body>
+                      </html>
+                    `}
+                    sandbox="allow-same-origin"
+                    className="w-full min-h-[200px] border-none bg-transparent"
+                    title="Email Preview"
                   />
 
                   {/* Render CTA Button if configured */}
@@ -1471,7 +1486,6 @@ export function CreateEmailCampaignView() {
                       </a>
                     </div>
                   )}
-                </div>
 
                 {/* Footer CAN-SPAM Notice Preview */}
                 <div className="bg-slate-50 dark:bg-ink-850 p-3 border-t border-base-c text-[10px] text-muted-c text-center leading-normal">
@@ -1481,6 +1495,7 @@ export function CreateEmailCampaignView() {
                   </p>
                 </div>
               </div>
+
 
               <div className="text-[11px] text-muted-c text-center">
                 💡 Placeholders like <code className="font-bold text-indigo-600">&#123;&#123;Name&#127;&#127;</code> automatically render recipient-specific data at dispatch.

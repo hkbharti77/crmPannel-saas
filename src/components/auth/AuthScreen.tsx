@@ -520,6 +520,24 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
           )}
 
           {/* Status Messages & Interactive Guidance Banners */}
+          {sessionExpiredBanner && (
+            <div className="mb-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 dark:border-amber-400/30 dark:bg-amber-950/30 animate-slide-down shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Session Expired
+                  </h4>
+                  <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
+                    Your login session has expired for security reasons. Please enter your email to log back in to your CRM workspace.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {infoMessage && (
             <div className="mb-4 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3.5 py-2.5 text-xs font-medium text-primary-600 dark:text-primary-400 animate-slide-down">
               {infoMessage}

@@ -12,6 +12,7 @@ import {
   getStoredUser,
   getAuthToken,
   getTenantId,
+  isJwtExpired,
 } from '@/lib/api';
 
 export type AuthUser = {
@@ -88,6 +89,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedTenant = getTenantId();
 
     if (storedToken && storedUser) {
+      if (isJwtExpired(storedToken)) {
+        clearAuthSession();
+        setToken(null);
+        setUser(null);
+        setTenantId(null);
+        setLoading(false);
+        if (window.location.pathname !== '/login') {
+          window.location.replace('/login?reason=expired');
+        }
+        return;
+      }
+
       const isSuper = checkIsSuper(storedUser.role, storedUser.email);
       const updatedUser: AuthUser = { ...storedUser, isSuperAdmin: isSuper };
       setToken(storedToken);
@@ -118,6 +131,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   }, []);
+
+  // Periodic monitor for active token expiration
+  useEffect(() => {
+    if (!token) return;
+
+    const checkExpiration = () => {
+      if (isJwtExpired(token)) {
+        window.dispatchEvent(new CustomEvent('session-expired'));
+      }
+    };
+
+    checkExpiration();
+    const interval = setInterval(checkExpiration, 10000);
+    return () => clearInterval(interval);
+  }, [token]);
 
   // Global event listeners for auto-logout
   useEffect(() => {

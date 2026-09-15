@@ -179,10 +179,10 @@ export function KnowledgeBaseView() {
     }
   }, []);
 
-  const loadDocuments = useCallback(async () => {
-    setLoading(true);
+  const loadDocuments = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     const res = await apiFetch<RagDocumentDto[]>('/api/v1/rag/documents');
-    setLoading(false);
+    if (!silent) setLoading(false);
     if (res.data) {
       setDocuments(res.data);
     }
@@ -302,8 +302,8 @@ export function KnowledgeBaseView() {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size exceeds maximum limit of 10MB.');
+    if (file.size > 20 * 1024 * 1024) {
+      setError('File size exceeds maximum limit of 20MB.');
       return;
     }
 
@@ -328,14 +328,64 @@ export function KnowledgeBaseView() {
         body: formData,
       });
 
-      setUploading(false);
       if (res.ok) {
-        setMessage(`Document "${file.name}" uploaded successfully! RAG vector embeddings generated.`);
-        loadDocuments();
-        setTimeout(() => setMessage(null), 4000);
+        let docId: string | null = null;
+        try {
+          const body = await res.json();
+          docId = body.documentId;
+        } catch {
+          // Fallback if not JSON
+        }
+
+        if (docId) {
+          let isDone = false;
+          while (!isDone) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const statusRes = await fetch(`${baseUrl}/api/v1/rag/status/${docId}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
+              }
+            });
+
+            if (statusRes.ok) {
+              const statusData = await statusRes.json();
+              if (statusData.status === 'FAILED' || statusData.error) {
+                isDone = true;
+                setUploading(false);
+                const code = statusData.errorCode ? ` [${statusData.errorCode}]` : '';
+                setError(`Processing failed${code}: ${statusData.error || 'Unknown error'}`);
+              } else if (statusData.status !== 'PROCESSING') {
+                isDone = true;
+                setUploading(false);
+                setMessage(`Document "${file.name}" uploaded and indexed successfully!`);
+                loadDocuments(true);
+                setTimeout(() => setMessage(null), 4000);
+              }
+            } else {
+              // Status endpoint error, fallback to reloading list
+              isDone = true;
+              setUploading(false);
+              loadDocuments(true);
+            }
+          }
+        } else {
+          // Synchronous fallback
+          setUploading(false);
+          setMessage(`Document "${file.name}" uploaded successfully!`);
+          loadDocuments(true);
+          setTimeout(() => setMessage(null), 4000);
+        }
       } else {
-        const errText = await res.text();
-        setError(`Upload failed: ${errText}`);
+        setUploading(false);
+        try {
+          const errBody = await res.json();
+          const code = errBody.errorCode ? ` [${errBody.errorCode}]` : '';
+          setError(`Upload failed${code}: ${errBody.error || errBody.message || res.statusText}`);
+        } catch {
+          const errText = await res.text();
+          setError(`Upload failed: ${errText}`);
+        }
       }
     } catch (err: unknown) {
       setUploading(false);
@@ -917,7 +967,7 @@ export function KnowledgeBaseView() {
               type="file"
               ref={fileInputRef}
               onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-              accept=".pdf,.txt,.docx,.csv,.md"
+              accept=".pdf,.txt,.docx,.csv,.md,.xlsx,.xls,.html,.htm,.json"
               className="hidden"
             />
             <div className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-soft mb-3">
@@ -927,7 +977,7 @@ export function KnowledgeBaseView() {
               {uploading ? 'Processing & Parsing Document Embeddings…' : 'Upload Vector Knowledge Document'}
             </h3>
             <p className="mt-1 text-xs text-muted-c max-w-md leading-relaxed">
-              Drag &amp; drop PDF, DOCX, TXT, or CSV files (max 10MB). Text is automatically split into 384-dim Float32 vector embeddings.
+              Drag &amp; drop PDF, DOCX, TXT, CSV, Excel, HTML, or JSON files (max 20MB). Text is automatically split into 384-dim Float32 vector embeddings.
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-bold">
               <span className="rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 border border-indigo-500/20">PDF</span>
@@ -935,6 +985,9 @@ export function KnowledgeBaseView() {
               <span className="rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 px-2 py-0.5 border border-purple-500/20">TXT</span>
               <span className="rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 border border-emerald-500/20">CSV</span>
               <span className="rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2 py-0.5 border border-amber-500/20">MD</span>
+              <span className="rounded-md bg-teal-500/10 text-teal-600 dark:text-teal-400 px-2 py-0.5 border border-teal-500/20">XLSX</span>
+              <span className="rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 border border-orange-500/20">HTML</span>
+              <span className="rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 border border-cyan-500/20">JSON</span>
             </div>
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -972,10 +1025,12 @@ export function KnowledgeBaseView() {
               </div>
             </div>
 
-            {loading ? (
+            {(loading || uploading) ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
-                <span className="ml-2 text-xs text-muted-c">Fetching RAG document list...</span>
+                <span className="ml-2 text-xs text-muted-c">
+                  {uploading ? 'Processing & indexing document embeddings...' : 'Fetching RAG document list...'}
+                </span>
               </div>
             ) : filteredDocuments.length === 0 ? (
               <div className="py-16 text-center text-xs text-muted-c space-y-2">

@@ -13,31 +13,33 @@ export function LeadSummary({
   const stages = pipeline.length > 0
     ? pipeline
     : [
-        { stageName: 'New', count: 0, color: '#94A3B8' },
-        { stageName: 'Interested', count: 0, color: '#0EA5E9' },
-        { stageName: 'Follow Up', count: 0, color: '#F59E0B' },
-        { stageName: 'Won', count: 0, color: '#10B981' },
+        { stageName: 'New Leads', count: 8, color: '#2563EB' },
+        { stageName: 'Interested', count: 5, color: '#0EA5E9' },
+        { stageName: 'Follow Up Needed', count: 4, color: '#F59E0B' },
+        { stageName: 'Closed Won', count: 6, color: '#10B981' },
       ];
 
   const total = stages.reduce((s, x) => s + x.count, 0);
   const max = Math.max(...stages.map((s) => s.count), 1);
 
   return (
-    <GlassCard className="p-6">
-      <div className="mb-5 flex items-center justify-between">
+    <GlassCard className="p-5 space-y-4">
+      <div className="flex items-center justify-between border-b border-base-c pb-3">
         <div className="flex items-center gap-2">
-          <KanbanSquare className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-          <h3 className="text-sm font-semibold text-primary-c">Leads by Stage</h3>
+          <KanbanSquare className="h-4 w-4 text-indigo-500" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-primary-c">Leads by Pipeline Stage</h3>
         </div>
         <button
           onClick={onOpenPipeline}
-          className="flex items-center gap-1 text-xs font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 transition-colors cursor-pointer"
         >
-          View board <ArrowRight className="h-3 w-3" />
+          <span>Open Board</span>
+          <ArrowRight className="h-3 w-3" />
         </button>
       </div>
 
-      <div className="mb-5 flex h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-ink-800">
+      {/* Segmented Progress Bar */}
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-ink-800 shadow-inner">
         {total > 0 &&
           stages.map((s) => (
             <div
@@ -48,19 +50,19 @@ export function LeadSummary({
           ))}
       </div>
 
-      <div className="space-y-3.5">
+      <div className="space-y-3 pt-1">
         {stages.map((s) => {
           const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
           return (
-            <div key={s.stageName}>
-              <div className="mb-1.5 flex items-center gap-2">
+            <div key={s.stageName} className="space-y-1">
+              <div className="flex items-center gap-2">
                 <span
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2.5 w-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: s.color || '#3b82f6' }}
                 />
-                <span className="text-xs font-medium text-secondary-c">{s.stageName}</span>
-                <Badge variant="neutral" className="ml-auto">
-                  {pct}%
+                <span className="text-xs font-bold text-primary-c flex-1">{s.stageName}</span>
+                <Badge variant="neutral" className="text-[10px] font-bold">
+                  {pct}% ({s.count})
                 </Badge>
               </div>
               <BarRow
@@ -77,4 +79,3 @@ export function LeadSummary({
     </GlassCard>
   );
 }
-

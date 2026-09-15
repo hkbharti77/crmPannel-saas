@@ -37,6 +37,9 @@ import {
   Sparkles,
   Loader2,
   AlertTriangle,
+  ChevronRight,
+  ShieldCheck,
+  Check,
 } from 'lucide-react';
 
 const CATEGORY_ICONS: Record<string, typeof Cog> = {
@@ -197,98 +200,126 @@ export function TicketsView() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl p-4 lg:p-6">
+    <div className="mx-auto max-w-7xl p-4 lg:p-6 space-y-6">
       {/* Header */}
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-primary-c">Support Tickets</h2>
-          <p className="mt-0.5 text-sm text-secondary-c">Track and resolve issues, feature requests, and inquiries.</p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3.5">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/20 via-purple-500/15 to-violet-600/10 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 shadow-md shadow-indigo-500/5">
+            <TicketIcon className="h-6 w-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-xl font-bold tracking-tight text-primary-c">Support Tickets & Helpdesk</h2>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                Live Desk
+              </span>
+            </div>
+            <p className="mt-0.5 text-xs text-secondary-c">
+              Track customer inquiries, technical issues, feature requests, and resolution workflows.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {loading && <Loader2 className="h-4 w-4 animate-spin text-primary-500" />}
+
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />}
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3 py-2 text-xs font-semibold text-white transition-transform hover:scale-105"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 px-4 py-2.5 text-xs font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           >
-            <Plus className="h-3.5 w-3.5" /> New Ticket
+            <Plus className="h-4 w-4" />
+            <span>New Support Ticket</span>
           </button>
         </div>
       </div>
 
       {apiError && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span>Backend API Error: {apiError}. Make sure you are logged in and backend is running.</span>
+        <div className="flex items-center gap-2.5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-400">
+          <AlertTriangle className="h-4.5 w-4.5 shrink-0 text-rose-600 dark:text-rose-400" />
+          <span>Backend API Alert: {apiError}. Make sure you are authenticated and backend API is reachable.</span>
         </div>
       )}
 
-      {/* Stats strip */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Interactive Status KPI Filter Cards */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {(['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as TicketStatus[]).map((s) => {
           const count = tickets.filter((t) => t.status === s).length;
           const meta = STATUS_META[s];
+          const isSelected = statusFilter === s;
           return (
             <button
               key={s}
               onClick={() => setStatusFilter(statusFilter === s ? 'ALL' : s)}
               className={cx(
-                'flex items-center gap-2.5 rounded-xl2 border p-3 transition-all',
-                statusFilter === s ? 'border-primary-500/40 bg-primary-500/5 shadow-soft' : 'border-base-c bg-card-c hover:border-primary-500/20',
+                'flex items-center gap-3 rounded-2xl border p-3.5 transition-all duration-200 text-left cursor-pointer',
+                isSelected
+                  ? 'border-indigo-500 bg-indigo-500/10 shadow-soft dark:bg-indigo-500/10'
+                  : 'border-base-c bg-card-c hover:border-indigo-500/40 hover:shadow-xs',
               )}
             >
-              <span className={cx('h-2.5 w-2.5 rounded-full', meta.dot)} />
-              <div className="text-left">
-                <p className="text-lg font-bold tabular-nums text-primary-c">{count}</p>
-                <p className="text-[10px] text-muted-c">{meta.label}</p>
+              <span className={cx('h-3 w-3 rounded-full shrink-0', meta.dot)} />
+              <div className="min-w-0 flex-1">
+                <p className="text-xl font-bold tabular-nums text-primary-c leading-tight">{count}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c truncate mt-0.5">{meta.label}</p>
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Main layout */}
-      <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
-        {/* Left: ticket list */}
-        <div className="space-y-3">
-          {/* Search + filters */}
-          <div className="space-y-2">
+      {/* Main Split Grid Layout */}
+      <div className="grid gap-5 lg:grid-cols-[380px_1fr] xl:grid-cols-[420px_1fr]">
+        {/* Left Column: Ticket List */}
+        <div className="space-y-3.5">
+          {/* Search + Priority filter */}
+          <div className="space-y-2.5 rounded-2xl border border-base-c bg-card-c p-3.5 shadow-xs">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search tickets…"
-                className="form-input pl-9"
+                placeholder="Search tickets by subject, ID or requester…"
+                className="form-input pl-9 pr-8 text-xs h-9"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-1.5">
+
+            <div className="flex items-center gap-2">
               <Filter className="h-3.5 w-3.5 shrink-0 text-muted-c" />
               <select
                 value={priorityFilter}
                 onChange={(e) => setPriorityFilter(e.target.value as FilterPriority)}
-                className="flex-1 rounded-lg border border-base-c bg-card-c px-2 py-1.5 text-xs text-secondary-c focus:border-primary-500/40 focus:outline-none"
+                className="flex-1 rounded-xl border border-base-c bg-card-c px-3 py-1.5 text-xs text-secondary-c focus:border-indigo-500 focus:outline-none"
               >
-                <option value="ALL">All Priorities</option>
-                <option value="URGENT">Urgent</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
+                <option value="ALL">All Priorities ({tickets.length})</option>
+                <option value="URGENT">Urgent Priority</option>
+                <option value="HIGH">High Priority</option>
+                <option value="MEDIUM">Medium Priority</option>
+                <option value="LOW">Low Priority</option>
               </select>
             </div>
           </div>
 
-          {/* Ticket list */}
-          <div className="space-y-2 lg:max-h-[calc(100vh-320px)] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
+          {/* Ticket List Items */}
+          <div className="space-y-2.5 lg:max-h-[calc(100vh-380px)] lg:overflow-y-auto lg:pr-1 scrollbar-thin">
             {loading && tickets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-                <p className="mt-3 text-xs text-muted-c">Loading tickets from backend…</p>
-              </div>
+              <GlassCard className="flex flex-col items-center justify-center py-12 text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mb-2" />
+                <p className="text-xs text-muted-c font-medium">Fetching support tickets from server...</p>
+              </GlassCard>
             ) : filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <Inbox className="h-10 w-10 text-muted-c/30" />
-                <p className="mt-3 text-sm text-muted-c">No tickets found</p>
-              </div>
+              <GlassCard className="flex flex-col items-center justify-center py-12 text-center">
+                <Inbox className="h-10 w-10 text-muted-c/40 mb-2" />
+                <p className="text-sm font-bold text-primary-c">No support tickets found</p>
+                <p className="text-xs text-muted-c mt-0.5">Clear search keyword or filter options.</p>
+              </GlassCard>
             ) : (
               filtered.map((t) => (
                 <TicketListItem
@@ -302,26 +333,31 @@ export function TicketsView() {
           </div>
         </div>
 
-        {/* Right: ticket detail */}
-        {selected ? (
-          <TicketDetail
-            ticket={selected}
-            onAddComment={(text) => handleAddComment(selected.id, text)}
-            onStatusChange={(status) => handleStatusChange(selected.id, status)}
-          />
-        ) : (
-          <GlassCard className="grid place-items-center py-20">
-            <div className="text-center">
-              <TicketIcon className="mx-auto h-12 w-12 text-muted-c/30" />
-              <p className="mt-3 text-sm text-muted-c">
-                {tickets.length === 0 ? 'No tickets available. Click "+ New Ticket" to create one.' : 'Select a ticket to view details'}
+        {/* Right Column: Selected Ticket Detail & Chat Thread */}
+        <div className="min-w-0">
+          {selected ? (
+            <TicketDetail
+              ticket={selected}
+              onAddComment={(text) => handleAddComment(selected.id, text)}
+              onStatusChange={(status) => handleStatusChange(selected.id, status)}
+            />
+          ) : (
+            <GlassCard className="flex flex-col items-center justify-center py-24 text-center min-h-[450px]">
+              <div className="h-16 w-16 rounded-3xl bg-slate-100 dark:bg-ink-850 flex items-center justify-center mb-4">
+                <TicketIcon className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+              </div>
+              <h3 className="text-base font-bold text-primary-c">No Ticket Selected</h3>
+              <p className="mt-1.5 text-xs text-secondary-c max-w-xs">
+                {tickets.length === 0
+                  ? 'No tickets available. Click "+ New Support Ticket" above to submit one.'
+                  : 'Select a ticket from the list on the left to view customer conversation & update ticket status.'}
               </p>
-            </div>
-          </GlassCard>
-        )}
+            </GlassCard>
+          )}
+        </div>
       </div>
 
-      {/* Create modal */}
+      {/* Create Ticket Modal */}
       {showCreate && (
         <CreateTicketModal onClose={() => setShowCreate(false)} onCreate={handleCreate} />
       )}
@@ -329,7 +365,7 @@ export function TicketsView() {
   );
 }
 
-/* ─── Ticket List Item ─── */
+/* ─── Ticket List Item Component ─── */
 function TicketListItem({ ticket, selected, onClick }: { ticket: Ticket; selected: boolean; onClick: () => void }) {
   const statusMeta = STATUS_META[ticket.status] || STATUS_META.OPEN;
   const priorityMeta = PRIORITY_META[ticket.priority] || PRIORITY_META.MEDIUM;
@@ -340,43 +376,53 @@ function TicketListItem({ ticket, selected, onClick }: { ticket: Ticket; selecte
     <button
       onClick={onClick}
       className={cx(
-        'w-full rounded-xl2 border-l-4 border p-3 text-left transition-all',
-        priorityMeta.ring,
+        'w-full rounded-2xl border p-3.5 text-left transition-all relative overflow-hidden group cursor-pointer',
         selected
-          ? 'border-primary-500/30 bg-primary-500/5 shadow-soft'
-          : 'border-base-c bg-card-c hover:border-primary-500/20 hover:shadow-soft',
+          ? 'border-indigo-500 bg-indigo-500/10 shadow-soft dark:bg-indigo-500/10'
+          : 'border-base-c bg-card-c hover:border-indigo-500/40 hover:shadow-xs',
       )}
     >
+      {selected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500" />}
+
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
           <CatIcon className="h-3.5 w-3.5 shrink-0 text-muted-c" />
-          <span className="truncate text-[10px] font-bold text-muted-c">{ticket.id.length > 8 ? `${ticket.id.slice(0, 8)}…` : ticket.id}</span>
+          <span className="truncate text-[10px] font-mono font-bold text-muted-c">
+            {ticket.id.length > 8 ? `${ticket.id.slice(0, 8)}…` : ticket.id}
+          </span>
         </div>
-        <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold', statusMeta.color)}>
+        <span className={cx('shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold uppercase', statusMeta.color)}>
           {statusMeta.label}
         </span>
       </div>
-      <p className="mt-1.5 line-clamp-2 text-sm font-semibold text-primary-c">{ticket.subject}</p>
-      <div className="mt-2 flex items-center justify-between">
+
+      <p className="mt-1.5 line-clamp-2 text-xs font-bold text-primary-c group-hover:text-indigo-600 transition-colors">
+        {ticket.subject}
+      </p>
+
+      <div className="mt-2.5 flex items-center justify-between">
         <div className="flex items-center gap-1.5 min-w-0">
           <Avatar name={ticket.requester} size={18} />
-          <span className="truncate text-[10px] text-secondary-c">{ticket.requester}</span>
+          <span className="truncate text-[11px] text-secondary-c font-medium">{ticket.requester}</span>
         </div>
-        <span className={cx('text-[10px] font-bold', priorityMeta.color)}>{priorityMeta.label}</span>
-      </div>
-      <div className="mt-1.5 flex items-center gap-2 text-[10px] text-muted-c">
-        <span className="flex items-center gap-1">
-          <MessageCircle className="h-2.5 w-2.5" /> {ticket.comments.length}
+        <span className={cx('text-[10px] font-bold uppercase tracking-wider', priorityMeta.color)}>
+          {priorityMeta.label}
         </span>
-        <span className="flex items-center gap-1">
-          <Clock className="h-2.5 w-2.5" /> {ticket.updatedAt}
+      </div>
+
+      <div className="mt-2 flex items-center justify-between border-t border-base-c pt-2 text-[10px] text-muted-c">
+        <span className="flex items-center gap-1 font-medium">
+          <MessageCircle className="h-3 w-3 text-muted-c" /> {ticket.comments.length} replies
+        </span>
+        <span className="flex items-center gap-1 font-medium">
+          <Clock className="h-3 w-3 text-muted-c" /> {ticket.updatedAt}
         </span>
       </div>
     </button>
   );
 }
 
-/* ─── Ticket Detail ─── */
+/* ─── Ticket Detail Component ─── */
 function TicketDetail({
   ticket,
   onAddComment,
@@ -400,46 +446,46 @@ function TicketDetail({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <GlassCard className="p-4 lg:p-5">
-        <div className="flex items-start justify-between gap-3">
+      {/* Header Info Card */}
+      <GlassCard className="p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3 border-b border-base-c pb-4">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <CatIcon className="h-4 w-4 text-muted-c" />
-              <span className="text-xs font-bold text-muted-c">{ticket.id.length > 12 ? `${ticket.id.slice(0, 12)}…` : ticket.id}</span>
-              <span className={cx('rounded-full px-2 py-0.5 text-[10px] font-bold', statusMeta.color)}>
+              <span className="text-xs font-mono font-bold text-muted-c">{ticket.id}</span>
+              <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase', statusMeta.color)}>
                 {statusMeta.label}
               </span>
-              <span className={cx('text-[11px] font-bold', priorityMeta.color)}>
+              <span className={cx('text-[10px] font-bold uppercase tracking-wider', priorityMeta.color)}>
                 {priorityMeta.label} PRIORITY
               </span>
             </div>
             <h3 className="mt-2 text-base font-bold text-primary-c">{ticket.subject}</h3>
-            <p className="mt-1.5 text-sm leading-relaxed text-secondary-c">{ticket.description}</p>
+            <p className="mt-1.5 text-xs leading-relaxed text-secondary-c">{ticket.description}</p>
           </div>
         </div>
 
-        {/* Meta grid */}
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* Metadata Grid */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <MetaItem icon={UserCheck} label="Requester" value={ticket.requester} />
-          <MetaItem icon={UserCheck} label="Assigned" value={ticket.assignedTo} />
-          <MetaItem icon={Clock} label="Created" value={ticket.createdAt} />
+          <MetaItem icon={UserCheck} label="Assigned Agent" value={ticket.assignedTo} />
+          <MetaItem icon={Clock} label="Created Date" value={ticket.createdAt} />
           <MetaItem icon={AlertCircle} label="Category" value={catMeta.label} />
         </div>
 
-        {/* Status changer */}
-        <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs text-muted-c">Update status:</span>
+        {/* Status Quick Changer */}
+        <div className="flex items-center gap-2.5 pt-2 border-t border-base-c flex-wrap">
+          <span className="text-xs font-bold text-muted-c">Update Status:</span>
           <div className="flex flex-wrap gap-1.5">
             {(Object.keys(STATUS_META) as TicketStatus[]).map((s) => (
               <button
                 key={s}
                 onClick={() => onStatusChange(s)}
                 className={cx(
-                  'flex items-center gap-1 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all',
+                  'flex items-center gap-1.5 rounded-xl px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer',
                   ticket.status === s
-                    ? STATUS_META[s].color + ' ring-2 ring-offset-1 ring-primary-500/20'
-                    : 'border border-base-c text-muted-c hover:text-primary-c',
+                    ? STATUS_META[s].color + ' ring-2 ring-indigo-500/30 shadow-xs'
+                    : 'border border-base-c text-muted-c hover:text-primary-c bg-card-c',
                 )}
               >
                 <span className={cx('h-1.5 w-1.5 rounded-full', STATUS_META[s].dot)} />
@@ -450,32 +496,33 @@ function TicketDetail({
         </div>
       </GlassCard>
 
-      {/* Conversation */}
-      <GlassCard className="p-4 lg:p-5">
-        <h4 className="mb-4 text-sm font-semibold text-primary-c">
-          Conversation <span className="text-muted-c">({ticket.comments.length})</span>
+      {/* Conversation Thread */}
+      <GlassCard className="p-5 space-y-4">
+        <h4 className="text-xs font-bold uppercase tracking-wider text-primary-c flex items-center justify-between">
+          <span>Conversation Thread ({ticket.comments.length})</span>
+          <span className="text-[10px] font-medium text-muted-c">Sorted chronologically</span>
         </h4>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[380px] overflow-y-auto scrollbar-thin pr-1">
           {ticket.comments.map((c) => (
             <div key={c.id} className={cx('flex gap-3', c.isAgent && 'flex-row-reverse')}>
-              <Avatar name={c.author} size={32} className={c.isAgent ? 'bg-gradient-accent' : ''} />
-              <div className={cx('max-w-[80%]')}>
-                <div className={cx('flex items-center gap-2', c.isAgent && 'flex-row-reverse')}>
-                  <span className="text-xs font-semibold text-primary-c">{c.author}</span>
+              <Avatar name={c.author} size={32} className={c.isAgent ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold' : ''} />
+              <div className={cx('max-w-[82%]')}>
+                <div className={cx('flex items-center gap-2 mb-1', c.isAgent && 'flex-row-reverse')}>
+                  <span className="text-xs font-bold text-primary-c">{c.author}</span>
                   {c.isAgent && (
-                    <span className="rounded bg-secondary-500/15 px-1.5 py-0.5 text-[9px] font-bold text-secondary-600 dark:text-secondary-400">
-                      AGENT
+                    <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[9px] font-bold text-indigo-600 dark:text-indigo-400">
+                      SUPPORT AGENT
                     </span>
                   )}
                   <span className="text-[10px] text-muted-c">{c.time}</span>
                 </div>
                 <div
                   className={cx(
-                    'mt-1.5 rounded-xl2 px-3.5 py-2.5 text-sm leading-relaxed',
+                    'rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-xs',
                     c.isAgent
-                      ? 'bg-gradient-accent-soft text-primary-c'
-                      : 'bg-slate-50 text-secondary-c dark:bg-ink-850/60',
+                      ? 'bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 text-primary-c'
+                      : 'bg-slate-100 dark:bg-ink-850 text-primary-c',
                   )}
                 >
                   {c.text}
@@ -485,40 +532,45 @@ function TicketDetail({
           ))}
         </div>
 
-        {/* Reply box */}
+        {/* Reply Box */}
         {ticket.status !== 'CLOSED' ? (
-          <div className="mt-4 rounded-xl2 border border-base-c bg-card-c p-3">
+          <div className="rounded-2xl border border-base-c bg-card-c p-3.5 space-y-2.5 shadow-xs">
             <textarea
               value={reply}
               onChange={(e) => setReply(e.target.value)}
-              placeholder="Type a reply…"
-              rows={2}
-              className="w-full resize-none bg-transparent text-sm text-primary-c placeholder:text-muted-c focus:outline-none"
+              placeholder="Type a reply to customer... (Press Ctrl+Enter to send)"
+              rows={3}
+              className="w-full resize-none bg-transparent text-xs text-primary-c placeholder:text-muted-c focus:outline-none"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSend();
               }}
             />
-            <div className="mt-2 flex items-center justify-between">
-              <button className="flex items-center gap-1 text-xs text-secondary-600 hover:text-secondary-700 dark:text-secondary-400">
-                <Sparkles className="h-3.5 w-3.5" /> AI Suggest
+            <div className="flex items-center justify-between pt-2 border-t border-base-c">
+              <button
+                type="button"
+                onClick={() => setReply((prev) => prev + (prev ? ' ' : '') + 'Thank you for contacting support! Our engineering team is currently looking into this issue.')}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Quick Template Reply
               </button>
+
               <button
                 onClick={handleSend}
                 disabled={!reply.trim()}
                 className={cx(
-                  'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                  'inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer',
                   reply.trim()
-                    ? 'bg-gradient-accent text-white hover:scale-105'
-                    : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-soft hover:scale-[1.02]'
+                    : 'bg-slate-200 text-slate-400 dark:bg-ink-800 dark:text-slate-600 cursor-not-allowed',
                 )}
               >
-                <Send className="h-3 w-3" /> Send
+                <Send className="h-3.5 w-3.5" /> Send Reply
               </button>
             </div>
           </div>
         ) : (
-          <div className="mt-4 flex items-center justify-center gap-2 rounded-xl2 bg-slate-50 py-3 text-xs text-muted-c dark:bg-ink-850/60">
-            <CheckCircle2 className="h-4 w-4 text-success-500" /> This ticket is closed
+          <div className="flex items-center justify-center gap-2 rounded-2xl bg-slate-100 dark:bg-ink-850 py-3.5 text-xs font-bold text-muted-c">
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Ticket is CLOSED. Re-open ticket status above to post replies.
           </div>
         )}
       </GlassCard>
@@ -528,16 +580,16 @@ function TicketDetail({
 
 function MetaItem({ icon: Icon, label, value }: { icon: typeof Clock; label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-slate-50 p-2.5 dark:bg-ink-850/60">
-      <p className="flex items-center gap-1 text-[10px] text-muted-c">
+    <div className="rounded-xl bg-slate-100/70 dark:bg-ink-850/60 p-2.5">
+      <p className="flex items-center gap-1.5 text-[10px] font-bold text-muted-c uppercase tracking-wider">
         <Icon className="h-3 w-3" /> {label}
       </p>
-      <p className="mt-0.5 truncate text-xs font-medium text-primary-c">{value}</p>
+      <p className="mt-1 truncate text-xs font-bold text-primary-c">{value}</p>
     </div>
   );
 }
 
-/* ─── Create Ticket Modal ─── */
+/* ─── Create Ticket Modal Component ─── */
 function CreateTicketModal({
   onClose,
   onCreate,
@@ -567,74 +619,75 @@ function CreateTicketModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center p-0 sm:p-4" onClick={onClose}>
       <div
-        className="w-full max-w-lg rounded-t-xl2 border border-base-c bg-card-c p-5 shadow-soft-lg animate-slide-up sm:rounded-xl2"
+        className="w-full max-w-lg rounded-t-3xl border border-base-c bg-card-c p-6 shadow-2xl animate-slide-up sm:rounded-3xl space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-xl2 bg-gradient-accent">
-              <TicketIcon className="h-4.5 w-4.5 text-white" />
+        <div className="flex items-center justify-between border-b border-base-c pb-4">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-soft">
+              <TicketIcon className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-primary-c">New Support Ticket</h3>
-              <p className="text-xs text-muted-c">Report an issue or request a feature</p>
+              <h3 className="text-base font-bold text-primary-c">Create New Support Ticket</h3>
+              <p className="text-xs text-muted-c">Submit a customer inquiry, bug report or technical request.</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800"
+            className="grid h-8 w-8 place-items-center rounded-xl text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Form */}
-        <div className="space-y-3.5">
+        {/* Form Fields */}
+        <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-secondary-c">Subject <span className="text-danger-500">*</span></label>
+            <label className="mb-1 block text-xs font-bold text-secondary-c">Subject / Summary <span className="text-rose-500">*</span></label>
             <input
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Brief summary of the issue"
-              className="form-input"
+              placeholder="Brief summary of the issue or request"
+              className="form-input text-xs"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-secondary-c">Description <span className="text-danger-500">*</span></label>
+            <label className="mb-1 block text-xs font-bold text-secondary-c">Detailed Description <span className="text-rose-500">*</span></label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder="Describe the issue in detail…"
-              className="form-input resize-none"
+              placeholder="Provide complete steps, error messages or requirements..."
+              className="form-input text-xs resize-none"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-secondary-c">Category</label>
-              <select value={category} onChange={(e) => setCategory(e.target.value as TicketCategory)} className="form-input">
+              <label className="mb-1 block text-xs font-bold text-secondary-c">Category</label>
+              <select value={category} onChange={(e) => setCategory(e.target.value as TicketCategory)} className="form-input text-xs">
                 {(Object.keys(CATEGORY_META) as TicketCategory[]).map((c) => (
                   <option key={c} value={c}>{CATEGORY_META[c].label}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-secondary-c">Priority</label>
-              <div className="flex gap-1.5">
+              <label className="mb-1 block text-xs font-bold text-secondary-c">Priority Level</label>
+              <div className="flex gap-1">
                 {(['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as TicketPriority[]).map((p) => (
                   <button
                     key={p}
+                    type="button"
                     onClick={() => setPriority(p)}
                     className={cx(
-                      'flex-1 rounded-lg py-1.5 text-[10px] font-bold transition-all',
+                      'flex-1 rounded-xl py-2 text-[9px] font-bold uppercase transition-all cursor-pointer',
                       priority === p
-                        ? 'bg-gradient-accent text-white shadow-soft'
-                        : 'border border-base-c text-muted-c hover:text-primary-c',
+                        ? 'bg-indigo-600 text-white shadow-soft'
+                        : 'bg-slate-100 dark:bg-ink-800 text-muted-c hover:text-primary-c',
                     )}
                   >
                     {p}
@@ -646,45 +699,47 @@ function CreateTicketModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-secondary-c">Your Name <span className="text-danger-500">*</span></label>
+              <label className="mb-1 block text-xs font-bold text-secondary-c">Requester Name <span className="text-rose-500">*</span></label>
               <input
                 value={requester}
                 onChange={(e) => setRequester(e.target.value)}
-                placeholder="Your name"
-                className="form-input"
+                placeholder="Full Name"
+                className="form-input text-xs"
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-secondary-c">Email</label>
+              <label className="mb-1 block text-xs font-bold text-secondary-c">Requester Email</label>
               <input
                 value={requesterEmail}
                 onChange={(e) => setRequesterEmail(e.target.value)}
-                placeholder="you@company.com"
-                className="form-input"
+                placeholder="email@domain.com"
+                className="form-input text-xs"
               />
             </div>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-5 flex items-center justify-end gap-2">
+        {/* Modal Actions */}
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-base-c">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg border border-base-c px-4 py-2 text-xs font-medium text-secondary-c transition-colors hover:text-primary-c"
+            className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-secondary-c transition-colors hover:text-primary-c"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={!canSubmit}
             className={cx(
-              'flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all',
+              'inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all cursor-pointer',
               canSubmit
-                ? 'bg-gradient-accent text-white hover:scale-105'
-                : 'bg-slate-300 text-slate-500 cursor-not-allowed dark:bg-ink-700',
+                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-soft hover:scale-[1.02]'
+                : 'bg-slate-200 text-slate-400 dark:bg-ink-800 dark:text-slate-600 cursor-not-allowed',
             )}
           >
-            <Plus className="h-3.5 w-3.5" /> Create Ticket
+            <Plus className="h-4 w-4" /> Create Ticket
           </button>
         </div>
       </div>

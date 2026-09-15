@@ -58,6 +58,7 @@ export const CAMPAIGN_STATUS_META: Record<Campaign['status'], { label: string; c
   paused: { label: 'Paused', color: 'bg-slate-100 text-slate-700 dark:bg-slate-500/15 dark:text-slate-300', dot: 'bg-slate-500' },
   cancelled: { label: 'Cancelled', color: 'bg-danger-100 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300', dot: 'bg-danger-500' },
   failed: { label: 'Failed', color: 'bg-danger-100 text-danger-700 dark:bg-danger-500/15 dark:text-danger-300', dot: 'bg-danger-500' },
+  unknown: { label: 'Unknown', color: 'bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-500', dot: 'bg-slate-400' },
 };
 
 export const TEMPLATE_CATEGORY_META: Record<EmailTemplate['category'], { label: string; color: string }> = {

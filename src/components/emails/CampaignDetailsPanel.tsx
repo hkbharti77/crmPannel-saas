@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { Campaign, CAMPAIGN_STATUS_META } from './emailData';
-import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaigns } from '@/lib/emailsApi';
+import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaignById } from '@/lib/emailsApi';
 import {
   ArrowLeft,
   Clock,
@@ -31,9 +31,9 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
 
   const loadCampaign = async () => {
     try {
-      const res = await fetchEmailCampaigns(0, 100);
+      const res = await fetchEmailCampaignById(campaignId);
       if (res.error) throw new Error(res.error);
-      const dto = res.data?.content.find(c => c.id === campaignId);
+      const dto = res.data;
       if (!dto) throw new Error('Campaign not found');
       
       const formatDate = (dStr?: string) => dStr ? new Date(dStr).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : undefined;
@@ -46,6 +46,7 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       else if (dto.status === 'CANCELLED') status = 'cancelled';
       else if (dto.status === 'COMPLETED') status = 'completed';
       else if (dto.status === 'FAILED') status = 'failed';
+      else if (dto.status === 'UNKNOWN') status = 'unknown';
       else if (dto.status === 'SENT') status = 'sent';
 
       setCampaign({

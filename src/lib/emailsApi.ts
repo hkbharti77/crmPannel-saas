@@ -264,3 +264,44 @@ export async function testEmailProvider(provider: EmailProviderDTO, testEmail: s
   if (res.error) return { success: false, error: res.error };
   return { success: res.data?.success || false, error: null };
 }
+
+export async function fetchEmailCampaignById(id: string): Promise<{ data: CustomEmailDTO | null; error: string | null }> {
+  const res = await apiFetch<CustomEmailDTO>(`/api/v1/custom-emails/${id}`);
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data || null, error: null };
+}
+
+export type SuppressionReason = 'UNSUBSCRIBED' | 'HARD_BOUNCE' | 'SOFT_BOUNCE' | 'COMPLAINT' | 'MANUAL' | 'INVALID';
+
+export type EmailSuppressionDTO = {
+  id: string;
+  email: string;
+  reason: SuppressionReason;
+  sourceCampaignId?: string;
+  createdAt?: string;
+  createdBy?: string;
+};
+
+export async function fetchEmailSuppressions(): Promise<{ data: EmailSuppressionDTO[] | null; error: string | null }> {
+  const res = await apiFetch<EmailSuppressionDTO[]>('/api/v1/email-suppressions');
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data || [], error: null };
+}
+
+export async function addEmailSuppression(email: string, reason = 'MANUAL'): Promise<{ success: boolean; error: string | null }> {
+  const res = await apiFetch<{ message: string }>('/api/v1/email-suppressions', {
+    method: 'POST',
+    body: JSON.stringify({ email, reason }),
+  });
+  if (res.error) return { success: false, error: res.error };
+  return { success: true, error: null };
+}
+
+export async function deleteEmailSuppression(id: string): Promise<{ success: boolean; error: string | null }> {
+  const res = await apiFetch<{ message: string }>(`/api/v1/email-suppressions/${id}`, {
+    method: 'DELETE',
+  });
+  if (res.error) return { success: false, error: res.error };
+  return { success: true, error: null };
+}
+

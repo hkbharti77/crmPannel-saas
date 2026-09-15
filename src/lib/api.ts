@@ -51,12 +51,40 @@ export function getStoredUser<T = unknown>(): T | null {
   }
 }
 
+export function isJwtExpired(token: string | null): boolean {
+  if (!token) return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(jsonPayload);
+    if (payload && typeof payload.exp === 'number') {
+      return Date.now() >= payload.exp * 1000;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export async function apiFetch<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<{ data?: T; error?: string; status?: number }> {
   const token = getAuthToken();
   const tenantId = getTenantId();
+
+  if (token && isJwtExpired(token) && !endpoint.includes('/api/v1/auth/')) {
+    window.dispatchEvent(new CustomEvent('session-expired'));
+    return { error: 'Session expired. Please log in again.', status: 401 };
+  }
 
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
@@ -92,7 +120,7 @@ export async function apiFetch<T = unknown>(
     }
 
     if (!res.ok) {
-      if (res.status === 401) {
+      if ((res.status === 401 || res.status === 403) && !endpoint.includes('/api/v1/auth/')) {
         // Dispatch global event for auth context to pick up
         window.dispatchEvent(new CustomEvent('session-expired'));
       }
