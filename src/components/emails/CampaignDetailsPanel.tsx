@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { Campaign, CAMPAIGN_STATUS_META } from './emailData';
-import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaignById, fetchCampaignInboundReplies, EmailInboundMessageDTO } from '@/lib/emailsApi';
+import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaignById, fetchCampaignInboundReplies, simulateCampaignInboundReply, EmailInboundMessageDTO } from '@/lib/emailsApi';
 import {
   ArrowLeft,
   Clock,
@@ -19,7 +19,8 @@ import {
   XCircle,
   Eye,
   Inbox,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 
 interface CampaignDetailsPanelProps {
@@ -31,6 +32,10 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [replies, setReplies] = useState<EmailInboundMessageDTO[]>([]);
   const [selectedReply, setSelectedReply] = useState<EmailInboundMessageDTO | null>(null);
+  const [showSimulateModal, setShowSimulateModal] = useState(false);
+  const [simFromEmail, setSimFromEmail] = useState('');
+  const [simTextBody, setSimTextBody] = useState('');
+  const [simSubmitting, setSimSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -425,6 +430,12 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
                 <MessageSquare className="h-4 w-4 text-indigo-500" />
                 Customer Email Replies ({replies.length})
               </h3>
+              <button
+                onClick={() => setShowSimulateModal(true)}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 border border-indigo-500/20 transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" /> Simulate Test Reply
+              </button>
             </div>
 
             {replies.length === 0 ? (
@@ -515,6 +526,85 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
                 className="px-4 py-2 rounded-xl bg-primary-500 text-white font-bold text-xs hover:bg-primary-600 transition-all"
               >
                 Close
+              </button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
+
+      {/* Simulate Test Inbound Reply Modal */}
+      {showSimulateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
+          <GlassCard className="relative w-full max-w-lg p-6 sm:p-8 shadow-2xl border-indigo-500/30 space-y-4">
+            <button
+              onClick={() => setShowSimulateModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-secondary-c hover:bg-base-c transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0">
+                <MessageSquare className="h-5 w-5 text-indigo-500" />
+              </div>
+              <div>
+                <h4 className="text-base font-bold text-primary-c">Simulate Inbound Email Reply</h4>
+                <p className="text-xs text-muted-c">Test attribution and reply ingestion directly for this campaign</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-bold text-secondary-c mb-1 block">Sender Email (Customer Address)</label>
+                <input
+                  type="email"
+                  placeholder="customer@company.com"
+                  value={simFromEmail}
+                  onChange={(e) => setSimFromEmail(e.target.value)}
+                  className="form-input text-xs w-full"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-secondary-c mb-1 block">Reply Message Text</label>
+                <textarea
+                  rows={4}
+                  placeholder="Hi, I am interested in this offer! Please send me more details."
+                  value={simTextBody}
+                  onChange={(e) => setSimTextBody(e.target.value)}
+                  className="form-input text-xs w-full"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowSimulateModal(false)}
+                className="px-4 py-2 rounded-xl border border-base-c text-secondary-c text-xs font-bold hover:bg-base-c transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!simFromEmail.trim() || !simTextBody.trim() || simSubmitting}
+                onClick={async () => {
+                  if (!simFromEmail.trim() || !simTextBody.trim()) return;
+                  setSimSubmitting(true);
+                  const res = await simulateCampaignInboundReply(campaignId, simFromEmail.trim(), simTextBody.trim());
+                  setSimSubmitting(false);
+                  if (res.error) {
+                    alert('Error: ' + res.error);
+                  } else {
+                    setShowSimulateModal(false);
+                    setSimFromEmail('');
+                    setSimTextBody('');
+                    await loadCampaign();
+                  }
+                }}
+                className="px-5 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-md"
+              >
+                {simSubmitting ? 'Submitting...' : 'Submit Test Reply'}
               </button>
             </div>
           </GlassCard>

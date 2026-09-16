@@ -335,4 +335,13 @@ export async function fetchCampaignInboundReplies(campaignId: string): Promise<{
   return { data: res.data || [], error: null };
 }
 
+export async function simulateCampaignInboundReply(campaignId: string, fromEmail: string, textBody: string, subject?: string): Promise<{ data: EmailInboundMessageDTO | null; error: string | null }> {
+  const res = await apiFetch<EmailInboundMessageDTO>(`/api/v1/custom-emails/${campaignId}/simulate-reply`, {
+    method: 'POST',
+    body: JSON.stringify({ fromEmail, textBody, subject }),
+  });
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data || null, error: null };
+}
+
 
