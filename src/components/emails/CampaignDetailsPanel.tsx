@@ -51,15 +51,16 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       const formatDate = (dStr?: string) => dStr ? new Date(dStr).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : undefined;
       
       let status: Campaign['status'] = 'sent';
-      if (dto.status === 'DRAFT') status = 'draft';
-      else if (dto.status === 'SCHEDULED') status = 'scheduled';
-      else if (dto.status === 'SENDING') status = 'sending';
-      else if (dto.status === 'PAUSED') status = 'paused';
-      else if (dto.status === 'CANCELLED') status = 'cancelled';
-      else if (dto.status === 'COMPLETED') status = 'completed';
-      else if (dto.status === 'FAILED') status = 'failed';
-      else if (dto.status === 'UNKNOWN') status = 'unknown';
-      else if (dto.status === 'SENT') status = 'sent';
+      const rawStatus = dto.status as string | undefined;
+      if (rawStatus === 'DRAFT') status = 'draft';
+      else if (rawStatus === 'SCHEDULED') status = 'scheduled';
+      else if (rawStatus === 'SENDING') status = 'sending';
+      else if (rawStatus === 'PAUSED') status = 'paused';
+      else if (rawStatus === 'CANCELLED') status = 'cancelled';
+      else if (rawStatus === 'COMPLETED') status = 'completed';
+      else if (rawStatus === 'FAILED') status = 'failed';
+      else if (rawStatus === 'UNKNOWN') status = 'unknown';
+      else if (rawStatus === 'SENT') status = 'sent';
 
       setCampaign({
         id: dto.id,

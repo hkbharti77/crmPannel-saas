@@ -1,7 +1,7 @@
 import { apiFetch } from './api';
 
 export type RecipientMode = 'ALL' | 'TAGGED' | 'MANUAL' | 'LEAD_STATUS_BASED';
-export type EmailStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'PAUSED' | 'CANCELLED' | 'SENT' | 'FAILED' | 'COMPLETED';
+export type EmailStatus = 'DRAFT' | 'SCHEDULED' | 'SENDING' | 'PAUSED' | 'CANCELLED' | 'SENT' | 'FAILED' | 'COMPLETED' | 'UNKNOWN';
 
 export type CustomEmailDTO = {
   id: string;

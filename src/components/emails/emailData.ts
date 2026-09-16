@@ -18,7 +18,7 @@ export type Campaign = {
   id: string;
   name: string;
   subject: string;
-  status: 'draft' | 'scheduled' | 'sent' | 'sending' | 'paused' | 'cancelled' | 'failed' | 'completed';
+  status: 'draft' | 'scheduled' | 'sent' | 'sending' | 'paused' | 'cancelled' | 'failed' | 'completed' | 'unknown';
   recipients: number; // processedRecipients / totalRecipients mapped on UI side
   totalRecipients?: number;
   processedRecipients?: number;
