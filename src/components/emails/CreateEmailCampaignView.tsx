@@ -1638,6 +1638,7 @@ export function CreateEmailCampaignView() {
 
                     try {
                       const req = {
+                        name: name.trim() || subject,
                         subject,
                         body,
                         ctaLabel: ctaLabel || undefined,
