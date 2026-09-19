@@ -324,6 +324,7 @@ export type EmailInboundMessageDTO = {
   textBody?: string;
   htmlBody?: string;
   replySnippet?: string;
+  sentiment?: string;
   attributionStatus: string;
   receivedAt: string;
   createdAt: string;

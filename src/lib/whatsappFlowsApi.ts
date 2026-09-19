@@ -2,7 +2,7 @@ import { apiFetch } from './api';
 
 export type FlowCategoryType = 'APPOINTMENT_BOOKING' | 'LEAD_GENERATION' | 'CUSTOMER_SUPPORT' | 'SURVEY' | 'OTHER';
 export type FlowStatusType = 'DRAFT' | 'PUBLISHING' | 'PUBLISHED' | 'PUBLISH_FAILED' | 'ARCHIVED' | 'DEPRECATED';
-export type RevisionStatusType = 'DRAFT' | 'READY' | 'PUBLISHING' | 'PUBLISHED' | 'ARCHIVED';
+export type RevisionStatusType = 'DRAFT' | 'READY' | 'PUBLISHING' | 'PUBLISHED' | 'ARCHIVED' | 'SUPERSEDED';
 
 export interface FlowFieldItem {
   id?: string;
@@ -21,6 +21,9 @@ export interface FlowRevisionItem {
   flowJson?: string;
   confirmationMessage?: string;
   status: RevisionStatusType;
+  metaFlowId?: string;
+  metaName?: string;
+  isDeprecated?: boolean;
   publishedAt?: string;
   createdAt?: string;
 }
@@ -31,6 +34,8 @@ export interface WhatsAppFlowItem {
   category: FlowCategoryType;
   status: FlowStatusType;
   metaFlowId?: string;
+  activeMetaFlowId?: string;
+  activeRevisionId?: string;
   publishedRevision?: FlowRevisionItem;
   lastSyncError?: string;
   publishedAt?: string;
@@ -112,6 +117,13 @@ export async function fetchFlowSubmissions(id: string) {
 export async function syncMetaFlows() {
   return apiFetch<{ success: boolean; imported: number; updated: number; total: number; message: string }>('/api/v1/whatsapp-flows/sync-meta', {
     method: 'POST',
+  });
+}
+
+export async function generateFlowWithAi(prompt: string) {
+  return apiFetch<{ generationId: string; draft: any }>('/api/v1/whatsapp-flows/generate-ai', {
+    method: 'POST',
+    body: JSON.stringify({ prompt }),
   });
 }
 

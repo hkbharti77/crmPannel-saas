@@ -91,7 +91,11 @@ function connectStomp() {
         `/topic/${tenantId}/messages`,
         (frame: IMessage) => {
           try {
-            const incoming: WsIncomingMessage = JSON.parse(frame.body);
+            let incoming = JSON.parse(frame.body);
+            // Handle Jackson default-typed objects wrapping payloads in ["ClassName", {fields}]
+            if (Array.isArray(incoming) && incoming.length === 2 && typeof incoming[0] === 'string') {
+              incoming = incoming[1];
+            }
             console.log('📩 [WS] Real-time message:', incoming);
 
             // Fan out to all registered listeners

@@ -454,6 +454,20 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
                           {reply.attributionStatus}
                         </span>
+                        {reply.sentiment && reply.sentiment !== 'NEUTRAL' && (
+                          <span className={cx(
+                            "text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                            reply.sentiment === 'GOOD' ? 'bg-success-500/10 text-success-600 dark:text-success-400 border-success-500/20' :
+                            'bg-danger-500/10 text-danger-600 dark:text-danger-400 border-danger-500/20'
+                          )}>
+                            {reply.sentiment}
+                          </span>
+                        )}
+                        {reply.sentiment === 'NEUTRAL' && (
+                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20">
+                             NEUTRAL
+                           </span>
+                        )}
                       </div>
                       <p className="text-xs font-semibold text-secondary-c truncate">{reply.subject || 'Re: Campaign Reply'}</p>
                       <p className="text-xs text-muted-c line-clamp-2 italic">"{reply.replySnippet || reply.textBody || 'No text snippet'}"</p>

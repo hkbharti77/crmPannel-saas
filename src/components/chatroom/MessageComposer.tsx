@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { cx } from '@/lib/types';
-import { Paperclip, Smile, Image as ImageIcon, Mic, Send, X, Bot, Zap, UserCheck, ShieldAlert, IndianRupee, MenuSquare } from 'lucide-react';
+import { Paperclip, Smile, Image as ImageIcon, Mic, Send, X, Bot, Zap, UserCheck, ShieldAlert, IndianRupee, MenuSquare, FormInput } from 'lucide-react';
 
 export function MessageComposer({
   onSend,
@@ -10,6 +10,7 @@ export function MessageComposer({
   onToggleBot,
   onRequestPayment,
   onSendMenu,
+  onSendFlow,
   sendingMenu = false,
   theme = 'whatsapp-dark',
 }: {
@@ -20,6 +21,7 @@ export function MessageComposer({
   onToggleBot: () => void;
   onRequestPayment?: () => void;
   onSendMenu?: () => void;
+  onSendFlow?: () => void;
   sendingMenu?: boolean;
   theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
 }) {
@@ -107,6 +109,18 @@ export function MessageComposer({
                 >
                   <MenuSquare className="h-3.5 w-3.5 shrink-0 text-blue-500" />
                   <span>{sendingMenu ? 'Sending…' : 'Send Menu'}</span>
+                </button>
+              )}
+
+              {/* Send Flow Button */}
+              {onSendFlow && (
+                <button
+                  onClick={onSendFlow}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 btn-tactile shadow-xs transition-all cursor-pointer"
+                  title="Send interactive WhatsApp Flow"
+                >
+                  <FormInput className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                  <span>Send Flow</span>
                 </button>
               )}
 

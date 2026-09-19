@@ -27,6 +27,7 @@ import {
   IndianRupee,
 } from 'lucide-react';
 import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
+import { SendFlowModal } from './SendFlowModal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -48,6 +49,7 @@ export function ChatRoomView() {
   const [sendingMenu, setSendingMenu] = useState(false);
   const [togglingBot, setTogglingBot] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isSendFlowModalOpen, setIsSendFlowModalOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef<boolean>(true);
   const shouldForceScrollRef = useRef<boolean>(true);
@@ -430,6 +432,7 @@ export function ChatRoomView() {
             theme={chatTheme}
             onRequestPayment={() => setIsPaymentModalOpen(true)}
             onSendMenu={contactId && contactId.includes('-') ? handleSendMenu : undefined}
+            onSendFlow={contactId && contactId.includes('-') ? () => setIsSendFlowModalOpen(true) : undefined}
             sendingMenu={sendingMenu}
           />
         </div>
@@ -464,6 +467,16 @@ export function ChatRoomView() {
           setMessages((prev) => [...prev, payMsg]);
         }}
       />
+
+      {/* Send Flow Modal */}
+      {contactId && contactId.includes('-') && (
+        <SendFlowModal
+          isOpen={isSendFlowModalOpen}
+          onClose={() => setIsSendFlowModalOpen(false)}
+          contactId={contactId}
+          onSuccess={() => loadData()}
+        />
+      )}
     </div>
   );
 }

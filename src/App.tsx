@@ -25,6 +25,7 @@ import { TicketsView } from '@/components/tickets/TicketsView';
 import { EmailsView } from '@/components/emails/EmailsView';
 import { CreateEmailCampaignView } from '@/components/emails/CreateEmailCampaignView';
 import { SettingsView } from '@/components/settings/SettingsView';
+import { FlowResponsesPage } from '@/components/settings/panels/FlowResponsesPage';
 import { WhatsAppPaymentsDashboard } from '@/components/payments/WhatsAppPaymentsDashboard';
 import { PropertiesView } from '@/components/properties/PropertiesView';
 import { ReportsView } from '@/components/reports/ReportsView';
@@ -369,6 +370,14 @@ function AppContent() {
               }
             />
           </Route>
+          <Route
+            path="settings/whatsapp-flows/:flowId/responses"
+            element={
+              <TenantRouteGuard pageKey="SETTINGS_PROFILE" userPerm="MODULE_SETTINGS">
+                <FlowResponsesPage />
+              </TenantRouteGuard>
+            }
+          />
           <Route
             path="settings/:tab?"
             element={

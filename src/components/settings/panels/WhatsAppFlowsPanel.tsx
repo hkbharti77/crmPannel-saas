@@ -29,9 +29,12 @@ import {
   WebFlowsRoutingConfig
 } from '@/lib/whatsappFlowsApi';
 import { GlassCard } from '@/components/ui/primitives';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { cx } from '@/lib/types';
+import { useNavigate } from 'react-router-dom';
 
 export function WhatsAppFlowsPanel() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'flows' | 'routing'>('flows');
   const [routingChannel, setRoutingChannel] = useState<'whatsapp' | 'web'>('whatsapp');
   const [flows, setFlows] = useState<WhatsAppFlowItem[]>([]);
@@ -71,36 +74,45 @@ export function WhatsAppFlowsPanel() {
   const [confirmationMessage, setConfirmationMessage] = useState('Thank you! We have received your submission.');
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
 
-  // Submissions Modal
-  const [selectedFlowForSubmissions, setSelectedFlowForSubmissions] = useState<WhatsAppFlowItem | null>(null);
-  const [submissions, setSubmissions] = useState<any[]>([]);
-  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
-
+  // Submissions Modal (Removed in favor of standalone page)
+  
   // Archive Confirmation Modal
   const [flowToArchive, setFlowToArchive] = useState<WhatsAppFlowItem | null>(null);
+
+  // AI Generator Modal
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [generatingAi, setGeneratingAi] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Auto-poll flows every 2.5 seconds while any flow is in PUBLISHING status
-  useEffect(() => {
-    const hasPublishing = flows.some((f) => f.status === 'PUBLISHING');
-    if (!hasPublishing) return;
-
-    const interval = setInterval(async () => {
-      try {
-        const flowsRes = await fetchWhatsAppFlows();
-        if (flowsRes.data) {
-          setFlows(flowsRes.data);
+  // Listen for real-time WebSocket updates instead of polling
+  useWebSocket((msg: any) => {
+    if (msg.type === 'FLOW_STATUS_UPDATE') {
+      setFlows(prev => prev.map(f => {
+        if (f.id === msg.flowId) {
+          return {
+            ...f,
+            status: msg.status,
+            metaFlowId: msg.metaFlowId,
+            publishedRevision: f.publishedRevision ? {
+              ...f.publishedRevision,
+              metaFlowId: msg.metaFlowId
+            } : f.publishedRevision
+          } as WhatsAppFlowItem;
         }
-      } catch (e) {
-        console.error('Polling flows failed:', e);
-      }
-    }, 2500);
+        return f;
+      }));
 
-    return () => clearInterval(interval);
-  }, [flows]);
+      if (msg.status === 'PUBLISHED') {
+        showToast(`✅ Flow "${msg.name}" published successfully!`);
+      } else if (msg.status === 'PUBLISH_FAILED') {
+        showToast(`❌ Flow "${msg.name}" failed to publish: ${msg.error || 'Unknown error'}`);
+      }
+    }
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -438,16 +450,32 @@ export function WhatsAppFlowsPanel() {
     }
   };
 
-  const handleOpenSubmissions = async (flow: WhatsAppFlowItem) => {
-    setSelectedFlowForSubmissions(flow);
-    setLoadingSubmissions(true);
+  const handleViewSubmissions = (flow: WhatsAppFlowItem) => {
+    navigate(`/settings/whatsapp-flows/${flow.id}/responses`);
+  };
+
+  const handleGenerateAi = async () => {
+    if (!aiPrompt.trim()) return;
+    setGeneratingAi(true);
     try {
-      const res = await fetchFlowSubmissions(flow.id);
-      if (res.data) setSubmissions(res.data);
-    } catch (err) {
-      console.error('Failed to load submissions:', err);
+      const res = await generateFlowWithAi(aiPrompt);
+      if (res.error) {
+        throw new Error(res.error);
+      }
+      if (res.data?.draft) {
+        const draft = res.data.draft;
+        setFlowName(draft.name || 'AI Generated Flow');
+        setFlowCategory('OTHER');
+        setFields(draft.fields || []);
+        setShowAiModal(false);
+        setAiPrompt('');
+        setIsBuilderOpen(true);
+        setEditingFlowId(null);
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Failed to generate flow with AI');
     } finally {
-      setLoadingSubmissions(false);
+      setGeneratingAi(false);
     }
   };
 
@@ -776,6 +804,11 @@ export function WhatsAppFlowsPanel() {
                                 FAILED
                               </span>
                             )}
+                            {(flow.status === 'DEPRECATED' || flow.publishedRevision?.isDeprecated) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-slate-500/10 text-slate-600 border border-slate-500/25">
+                                DEPRECATED
+                              </span>
+                            )}
                           </div>
 
                           {/* Flow Title */}
@@ -785,22 +818,30 @@ export function WhatsAppFlowsPanel() {
 
                           {/* Meta ID Row */}
                           {flow.metaFlowId ? (
-                            <div className="flex items-center justify-between px-2.5 py-1.5 bg-subtle-c rounded-lg border border-base-c text-[11px]">
-                              <span className="font-mono text-muted-c text-[10px] font-bold">ID:</span>
-                              <span className="font-mono font-semibold text-primary-c truncate max-w-[170px]">
-                                {flow.metaFlowId}
-                              </span>
-                              <button
-                                onClick={() => handleCopyMetaId(flow.metaFlowId!)}
-                                className="text-muted-c hover:text-primary-c ml-1 p-0.5"
-                                title="Copy Meta Flow ID"
-                              >
-                                {copiedId === flow.metaFlowId ? (
-                                  <Check className="w-3 h-3 text-emerald-500" />
-                                ) : (
-                                  <Copy className="w-3 h-3" />
-                                )}
-                              </button>
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center justify-between px-2.5 py-1.5 bg-subtle-c rounded-lg border border-base-c text-[11px]">
+                                <span className="font-mono text-muted-c text-[10px] font-bold">Meta ID:</span>
+                                <span className="font-mono font-semibold text-primary-c truncate max-w-[170px]">
+                                  {flow.metaFlowId}
+                                </span>
+                                <button
+                                  onClick={() => handleCopyMetaId(flow.metaFlowId!)}
+                                  className="text-muted-c hover:text-primary-c ml-1 p-0.5"
+                                  title="Copy Meta Flow ID"
+                                >
+                                  {copiedId === flow.metaFlowId ? (
+                                    <Check className="w-3 h-3 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                              {flow.activeRevisionId && (
+                                <div className="text-[9px] text-muted-c px-1 flex justify-between">
+                                  <span>Revision ID:</span>
+                                  <span className="font-mono">{flow.activeRevisionId.slice(0, 8)}...</span>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             <div className="px-2.5 py-1.5 bg-subtle-c rounded-lg border border-dashed border-base-c text-[10px] text-muted-c">
@@ -811,7 +852,7 @@ export function WhatsAppFlowsPanel() {
                           {/* Quick Stats: Submissions & Fields */}
                           <div className="flex items-center justify-between text-[11px] pt-1 text-muted-c">
                             <button
-                              onClick={() => handleOpenSubmissions(flow)}
+                              onClick={() => handleViewSubmissions(flow)}
                               className="font-semibold text-primary-600 hover:underline flex items-center gap-1"
                             >
                               <Eye className="w-3 h-3" />
@@ -1267,6 +1308,14 @@ export function WhatsAppFlowsPanel() {
                     >
                       🎫 Support
                     </button>
+                    <div className="w-px h-4 bg-emerald-500/20 mx-1"></div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAiModal(true)}
+                      className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-400 hover:to-purple-400 text-[10px] font-bold rounded shadow-xs transition"
+                    >
+                      ✨ AI Generate
+                    </button>
                   </div>
                 </div>
 
@@ -1448,49 +1497,6 @@ export function WhatsAppFlowsPanel() {
         </div>
       )}
 
-      {/* ─── RESPONSES MODAL ─── */}
-      {selectedFlowForSubmissions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
-          <div className="w-full max-w-2xl surface rounded-xl border-base-c shadow-soft-lg p-5 space-y-4">
-            <div className="flex items-center justify-between border-b border-base-c pb-3">
-              <h4 className="text-sm font-bold text-primary-c">
-                Responses: {selectedFlowForSubmissions.name}
-              </h4>
-              <button onClick={() => setSelectedFlowForSubmissions(null)} className="text-muted-c hover:text-primary-c">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {loadingSubmissions ? (
-              <div className="p-8 text-center">
-                <Loader2 className="w-5 h-5 text-emerald-500 animate-spin mx-auto mb-2" />
-                <p className="text-xs text-secondary-c">Loading responses…</p>
-              </div>
-            ) : submissions.length === 0 ? (
-              <div className="p-6 text-center text-xs text-muted-c">
-                No customer responses recorded yet.
-              </div>
-            ) : (
-              <div className="max-h-[60vh] overflow-y-auto space-y-2">
-                {submissions.map((sub, sidx) => (
-                  <div key={sidx} className="p-3 bg-subtle-c rounded-lg border border-base-c text-xs space-y-1.5">
-                    <div className="flex items-center justify-between font-bold text-primary-c">
-                      <span>📱 {sub.customerPhone || 'Unknown Phone'}</span>
-                      <span className="text-[10px] text-muted-c font-normal">
-                        {new Date(sub.createdAt).toLocaleString()}
-                      </span>
-                    </div>
-                    <pre className="p-2 surface text-emerald-600 dark:text-emerald-400 font-mono rounded text-[11px] overflow-x-auto border border-base-c">
-                      {sub.normalizedDataJson || sub.rawResponseJson}
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* ─── ARCHIVE MODAL ─── */}
       {flowToArchive && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
@@ -1521,6 +1527,59 @@ export function WhatsAppFlowsPanel() {
           </div>
         </div>
       )}
+      {/* ─── AI GENERATOR MODAL ─── */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-lg bg-card-c rounded-2xl border border-base-c shadow-2xl p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-base-c pb-3">
+              <h4 className="text-sm font-bold text-primary-c flex items-center gap-2">
+                <span className="text-lg">✨</span> Generate Flow with AI
+              </h4>
+              <button onClick={() => setShowAiModal(false)} className="text-muted-c hover:text-primary-c">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <p className="text-xs text-secondary-c leading-relaxed">
+                Describe the flow you want to create. The AI will automatically structure the fields, options, and validations for you.
+              </p>
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder="e.g. Create an appointment booking form for a dental clinic asking for name, date, and preferred time slot..."
+                className="w-full h-32 p-3 text-sm surface border-base-c text-primary-c rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                disabled={generatingAi}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-base-c">
+              <button
+                onClick={() => setShowAiModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-secondary-c hover:text-primary-c transition"
+                disabled={generatingAi}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateAi}
+                disabled={generatingAi || !aiPrompt.trim()}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-400 hover:to-purple-400 text-white text-xs font-bold rounded-lg shadow-xs transition flex items-center gap-2"
+              >
+                {generatingAi ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Generating...</span>
+                  </>
+                ) : (
+                  <span>Generate Flow</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

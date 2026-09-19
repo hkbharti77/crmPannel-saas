@@ -26,6 +26,7 @@ interface RagDocumentDto {
 
 interface PersonaDto {
   aiPersonaPrompt: string;
+  aiEmailSentimentPrompt?: string;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -103,6 +104,8 @@ export function KnowledgeBaseView() {
   // ── AI Persona State ──
   const [personaPrompt, setPersonaPrompt] = useState('');
   const [savedPersona, setSavedPersona] = useState('');
+  const [emailSentimentPrompt, setEmailSentimentPrompt] = useState('');
+  const [savedEmailSentimentPrompt, setSavedEmailSentimentPrompt] = useState('');
   const [personaUpdatedAt, setPersonaUpdatedAt] = useState<string | null>(null);
   const [personaUpdatedBy, setPersonaUpdatedBy] = useState<string | null>(null);
   const [personaLoading, setPersonaLoading] = useState(true);
@@ -146,8 +149,11 @@ export function KnowledgeBaseView() {
     setPersonaLoading(false);
     if (res.data) {
       const val = res.data.aiPersonaPrompt || '';
+      const emailVal = res.data.aiEmailSentimentPrompt || '';
       setPersonaPrompt(val);
       setSavedPersona(val);
+      setEmailSentimentPrompt(emailVal);
+      setSavedEmailSentimentPrompt(emailVal);
       setPersonaUpdatedAt(res.data.updatedAt || null);
       setPersonaUpdatedBy(res.data.updatedBy || null);
     } else if (res.error) {
@@ -239,8 +245,8 @@ export function KnowledgeBaseView() {
 
   // Save Persona Handler
   const handleSavePersona = async () => {
-    if (personaPrompt.length > MAX_PERSONA_CHARS) {
-      setPersonaError(`Persona prompt exceeds maximum character limit of ${MAX_PERSONA_CHARS} characters.`);
+    if (personaPrompt.length > MAX_PERSONA_CHARS || emailSentimentPrompt.length > MAX_PERSONA_CHARS) {
+      setPersonaError(`Persona prompts exceed maximum character limit of ${MAX_PERSONA_CHARS} characters.`);
       return;
     }
 
@@ -250,12 +256,13 @@ export function KnowledgeBaseView() {
 
     const res = await apiFetch<PersonaDto>('/api/v1/settings/ai/persona', {
       method: 'PUT',
-      body: JSON.stringify({ aiPersonaPrompt: personaPrompt }),
+      body: JSON.stringify({ aiPersonaPrompt: personaPrompt, aiEmailSentimentPrompt: emailSentimentPrompt }),
     });
 
     setPersonaSaving(false);
     if (!res.error) {
       setSavedPersona(personaPrompt);
+      setSavedEmailSentimentPrompt(emailSentimentPrompt);
       setPersonaToast('AI Persona prompt saved successfully! Future AI responses will reflect this tone.');
       if (res.data?.updatedAt) setPersonaUpdatedAt(res.data.updatedAt);
       if (res.data?.updatedBy) setPersonaUpdatedBy(res.data.updatedBy);
@@ -444,8 +451,9 @@ export function KnowledgeBaseView() {
     }
   };
 
-  const personaDirty = personaPrompt !== savedPersona;
+  const personaDirty = personaPrompt !== savedPersona || emailSentimentPrompt !== savedEmailSentimentPrompt;
   const charsRemaining = MAX_PERSONA_CHARS - personaPrompt.length;
+  const sentimentCharsRemaining = MAX_PERSONA_CHARS - emailSentimentPrompt.length;
 
   return (
     <div className="mx-auto max-w-7xl p-3 sm:p-6 lg:p-8 space-y-6">
@@ -674,10 +682,42 @@ export function KnowledgeBaseView() {
               )}
             </div>
 
+            <div className="pt-2">
+               <h3 className="text-sm font-bold text-primary-c flex items-center gap-2 mb-2">
+                 <Brain className="h-4 w-4 text-emerald-600" />
+                 Email Sentiment Analysis Prompt
+               </h3>
+               <p className="text-xs text-muted-c mb-3">
+                 Configure how the AI classifies incoming email replies (e.g., Good, Neutral, Poor).
+               </p>
+               <div className="relative">
+                 {personaLoading ? (
+                   <div className="flex items-center justify-center py-8 border border-base-c/80 rounded-xl bg-slate-50 dark:bg-ink-950">
+                     <Loader2 className="h-6 w-6 animate-spin text-emerald-600" />
+                   </div>
+                 ) : (
+                   <>
+                     <textarea
+                       rows={4}
+                       value={emailSentimentPrompt}
+                       onChange={(e) => setEmailSentimentPrompt(e.target.value)}
+                       placeholder="e.g. Analyze the sentiment of the following customer email reply and classify it strictly as GOOD, NEUTRAL, or POOR."
+                       className="w-full rounded-xl border border-base-c/80 bg-slate-50/50 p-4 text-xs text-primary-c focus:border-emerald-500 focus:bg-card-c focus:outline-none dark:bg-ink-950 font-mono leading-relaxed"
+                     />
+                     <div className="mt-2 flex items-center justify-end text-[11px]">
+                       <span className={cx('font-semibold tabular-nums', sentimentCharsRemaining < 200 ? 'text-amber-600 font-bold' : 'text-muted-c')}>
+                         {sentimentCharsRemaining.toLocaleString()} / {MAX_PERSONA_CHARS.toLocaleString()} chars remaining
+                       </span>
+                     </div>
+                   </>
+                 )}
+               </div>
+            </div>
+
             {/* Action Bar */}
             <div className="flex items-center justify-between border-t border-base-c/80 pt-4">
               <button
-                onClick={() => setPersonaPrompt(savedPersona)}
+                onClick={() => { setPersonaPrompt(savedPersona); setEmailSentimentPrompt(savedEmailSentimentPrompt); }}
                 disabled={!personaDirty || personaSaving}
                 className="flex items-center gap-1.5 rounded-xl border border-base-c/80 bg-card-c px-3.5 py-2 text-xs font-semibold text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 disabled:opacity-40 transition-all"
               >
@@ -686,7 +726,7 @@ export function KnowledgeBaseView() {
 
               <button
                 onClick={handleSavePersona}
-                disabled={!personaDirty || personaSaving || charsRemaining < 0}
+                disabled={!personaDirty || personaSaving || charsRemaining < 0 || sentimentCharsRemaining < 0}
                 className="flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-5 py-2 text-xs font-bold text-white shadow-soft disabled:opacity-40 transition-all"
               >
                 {personaSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
