@@ -17,11 +17,17 @@ export type WhatsAppCampaignDto = {
   failedCount?: number;
 };
 
+export type TemplateButtonType = 'QUICK_REPLY' | 'PHONE_NUMBER' | 'URL' | 'FLOW' | string;
+
 export type TemplateButtonDto = {
-  type: 'QUICK_REPLY' | 'PHONE_NUMBER' | 'URL' | string;
+  type: TemplateButtonType;
   text: string;
   url?: string;
+  urlSample?: string;
   phoneNumber?: string;
+  flowId?: string;
+  flowAction?: 'navigate' | 'data_exchange' | string;
+  navigateScreen?: string;
 };
 
 export type WhatsAppTemplateDto = {
@@ -32,7 +38,9 @@ export type WhatsAppTemplateDto = {
   status?: 'APPROVED' | 'PENDING' | 'REJECTED' | 'PAUSED' | 'DISABLED' | string;
   headerType?: 'NONE' | 'TEXT' | 'IMAGE' | 'VIDEO' | 'DOCUMENT' | string;
   headerContent?: string;
+  headerSampleValues?: string[];
   bodyText?: string;
+  bodySampleValues?: string[];
   footerText?: string;
   rejectedReason?: string;
   buttons?: TemplateButtonDto[];
@@ -165,6 +173,28 @@ export async function cancelCampaign(
   return { data: res.data || null, error: null };
 }
 
+export async function deleteCampaign(
+  campaignId: string
+): Promise<{ success: boolean; error: string | null }> {
+  const res = await apiFetch<{ success: boolean }>(`/api/v1/whatsapp/campaigns/${campaignId}`, {
+    method: 'DELETE',
+  });
+  if (res.error) {
+    return { success: false, error: res.error };
+  }
+  return { success: true, error: null };
+}
+
+export async function deleteAllCampaigns(): Promise<{ success: boolean; count: number; error: string | null }> {
+  const res = await apiFetch<{ success: boolean; count: number }>(`/api/v1/whatsapp/campaigns`, {
+    method: 'DELETE',
+  });
+  if (res.error) {
+    return { success: false, count: 0, error: res.error };
+  }
+  return { success: true, count: res.data?.count || 0, error: null };
+}
+
 export async function fetchCampaignAnalytics(
   campaignId: string
 ): Promise<{ data: CampaignAnalyticsDto | null; error: string | null }> {
@@ -198,6 +228,20 @@ export async function createWhatsAppTemplate(
   return { data: res.data || null, error: null };
 }
 
+export async function updateWhatsAppTemplate(
+  name: string,
+  template: WhatsAppTemplateDto
+): Promise<{ data: WhatsAppTemplateDto | null; error: string | null }> {
+  const res = await apiFetch<WhatsAppTemplateDto>(`/api/v1/whatsapp/templates/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    body: JSON.stringify(template),
+  });
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
 export async function deleteWhatsAppTemplate(
   name: string
 ): Promise<{ success: boolean; error: string | null }> {
@@ -211,6 +255,9 @@ export async function deleteWhatsAppTemplate(
 }
 
 export type WhatsAppAiTemplateResponseDto = {
+  name?: string;
+  category?: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
+  language?: string;
   headerContent: string;
   bodyText: string;
   footerText: string;
@@ -228,6 +275,27 @@ export async function generateAiWhatsAppTemplate(
     return { data: null, error: res.error };
   }
   return { data: res.data || null, error: null };
+}
+
+export type PublishedWhatsAppFlowDto = {
+  id: string;
+  metaFlowId: string;
+  name: string;
+  category: string;
+  status: string;
+  publishedRevision?: {
+    id: string;
+    versionNumber: number;
+    screensJson?: string;
+  };
+};
+
+export async function fetchPublishedWhatsAppFlows(): Promise<{ data: PublishedWhatsAppFlowDto[]; error: string | null }> {
+  const res = await apiFetch<PublishedWhatsAppFlowDto[]>('/api/v1/whatsapp-flows/published');
+  if (res.error) {
+    return { data: [], error: res.error };
+  }
+  return { data: res.data || [], error: null };
 }
 
 // ─── CSV Broadcast Upload Types & APIs ────────────────────────────────────

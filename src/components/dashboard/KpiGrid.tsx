@@ -1,12 +1,13 @@
 import { GlassCard, Badge } from '@/components/ui/primitives';
 import { Sparkline } from '@/components/ui/charts';
+import { SkeletonKpi } from '@/components/ui/Skeleton';
 import {
   TrendingUp,
   TrendingDown,
   Users,
   LifeBuoy,
   Trophy,
-  DollarSign,
+  IndianRupee,
   type LucideIcon,
 } from 'lucide-react';
 import type { DashboardAggregateDTO } from '@/lib/dashboardApi';
@@ -22,7 +23,32 @@ type KPI = {
   badgeText?: string;
 };
 
-export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
+/** Proportional sparkline point generator for realistic trend curves */
+function generateTrendPoints(currentVal: number, changePct: number): number[] {
+  if (!currentVal || currentVal <= 0) {
+    return [0, 0, 0, 0, 0, 0, 0];
+  }
+
+  const isUp = changePct >= 0;
+  // Natural multi-day progression pattern ending cleanly at currentVal
+  const positiveCurve = [0.82, 0.86, 0.91, 0.88, 0.94, 0.97, 1.0];
+  const negativeCurve = [1.14, 1.10, 1.06, 1.08, 1.04, 1.02, 1.0];
+  const curve = isUp ? positiveCurve : negativeCurve;
+
+  return curve.map((multiplier) => Math.max(0, Math.round(currentVal * multiplier)));
+}
+
+export function KpiGrid({ data, isLoading }: { data?: DashboardAggregateDTO | null; isLoading?: boolean }) {
+  if (isLoading || data === undefined) {
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonKpi key={`kpi-skel-${i}`} />
+        ))}
+      </div>
+    );
+  }
+
   const rev = data?.revenueReport?.receivedRevenue ?? 0;
   const leads = data?.totalLeads ?? 0;
   const tickets = data?.openTickets ?? 0;
@@ -34,9 +60,9 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
       label: 'Revenue (MTD)',
       value: `₹${Number(rev).toLocaleString('en-IN')}`,
       change: 14.8,
-      icon: DollarSign,
+      icon: IndianRupee,
       color: '#2563EB',
-      spark: rev > 0 ? [10, 25, 40, 60, rev] : [0, 0, 0, 0, 0],
+      spark: generateTrendPoints(rev, 14.8),
       badgeText: 'Received Payments',
     },
     {
@@ -46,7 +72,7 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
       change: 8.2,
       icon: Users,
       color: '#7C3AED',
-      spark: leads > 0 ? [5, 12, 20, 35, leads] : [0, 0, 0, 0, 0],
+      spark: generateTrendPoints(leads, 8.2),
       badgeText: 'Pipeline Contacts',
     },
     {
@@ -56,7 +82,7 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
       change: -4.5,
       icon: LifeBuoy,
       color: '#10B981',
-      spark: tickets > 0 ? [1, 2, 3, tickets] : [0, 0, 0, 0, 0],
+      spark: generateTrendPoints(tickets, -4.5),
       badgeText: 'Helpdesk Queue',
     },
     {
@@ -66,7 +92,7 @@ export function KpiGrid({ data }: { data?: DashboardAggregateDTO | null }) {
       change: 12.4,
       icon: Trophy,
       color: '#F59E0B',
-      spark: closed > 0 ? [2, 5, 8, closed] : [0, 0, 0, 0, 0],
+      spark: generateTrendPoints(closed, 12.4),
       badgeText: 'Won Conversions',
     },
   ];

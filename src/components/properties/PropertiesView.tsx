@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/primitives';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { cx } from '@/lib/types';
+import { AiCatalogsPanel } from '@/components/settings/panels/AiCatalogsPanel';
 import {
   fetchBusinessServices,
   createBusinessService,
@@ -51,6 +53,19 @@ export function isDocUrl(url?: string): boolean {
 type MediaTypeFilter = 'ALL' | 'IMAGE' | 'VIDEO' | 'DOC' | 'TEXT_ONLY';
 
 export function PropertiesView() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'ai-catalogs' ? 'ai-catalogs' : 'products';
+
+  const setTab = (tab: 'products' | 'ai-catalogs') => {
+    const next = new URLSearchParams(searchParams);
+    if (tab === 'products') {
+      next.delete('tab');
+    } else {
+      next.set('tab', 'ai-catalogs');
+    }
+    setSearchParams(next, { replace: true });
+  };
+
   const [items, setItems] = useState<BusinessServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -195,34 +210,78 @@ export function PropertiesView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-bold tracking-tight text-primary-c">Products & Services Catalog</h2>
+            <h2 className="text-xl font-bold tracking-tight text-primary-c">Products & Catalogs</h2>
             <span className="rounded-full bg-primary-50 px-2.5 py-0.5 text-xs font-semibold text-primary-700 dark:bg-primary-950/50 dark:text-primary-300">
               Web & WhatsApp Sync
             </span>
           </div>
           <p className="mt-0.5 text-sm text-secondary-c">
-            Manage your inventory, property listings, services, and media assets for AI Chat Widget and WhatsApp bot.
+            Manage your inventory, property listings, and AI-powered PDF brochures/catalogs for WhatsApp & WebBot auto-dispatch.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadItems}
-            disabled={loading}
-            className="flex items-center gap-1.5 rounded-lg border border-base-c bg-card-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:bg-surface-subtle hover:text-primary-c disabled:opacity-50"
-            title="Refresh list"
-          >
-            <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
-          </button>
+        {activeTab === 'products' && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadItems}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-lg border border-base-c bg-card-c px-3 py-2 text-xs font-medium text-secondary-c transition-colors hover:bg-surface-subtle hover:text-primary-c disabled:opacity-50"
+              title="Refresh list"
+            >
+              <RefreshCw className={cx('h-3.5 w-3.5', loading && 'animate-spin')} /> Refresh
+            </button>
 
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3.5 py-2 text-xs font-semibold text-white shadow-soft transition-transform hover:scale-105"
-          >
-            <Plus className="h-4 w-4" /> Add Product / Service
-          </button>
-        </div>
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-3.5 py-2 text-xs font-semibold text-white shadow-soft transition-transform hover:scale-105"
+            >
+              <Plus className="h-4 w-4" /> Add Product / Service
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Navigation Tabs */}
+      <div className="flex border-b border-base-c gap-2">
+        <button
+          onClick={() => setTab('products')}
+          className={cx(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px',
+            activeTab === 'products'
+              ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400 font-semibold'
+              : 'border-transparent text-secondary-c hover:text-primary-c'
+          )}
+        >
+          <ShoppingBag className="h-4 w-4" />
+          <span>Products & Services</span>
+          <span className="ml-1 rounded-full bg-surface-subtle px-2 py-0.5 text-xs text-secondary-c">
+            {stats.total}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setTab('ai-catalogs')}
+          className={cx(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all -mb-px',
+            activeTab === 'ai-catalogs'
+              ? 'border-primary-600 text-primary-600 dark:border-primary-400 dark:text-primary-400 font-semibold'
+              : 'border-transparent text-secondary-c hover:text-primary-c'
+          )}
+        >
+          <FileText className="h-4 w-4" />
+          <span>AI Catalogs & PDF Brochures</span>
+          <span className="ml-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-2 py-0.5 text-xs font-semibold">
+            Auto-Dispatch
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'ai-catalogs' ? (
+        <div className="animate-fade-in pt-1">
+          <AiCatalogsPanel />
+        </div>
+      ) : (
+        <>
 
       {/* Notifications */}
       {message && (
@@ -447,6 +506,8 @@ export function PropertiesView() {
             </form>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Delete Confirmation Modal */}

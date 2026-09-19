@@ -25,6 +25,7 @@ import { TicketsView } from '@/components/tickets/TicketsView';
 import { EmailsView } from '@/components/emails/EmailsView';
 import { CreateEmailCampaignView } from '@/components/emails/CreateEmailCampaignView';
 import { SettingsView } from '@/components/settings/SettingsView';
+import { WhatsAppPaymentsDashboard } from '@/components/payments/WhatsAppPaymentsDashboard';
 import { PropertiesView } from '@/components/properties/PropertiesView';
 import { ReportsView } from '@/components/reports/ReportsView';
 import { TeamView } from '@/components/team/TeamView';
@@ -243,7 +244,23 @@ function AppContent() {
                 </TenantRouteGuard>
               }
             />
+            <Route
+              path="edit-template/:templateName"
+              element={
+                <TenantRouteGuard pageKey="PAGE_BROADCASTS" userPerm="MODULE_CAMPAIGNS">
+                  <CreateTemplateView />
+                </TenantRouteGuard>
+              }
+            />
           </Route>
+          <Route
+            path="payments"
+            element={
+              <TenantRouteGuard pageKey="PAGE_SETTINGS">
+                <WhatsAppPaymentsDashboard />
+              </TenantRouteGuard>
+            }
+          />
           <Route
             path="meta-config"
             element={

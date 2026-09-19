@@ -15,6 +15,7 @@ import {
   Users,
   Contact,
   Sparkles,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ export type ViewId =
   | 'booking'
   | 'tickets'
   | 'emails'
+  | 'payments'
   | 'products'
   | 'properties'
   | 'reports'
@@ -52,16 +54,16 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: 3 },
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone },
+  { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'meta-config', label: 'Meta Configuration', icon: Plug },
   { id: 'knowledge-base', label: 'Knowledge Base', icon: Brain },
   { id: 'appointments', label: 'Appointments', icon: CalendarDays },
   { id: 'booking', label: 'Booking', icon: CalendarCheck },
   { id: 'tickets', label: 'Tickets', icon: Ticket, badge: 2 },
   { id: 'emails', label: 'Emails', icon: Mail },
-  { id: 'products', label: 'Products & Services', icon: ShoppingBag },
+  { id: 'products', label: 'Services', icon: ShoppingBag },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'contacts', label: 'Contacts', icon: Contact },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
-

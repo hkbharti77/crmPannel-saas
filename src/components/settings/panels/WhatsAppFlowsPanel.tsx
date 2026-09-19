@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Plus, Sparkles, CheckCircle2, Loader2, Copy, Check,
   Trash2, Edit3, ArrowLeft, RefreshCw, Send, Smartphone,
-  FileText, Calendar, Layers, HelpCircle, Eye, Globe, LifeBuoy
+  FileText, Calendar, Layers, HelpCircle, Eye, Globe, LifeBuoy,
+  Search, Filter, ShieldCheck, ChevronRight, MessageSquare, AlertCircle,
+  X, CheckCheck
 } from 'lucide-react';
 import {
   fetchWhatsAppFlows,
@@ -26,6 +28,8 @@ import {
   FlowsRoutingConfig,
   WebFlowsRoutingConfig
 } from '@/lib/whatsappFlowsApi';
+import { GlassCard } from '@/components/ui/primitives';
+import { cx } from '@/lib/types';
 
 export function WhatsAppFlowsPanel() {
   const [activeTab, setActiveTab] = useState<'flows' | 'routing'>('flows');
@@ -52,6 +56,11 @@ export function WhatsAppFlowsPanel() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Search & Filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // Builder Mode
   const [isEditing, setIsEditing] = useState(false);
@@ -187,7 +196,7 @@ export function WhatsAppFlowsPanel() {
     setConfirmationMessage(tpl.confirmationMessage);
     setShowTemplatesModal(false);
     setIsEditing(true);
-    showToast(`Template applied: ${cleanName || tpl.name}. You can customize fields and name below.`);
+    showToast(`Template applied: ${cleanName || tpl.name}`);
   };
 
   const handleEditFlow = (flow: WhatsAppFlowItem) => {
@@ -262,7 +271,6 @@ export function WhatsAppFlowsPanel() {
           return;
         }
       }
-      // Fallback to pre-configured master fields
       const defaults = CRM_MASTER_FIELDS.slice(0, 5).map(f => ({
         name: f.key,
         label: f.label,
@@ -293,7 +301,7 @@ export function WhatsAppFlowsPanel() {
       options: masterField.options ? [...masterField.options] : undefined,
     };
     setFields([...fields, newField]);
-    showToast(`Added CRM Master Field: ${masterField.label}`);
+    showToast(`Added CRM Field: ${masterField.label}`);
   };
 
   const handleAddField = (type: FlowFieldItem['type']) => {
@@ -354,7 +362,6 @@ export function WhatsAppFlowsPanel() {
   const handlePublish = async (flowIdToPublish?: string) => {
     const targetId = flowIdToPublish || editingFlowId;
     if (!targetId) {
-      // Save first
       if (!flowName.trim()) {
         showToast('Please enter a Flow name');
         return;
@@ -444,1016 +451,711 @@ export function WhatsAppFlowsPanel() {
     }
   };
 
+  // Filtered flows computation
+  const filteredFlows = useMemo(() => {
+    return flows.filter(flow => {
+      const matchesSearch = !searchQuery.trim() ||
+        flow.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (flow.metaFlowId && flow.metaFlowId.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        flow.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesCategory = categoryFilter === 'ALL' || flow.category === categoryFilter;
+      const matchesStatus = statusFilter === 'ALL' || flow.status === statusFilter;
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [flows, searchQuery, categoryFilter, statusFilter]);
+
+  // Executive KPI stats
+  const stats = useMemo(() => {
+    const total = flows.length;
+    const published = flows.filter(f => f.status === 'PUBLISHED').length;
+    const drafts = flows.filter(f => f.status === 'DRAFT' || f.status === 'PUBLISHING').length;
+    const activeRouting = (
+      (routingConfig.appointments?.mode === 'NATIVE_FLOW' ? 1 : 0) +
+      (routingConfig.bookings?.mode === 'NATIVE_FLOW' ? 1 : 0) +
+      (routingConfig.leadGen?.mode === 'NATIVE_FLOW' ? 1 : 0) +
+      (routingConfig.feedback?.mode === 'NATIVE_FLOW' ? 1 : 0) +
+      (webRoutingConfig.appointments?.mode === 'WEB_FLOW' ? 1 : 0) +
+      (webRoutingConfig.bookings?.mode === 'WEB_FLOW' ? 1 : 0) +
+      (webRoutingConfig.leadGen?.mode === 'WEB_FLOW' ? 1 : 0) +
+      (webRoutingConfig.feedback?.mode === 'WEB_FLOW' ? 1 : 0) +
+      (webRoutingConfig.support?.mode === 'WEB_FLOW' ? 1 : 0)
+    );
+    return { total, published, drafts, activeRouting };
+  }, [flows, routingConfig, webRoutingConfig]);
+
+  // Category badge styling helper
+  const getCategoryMeta = (category: FlowCategoryType) => {
+    switch (category) {
+      case 'APPOINTMENT_BOOKING':
+        return { label: 'Appointment', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25', icon: Calendar };
+      case 'LEAD_GENERATION':
+        return { label: 'Lead Generation', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25', icon: FileText };
+      case 'CUSTOMER_SUPPORT':
+        return { label: 'Support', color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25', icon: HelpCircle };
+      case 'SURVEY':
+        return { label: 'Feedback', color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25', icon: LifeBuoy };
+      default:
+        return { label: 'Custom', color: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/25', icon: Layers };
+    }
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-2xl border border-slate-700 animate-in fade-in slide-in-from-bottom-5">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
-          <span className="text-sm font-medium">{toastMessage}</span>
+        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-card-c text-primary-c rounded-xl shadow-soft-lg border border-base-c animate-in fade-in slide-in-from-bottom-4">
+          <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+          <span className="text-xs font-semibold">{toastMessage}</span>
+          <button onClick={() => setToastMessage(null)} className="text-muted-c hover:text-primary-c ml-1">
+            <X className="w-3 h-3" />
+          </button>
         </div>
       )}
 
-      {/* Main Flows Dashboard */}
+      {/* ─── MAIN DASHBOARD (NOT EDITING) ─── */}
       {!isEditing ? (
-        <div className="space-y-6">
-          {/* Header Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-emerald-50/80 via-white to-indigo-50/80 dark:from-slate-900 dark:via-indigo-950 dark:to-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 text-xs font-semibold uppercase tracking-wider bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 rounded-full">
-                  Meta Native Engine
-                </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Graph API v21.0</span>
+        <div className="space-y-4">
+          {/* Header & Controls Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-base-c">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <Smartphone className="h-5 w-5" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mt-2">WhatsApp Flows (In-App Forms)</h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-2xl">
-                Build native, full-screen forms that open directly inside WhatsApp. Capture leads, appointments, and feedback with 0 external websites.
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-primary-c leading-none">WhatsApp In-App Flows</h3>
+                  <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 rounded-md">
+                    Meta Cloud API v21.0
+                  </span>
+                </div>
+                <p className="text-xs text-secondary-c mt-1">
+                  Build and deploy native, multi-screen forms directly inside WhatsApp chats.
+                </p>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Action Buttons Toolbar */}
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
               <button
                 onClick={handleSyncMeta}
                 disabled={syncingMeta || loading}
-                className="flex items-center gap-2 px-3.5 py-2.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-sm"
-                title="Import and sync Flows directly from Meta WhatsApp Manager"
+                className="flex items-center gap-1.5 px-3 py-1.5 surface hover:bg-subtle-c text-primary-c text-xs font-semibold rounded-lg border-base-c shadow-xs transition disabled:opacity-50"
+                title="Sync existing Flows from Meta WhatsApp Business Manager"
               >
-                <RefreshCw className={`w-4 h-4 text-emerald-600 dark:text-emerald-400 ${syncingMeta ? 'animate-spin' : ''}`} />
-                {syncingMeta ? 'Syncing...' : 'Sync from Meta'}
+                <RefreshCw className={cx('w-3.5 h-3.5 text-emerald-600', syncingMeta && 'animate-spin')} />
+                <span>{syncingMeta ? 'Syncing…' : 'Sync Meta'}</span>
               </button>
-              <button
-                onClick={loadData}
-                disabled={loading}
-                className="flex items-center gap-2 px-3 py-2.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-sm"
-                title="Refresh Flows"
-              >
-                <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-300 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </button>
+
               <button
                 onClick={() => setShowTemplatesModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 surface hover:bg-subtle-c text-primary-c text-xs font-semibold rounded-lg border-base-c shadow-xs transition"
               >
-                <Sparkles className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-                Templates
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>Templates</span>
               </button>
+
               <button
                 onClick={handleStartNewFlow}
-                className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-950/20 transition"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-soft transition-transform active:scale-95"
               >
-                <Plus className="w-4 h-4" />
-                Create Flow
+                <Plus className="w-3.5 h-3.5" />
+                <span>New Flow</span>
               </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics KPI Strip */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="surface p-3 rounded-xl border-base-c shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Total Flows</p>
+                <p className="text-lg font-extrabold text-primary-c mt-0.5">{stats.total}</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-primary-500/10 text-primary-600 flex items-center justify-center">
+                <Layers className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="surface p-3 rounded-xl border-base-c shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Live on WhatsApp</p>
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">{stats.published}</p>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                </div>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="surface p-3 rounded-xl border-base-c shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Drafts</p>
+                <p className="text-lg font-extrabold text-primary-c mt-0.5">{stats.drafts}</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                <Edit3 className="w-4 h-4" />
+              </div>
+            </div>
+
+            <div className="surface p-3 rounded-xl border-base-c shadow-xs flex items-center justify-between">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Bot Automations</p>
+                <p className="text-lg font-extrabold text-indigo-600 dark:text-indigo-400 mt-0.5">{stats.activeRouting}</p>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                <Sparkles className="w-4 h-4" />
+              </div>
             </div>
           </div>
 
           {/* Sub-Navigation Tabs */}
-          <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto scrollbar-none flex-nowrap max-w-full">
+          <div className="flex items-center gap-2 border-b border-base-c pb-2">
             <button
               onClick={() => setActiveTab('flows')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition shrink-0 whitespace-nowrap btn-tactile ${
+              className={cx(
+                'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all',
                 activeTab === 'flows'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50'
-              }`}
+                  ? 'bg-primary-600 text-white shadow-xs'
+                  : 'text-secondary-c hover:text-primary-c hover:bg-subtle-c'
+              )}
             >
-              <Layers className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-              My Published Flows ({flows.length})
+              <Layers className="w-3.5 h-3.5" />
+              <span>Flows Directory ({flows.length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab('routing')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition shrink-0 whitespace-nowrap btn-tactile ${
+              className={cx(
+                'flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all',
                 activeTab === 'routing'
-                  ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/50'
-              }`}
+                  ? 'bg-primary-600 text-white shadow-xs'
+                  : 'text-secondary-c hover:text-primary-c hover:bg-subtle-c'
+              )}
             >
-              <Sparkles className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
-              ⚡ Bot Automation & Flow Routing
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>⚡ Bot Automation & Routing</span>
             </button>
           </div>
 
-          {/* TAB 1: FLOWS GRID */}
+          {/* ─────────────────────────────────────────────────────────────
+              TAB 1: FLOWS DIRECTORY
+              ───────────────────────────────────────────────────────────── */}
           {activeTab === 'flows' && (
-            <>
+            <div className="space-y-4">
+              {/* Search & Filter Strip */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-2.5">
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-3.5 h-3.5 text-muted-c absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search flows by name or Meta ID…"
+                    className="w-full pl-8 pr-3 py-1.5 surface text-xs text-primary-c rounded-lg border-base-c focus:outline-none focus:border-primary-500"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+                  {(['ALL', 'PUBLISHED', 'DRAFT'] as const).map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => setStatusFilter(st)}
+                      className={cx(
+                        'px-2.5 py-1 text-[11px] font-semibold rounded-lg transition',
+                        statusFilter === st
+                          ? 'surface font-bold text-primary-c border border-base-c shadow-xs'
+                          : 'text-muted-c hover:text-primary-c'
+                      )}
+                    >
+                      {st === 'ALL' ? 'All' : st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Grid or Empty States */}
               {loading ? (
-                <div className="flex flex-col items-center justify-center p-16 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <Loader2 className="w-8 h-8 text-emerald-500 animate-spin mb-3" />
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Loading WhatsApp Flows...</p>
+                <div className="surface p-12 rounded-xl border-base-c text-center">
+                  <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mx-auto mb-2" />
+                  <p className="text-xs text-secondary-c">Loading WhatsApp Flows from Meta API…</p>
                 </div>
               ) : flows.length === 0 ? (
-                <div className="p-12 text-center bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200 dark:border-slate-800">
-                  <div className="w-16 h-16 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-500/20">
-                    <Layers className="w-8 h-8" />
+                <div className="surface p-10 rounded-xl border-base-c text-center max-w-lg mx-auto">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                    <Smartphone className="w-6 h-6" />
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No WhatsApp Flows Created Yet</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
-                    Create appointment booking, lead generation, or feedback forms that customers can fill out seamlessly inside WhatsApp.
+                  <h4 className="text-sm font-bold text-primary-c">No WhatsApp Flows Yet</h4>
+                  <p className="text-xs text-secondary-c mt-1 leading-relaxed">
+                    Create in-app forms that customers can fill out seamlessly inside WhatsApp without opening external browser links.
                   </p>
-                  <div className="flex items-center justify-center gap-3 mt-6">
+                  <div className="flex items-center justify-center gap-2.5 mt-5">
                     <button
                       onClick={() => setShowTemplatesModal(true)}
-                      className="px-4 py-2 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-700 transition shadow-sm"
+                      className="px-3.5 py-1.5 surface text-xs font-semibold text-primary-c rounded-lg border-base-c hover:bg-subtle-c shadow-xs"
                     >
                       Browse Templates
                     </button>
                     <button
                       onClick={handleStartNewFlow}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium text-white rounded-xl shadow transition"
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-xs"
                     >
                       Create from Scratch
                     </button>
                   </div>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-6">
-              {flows.map((flow) => (
-                <div
-                  key={flow.id}
-                  className="group flex flex-col justify-between p-5 bg-white dark:bg-slate-900/90 hover:bg-slate-50/50 dark:hover:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700/80 shadow-sm hover:shadow-md transition duration-200"
-                >
-                  <div className="space-y-3.5">
-                    {/* Top Row: Category Badge + Status Badge */}
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider rounded-lg bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700/60 shrink-0">
-                        {flow.category.replace('_', ' ')}
-                      </span>
-
-                      {/* Status Badge */}
-                      {flow.status === 'PUBLISHED' && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold tracking-wide rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 shrink-0">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse"></span>
-                          PUBLISHED
-                        </span>
-                      )}
-                      {flow.status === 'DRAFT' && (
-                        <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-bold tracking-wide rounded-lg bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 shrink-0">
-                          DRAFT
-                        </span>
-                      )}
-                      {flow.status === 'PUBLISHING' && (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold tracking-wide rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 shrink-0">
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                          PUBLISHING...
-                        </span>
-                      )}
-                      {flow.status === 'PUBLISH_FAILED' && (
-                        <span className="inline-flex items-center px-2.5 py-1 text-[11px] font-bold tracking-wide rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 shrink-0">
-                          FAILED
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Flow Title (Consistent 2-line height) */}
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-300 transition leading-snug min-h-[2.75rem] flex items-center">
-                      {flow.name}
-                    </h3>
-
-                    {/* Meta Flow ID Card */}
-                    {flow.metaFlowId && (
-                      <div className="p-3 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800/90 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">Meta Flow ID</span>
-                          <button
-                            onClick={() => handleCopyMetaId(flow.metaFlowId!)}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md text-[11px] font-medium transition border border-slate-200 dark:border-slate-700/60 shadow-sm"
-                            title="Copy Meta Flow ID"
-                          >
-                            {copiedId === flow.metaFlowId ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Copied</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3 text-slate-500 dark:text-slate-400" />
-                                <span>Copy</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                        <div className="text-xs text-slate-800 dark:text-slate-200 font-mono font-semibold tracking-wide break-all">
-                          {flow.metaFlowId}
-                        </div>
-                      </div>
-                    )}
-
-                    {flow.lastSyncError && (
-                      <p className="text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900/40">
-                        ⚠️ {flow.lastSyncError}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Bottom Actions */}
-                  <div className="mt-5 pt-3.5 border-t border-slate-200 dark:border-slate-800/80">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <button
-                          onClick={() => handleEditFlow(flow)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700/80 transition"
-                          title="Edit Form"
-                        >
-                          <Edit3 className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
-                          <span className="truncate">Edit</span>
-                        </button>
-
-                        <button
-                          onClick={() => handleOpenSubmissions(flow)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold rounded-xl border border-slate-200 dark:border-slate-700/80 transition"
-                          title="View Responses"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
-                          <span className="truncate">Responses</span>
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleDuplicate(flow.id)}
-                          disabled={actionLoading === `dup_${flow.id}`}
-                          className="p-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-700/50 transition"
-                          title="Duplicate Flow"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-
-                        <button
-                          onClick={() => setFlowToArchive(flow)}
-                          disabled={actionLoading === `arc_${flow.id}`}
-                          className="p-2 bg-slate-50 dark:bg-slate-800/60 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 rounded-xl border border-slate-200 dark:border-slate-700/50 transition"
-                          title="Delete / Archive Flow"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {flow.status !== 'PUBLISHED' && (
-                      <button
-                        onClick={() => handlePublish(flow.id)}
-                        disabled={actionLoading === flow.id}
-                        className="w-full mt-2.5 flex items-center justify-center gap-2 py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow-md transition"
-                      >
-                        {actionLoading === flow.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Send className="w-3.5 h-3.5" />
-                        )}
-                        Publish Flow
-                      </button>
-                    )}
-                  </div>
+              ) : filteredFlows.length === 0 ? (
+                <div className="surface p-8 rounded-xl border-base-c text-center">
+                  <p className="text-xs text-muted-c">No flows match your search criteria.</p>
+                  <button
+                    onClick={() => { setSearchQuery(''); setStatusFilter('ALL'); }}
+                    className="mt-2 text-xs font-semibold text-primary-600 hover:underline"
+                  >
+                    Clear filters
+                  </button>
                 </div>
-              ))}
+              ) : (
+                /* Flow Cards Grid */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {filteredFlows.map((flow) => {
+                    const catMeta = getCategoryMeta(flow.category);
+                    const CatIcon = catMeta.icon;
+
+                    let fieldsCount = 0;
+                    if (flow.publishedRevision?.fieldsConfigJson) {
+                      try {
+                        fieldsCount = JSON.parse(flow.publishedRevision.fieldsConfigJson).length;
+                      } catch {
+                        fieldsCount = 0;
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={flow.id}
+                        className="surface group flex flex-col justify-between p-4 rounded-xl border-base-c shadow-xs hover:border-emerald-500/40 hover:shadow-soft transition-all"
+                      >
+                        <div className="space-y-3">
+                          {/* Category Tag + Status Badge */}
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={cx('inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded border', catMeta.color)}>
+                              <CatIcon className="w-3 h-3" />
+                              <span>{catMeta.label}</span>
+                            </span>
+
+                            {flow.status === 'PUBLISHED' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/25">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                PUBLISHED
+                              </span>
+                            )}
+                            {flow.status === 'DRAFT' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-amber-500/10 text-amber-600 border border-amber-500/25">
+                                DRAFT
+                              </span>
+                            )}
+                            {flow.status === 'PUBLISHING' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-blue-500/10 text-blue-600 border border-blue-500/25">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                PUBLISHING
+                              </span>
+                            )}
+                            {flow.status === 'PUBLISH_FAILED' && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-rose-500/10 text-rose-600 border border-rose-500/25">
+                                FAILED
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Flow Title */}
+                          <h4 className="text-sm font-bold text-primary-c group-hover:text-emerald-600 transition truncate">
+                            {flow.name}
+                          </h4>
+
+                          {/* Meta ID Row */}
+                          {flow.metaFlowId ? (
+                            <div className="flex items-center justify-between px-2.5 py-1.5 bg-subtle-c rounded-lg border border-base-c text-[11px]">
+                              <span className="font-mono text-muted-c text-[10px] font-bold">ID:</span>
+                              <span className="font-mono font-semibold text-primary-c truncate max-w-[170px]">
+                                {flow.metaFlowId}
+                              </span>
+                              <button
+                                onClick={() => handleCopyMetaId(flow.metaFlowId!)}
+                                className="text-muted-c hover:text-primary-c ml-1 p-0.5"
+                                title="Copy Meta Flow ID"
+                              >
+                                {copiedId === flow.metaFlowId ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="px-2.5 py-1.5 bg-subtle-c rounded-lg border border-dashed border-base-c text-[10px] text-muted-c">
+                              Meta ID: Not yet assigned
+                            </div>
+                          )}
+
+                          {/* Quick Stats: Submissions & Fields */}
+                          <div className="flex items-center justify-between text-[11px] pt-1 text-muted-c">
+                            <button
+                              onClick={() => handleOpenSubmissions(flow)}
+                              className="font-semibold text-primary-600 hover:underline flex items-center gap-1"
+                            >
+                              <Eye className="w-3 h-3" />
+                              <span>View Responses</span>
+                            </button>
+                            {fieldsCount > 0 && <span>{fieldsCount} fields</span>}
+                          </div>
+                        </div>
+
+                        {/* Card Actions Footer */}
+                        <div className="mt-4 pt-2.5 border-t border-base-c flex items-center justify-between gap-1.5">
+                          <button
+                            onClick={() => handleEditFlow(flow)}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 surface hover:bg-subtle-c text-primary-c text-xs font-semibold rounded-lg border-base-c shadow-xs transition"
+                          >
+                            <Edit3 className="w-3 h-3 text-muted-c" />
+                            <span>Edit</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleDuplicate(flow.id)}
+                            disabled={actionLoading === `dup_${flow.id}`}
+                            className="p-1.5 surface hover:bg-subtle-c text-muted-c hover:text-primary-c rounded-lg border-base-c shadow-xs transition"
+                            title="Duplicate"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                          </button>
+
+                          <button
+                            onClick={() => setFlowToArchive(flow)}
+                            disabled={actionLoading === `arc_${flow.id}`}
+                            className="p-1.5 surface hover:bg-rose-500/10 text-muted-c hover:text-rose-500 rounded-lg border-base-c shadow-xs transition"
+                            title="Archive"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {flow.status !== 'PUBLISHED' && (
+                            <button
+                              onClick={() => handlePublish(flow.id)}
+                              disabled={actionLoading === flow.id}
+                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-xs transition"
+                              title="Publish to Meta WhatsApp"
+                            >
+                              {actionLoading === flow.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Send className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
-          </>
-          )}
 
-          {/* TAB 2: ENTERPRISE AUTOMATION & FLOW ROUTING */}
+          {/* ─────────────────────────────────────────────────────────────
+              TAB 2: BOT AUTOMATION & ROUTING
+              ───────────────────────────────────────────────────────────── */}
           {activeTab === 'routing' && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              {/* Channel Selector Header Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl border border-slate-800 shadow-md">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-indigo-500/20 text-indigo-300 rounded-xl border border-indigo-500/30">
-                    <Sparkles className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-base font-bold text-white">Dual-Channel Bot Flow Automation</h4>
-                    <p className="text-xs text-indigo-200/80 mt-0.5">
-                      Configure interactive flow and chatbot experiences for WhatsApp and your Website Chat Widget.
-                    </p>
-                  </div>
+            <div className="space-y-4">
+              {/* Channel Selector */}
+              <div className="flex items-center justify-between p-3 surface rounded-xl border-base-c shadow-xs">
+                <div>
+                  <h4 className="text-xs font-bold text-primary-c">Interactive Flow Trigger Routing</h4>
+                  <p className="text-[11px] text-muted-c">Choose whether bot topics trigger native forms or step-by-step chat prompts.</p>
                 </div>
-
-                {/* Channel Switcher */}
-                <div className="flex items-center gap-1.5 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 self-start sm:self-auto">
+                <div className="flex items-center gap-1 bg-subtle-c p-1 rounded-lg border border-base-c">
                   <button
-                    type="button"
                     onClick={() => setRoutingChannel('whatsapp')}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
-                      routingChannel === 'whatsapp'
-                        ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
+                    className={cx(
+                      'px-3 py-1 rounded text-xs font-bold transition',
+                      routingChannel === 'whatsapp' ? 'bg-emerald-600 text-white shadow-xs' : 'text-secondary-c hover:text-primary-c'
+                    )}
                   >
-                    <Smartphone className="w-3.5 h-3.5" />
                     🟢 WhatsApp Bot
                   </button>
                   <button
-                    type="button"
                     onClick={() => setRoutingChannel('web')}
-                    className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition ${
-                      routingChannel === 'web'
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
+                    className={cx(
+                      'px-3 py-1 rounded text-xs font-bold transition',
+                      routingChannel === 'web' ? 'bg-indigo-600 text-white shadow-xs' : 'text-secondary-c hover:text-primary-c'
+                    )}
                   >
-                    <Globe className="w-3.5 h-3.5" />
                     🌐 Website Chatbot
                   </button>
                 </div>
               </div>
 
-              {/* ─────────────────────────────────────────────────────────────
-                  CHANNEL 1: WHATSAPP BOT ROUTING
-                  ───────────────────────────────────────────────────────────── */}
+              {/* WhatsApp Bot Routing Channel */}
               {routingChannel === 'whatsapp' && (
-                <div className="space-y-6 animate-in fade-in duration-150">
-                  <div className="p-4 bg-emerald-50/80 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800/40 text-xs text-emerald-900 dark:text-emerald-200">
-                    💡 <strong>WhatsApp Routing Engine:</strong> Switch between <strong className="underline">Native WhatsApp Flow</strong> (Meta In-App Form) and <strong className="underline">Step-by-Step Chatbot</strong> for incoming WhatsApp messages.
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* 1. APPOINTMENTS */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20">
-                          <Calendar className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Appointments & Consultations</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Triggered by 'appointment', 'consultation', 'doctor', 'schedule'</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Appointments */}
+                    <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg">
+                            <Calendar className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-primary-c">Appointments & Consultations</h5>
+                            <p className="text-[10px] text-muted-c">Trigger: 'appointment', 'doctor', 'schedule'</p>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.appointments.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'NATIVE_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.appointments.mode === 'NATIVE_FLOW'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ⚡ Native WhatsApp Flow
-                          </button>
-                        </div>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-subtle-c rounded-lg border border-base-c">
+                        <button
+                          type="button"
+                          onClick={() => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'CHATBOT' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', routingConfig.appointments.mode === 'CHATBOT' ? 'surface text-primary-c shadow-xs font-bold' : 'text-muted-c')}
+                        >
+                          💬 Chatbot
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'NATIVE_FLOW' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', routingConfig.appointments.mode === 'NATIVE_FLOW' ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-muted-c')}
+                        >
+                          ⚡ WhatsApp Flow
+                        </button>
                       </div>
 
                       {routingConfig.appointments.mode === 'NATIVE_FLOW' && (
-                        <div className="space-y-3 pt-2 animate-in fade-in duration-150">
-                          <div>
-                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Select Published Flow</label>
-                            <select
-                              value={routingConfig.appointments.metaFlowId || ''}
-                              onChange={(e) => {
-                                const selected = flows.find(f => f.metaFlowId === e.target.value);
-                                setRoutingConfig(prev => ({
-                                  ...prev,
-                                  appointments: {
-                                    ...prev.appointments,
-                                    metaFlowId: e.target.value,
-                                    flowId: selected?.id
-                                  }
-                                }));
-                              }}
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-medium focus:ring-1 focus:ring-emerald-500"
-                            >
-                              <option value="">-- Choose a Published Flow --</option>
-                              {flows.filter(f => f.status === 'PUBLISHED' && f.metaFlowId).map(f => (
-                                <option key={f.id} value={f.metaFlowId}>
-                                  {f.name} (Meta ID: {f.metaFlowId})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button CTA Text</label>
-                              <input
-                                type="text"
-                                value={routingConfig.appointments.ctaText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, ctaText: e.target.value } }))}
-                                placeholder="e.g. Book Appointment"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Prompt Message</label>
-                              <input
-                                type="text"
-                                value={routingConfig.appointments.promptText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, promptText: e.target.value } }))}
-                                placeholder="e.g. Tap below to book:"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
+                        <div className="space-y-2 pt-1">
+                          <select
+                            value={routingConfig.appointments.metaFlowId || ''}
+                            onChange={(e) => {
+                              const sel = flows.find(f => f.metaFlowId === e.target.value);
+                              setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, metaFlowId: e.target.value, flowId: sel?.id } }));
+                            }}
+                            className="w-full px-2.5 py-1.5 surface border-base-c rounded-lg text-xs text-primary-c"
+                          >
+                            <option value="">-- Choose Published Flow --</option>
+                            {flows.filter(f => f.status === 'PUBLISHED' && f.metaFlowId).map(f => (
+                              <option key={f.id} value={f.metaFlowId}>{f.name} ({f.metaFlowId})</option>
+                            ))}
+                          </select>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={routingConfig.appointments.ctaText || ''}
+                              onChange={(e) => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, ctaText: e.target.value } }))}
+                              placeholder="Button CTA Text"
+                              className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                            />
+                            <input
+                              type="text"
+                              value={routingConfig.appointments.promptText || ''}
+                              onChange={(e) => setRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, promptText: e.target.value } }))}
+                              placeholder="Prompt Message"
+                              className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                            />
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* 2. BOOKINGS */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-500/20">
-                          <Layers className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Reservations & Bookings</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Triggered by 'booking', 'reserve', 'slot', 'table', 'service'</p>
+                    {/* Bookings */}
+                    <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg">
+                            <Layers className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <h5 className="text-xs font-bold text-primary-c">Reservations & Bookings</h5>
+                            <p className="text-[10px] text-muted-c">Trigger: 'booking', 'reserve', 'slot'</p>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.bookings.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'NATIVE_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.bookings.mode === 'NATIVE_FLOW'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ⚡ Native WhatsApp Flow
-                          </button>
-                        </div>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-subtle-c rounded-lg border border-base-c">
+                        <button
+                          type="button"
+                          onClick={() => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'CHATBOT' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', routingConfig.bookings.mode === 'CHATBOT' ? 'surface text-primary-c shadow-xs font-bold' : 'text-muted-c')}
+                        >
+                          💬 Chatbot
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'NATIVE_FLOW' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', routingConfig.bookings.mode === 'NATIVE_FLOW' ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'text-muted-c')}
+                        >
+                          ⚡ WhatsApp Flow
+                        </button>
                       </div>
 
                       {routingConfig.bookings.mode === 'NATIVE_FLOW' && (
-                        <div className="space-y-3 pt-2 animate-in fade-in duration-150">
-                          <div>
-                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Select Published Flow</label>
-                            <select
-                              value={routingConfig.bookings.metaFlowId || ''}
-                              onChange={(e) => {
-                                const selected = flows.find(f => f.metaFlowId === e.target.value);
-                                setRoutingConfig(prev => ({
-                                  ...prev,
-                                  bookings: {
-                                    ...prev.bookings,
-                                    metaFlowId: e.target.value,
-                                    flowId: selected?.id
-                                  }
-                                }));
-                              }}
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-medium focus:ring-1 focus:ring-emerald-500"
-                            >
-                              <option value="">-- Choose a Published Flow --</option>
-                              {flows.filter(f => f.status === 'PUBLISHED' && f.metaFlowId).map(f => (
-                                <option key={f.id} value={f.metaFlowId}>
-                                  {f.name} (Meta ID: {f.metaFlowId})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button CTA Text</label>
-                              <input
-                                type="text"
-                                value={routingConfig.bookings.ctaText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, ctaText: e.target.value } }))}
-                                placeholder="e.g. Reserve Slot"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Prompt Message</label>
-                              <input
-                                type="text"
-                                value={routingConfig.bookings.promptText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, promptText: e.target.value } }))}
-                                placeholder="e.g. Tap below to reserve:"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 3. SALES LEADS */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Sales Leads & Inquiries</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Triggered by 'quote', 'pricing', 'inquiry', 'contact'</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.leadGen.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
+                        <div className="space-y-2 pt-1">
+                          <select
+                            value={routingConfig.bookings.metaFlowId || ''}
+                            onChange={(e) => {
+                              const sel = flows.find(f => f.metaFlowId === e.target.value);
+                              setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, metaFlowId: e.target.value, flowId: sel?.id } }));
+                            }}
+                            className="w-full px-2.5 py-1.5 surface border-base-c rounded-lg text-xs text-primary-c"
                           >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, mode: 'NATIVE_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.leadGen.mode === 'NATIVE_FLOW'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ⚡ Native WhatsApp Flow
-                          </button>
-                        </div>
-                      </div>
-
-                      {routingConfig.leadGen.mode === 'NATIVE_FLOW' && (
-                        <div className="space-y-3 pt-2 animate-in fade-in duration-150">
-                          <div>
-                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Select Published Flow</label>
-                            <select
-                              value={routingConfig.leadGen.metaFlowId || ''}
-                              onChange={(e) => {
-                                const selected = flows.find(f => f.metaFlowId === e.target.value);
-                                setRoutingConfig(prev => ({
-                                  ...prev,
-                                  leadGen: {
-                                    ...prev.leadGen,
-                                    metaFlowId: e.target.value,
-                                    flowId: selected?.id
-                                  }
-                                }));
-                              }}
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-medium focus:ring-1 focus:ring-emerald-500"
-                            >
-                              <option value="">-- Choose a Published Flow --</option>
-                              {flows.filter(f => f.status === 'PUBLISHED' && f.metaFlowId).map(f => (
-                                <option key={f.id} value={f.metaFlowId}>
-                                  {f.name} (Meta ID: {f.metaFlowId})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button CTA Text</label>
-                              <input
-                                type="text"
-                                value={routingConfig.leadGen.ctaText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, ctaText: e.target.value } }))}
-                                placeholder="e.g. Get a Quote"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Prompt Message</label>
-                              <input
-                                type="text"
-                                value={routingConfig.leadGen.promptText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, promptText: e.target.value } }))}
-                                placeholder="e.g. Please fill your requirements:"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 4. FEEDBACK */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl border border-rose-500/20">
-                          <HelpCircle className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Customer Feedback & Surveys</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Triggered by 'feedback', 'review', 'rating', 'survey'</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, feedback: { ...prev.feedback, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.feedback.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setRoutingConfig(prev => ({ ...prev, feedback: { ...prev.feedback, mode: 'NATIVE_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              routingConfig.feedback.mode === 'NATIVE_FLOW'
-                                ? 'bg-emerald-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ⚡ Native WhatsApp Flow
-                          </button>
-                        </div>
-                      </div>
-
-                      {routingConfig.feedback.mode === 'NATIVE_FLOW' && (
-                        <div className="space-y-3 pt-2 animate-in fade-in duration-150">
-                          <div>
-                            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">Select Published Flow</label>
-                            <select
-                              value={routingConfig.feedback.metaFlowId || ''}
-                              onChange={(e) => {
-                                const selected = flows.find(f => f.metaFlowId === e.target.value);
-                                setRoutingConfig(prev => ({
-                                  ...prev,
-                                  feedback: {
-                                    ...prev.feedback,
-                                    metaFlowId: e.target.value,
-                                    flowId: selected?.id
-                                  }
-                                }));
-                              }}
-                              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-medium focus:ring-1 focus:ring-emerald-500"
-                            >
-                              <option value="">-- Choose a Published Flow --</option>
-                              {flows.filter(f => f.status === 'PUBLISHED' && f.metaFlowId).map(f => (
-                                <option key={f.id} value={f.metaFlowId}>
-                                  {f.name} (Meta ID: {f.metaFlowId})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button CTA Text</label>
-                              <input
-                                type="text"
-                                value={routingConfig.feedback.ctaText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, feedback: { ...prev.feedback, ctaText: e.target.value } }))}
-                                placeholder="e.g. Give Feedback"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
-                            <div>
-                              <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Prompt Message</label>
-                              <input
-                                type="text"
-                                value={routingConfig.feedback.promptText || ''}
-                                onChange={(e) => setRoutingConfig(prev => ({ ...prev, feedback: { ...prev.feedback, promptText: e.target.value } }))}
-                                placeholder="e.g. How was your experience?"
-                                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                              />
-                            </div>
+                            <option value="">-- Choose Published Flow --</option>
+                            {flows.filter(f => f.status === 'PUBLISHED' && f.metaFlowId).map(f => (
+                              <option key={f.id} value={f.metaFlowId}>{f.name} ({f.metaFlowId})</option>
+                            ))}
+                          </select>
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              value={routingConfig.bookings.ctaText || ''}
+                              onChange={(e) => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, ctaText: e.target.value } }))}
+                              placeholder="Button CTA Text"
+                              className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                            />
+                            <input
+                              type="text"
+                              value={routingConfig.bookings.promptText || ''}
+                              onChange={(e) => setRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, promptText: e.target.value } }))}
+                              placeholder="Prompt Message"
+                              className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                            />
                           </div>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  {/* WhatsApp Save Bar */}
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex justify-end pt-2">
                     <button
                       onClick={handleSaveRouting}
                       disabled={savingRouting}
-                      className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-950/20 transition"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-soft transition disabled:opacity-60"
                     >
-                      {savingRouting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving WhatsApp Routing...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          Save WhatsApp Flow Routing
-                        </>
-                      )}
+                      {savingRouting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      <span>Save WhatsApp Routing</span>
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ─────────────────────────────────────────────────────────────
-                  CHANNEL 2: WEBSITE CHATBOT "WEB FLOW" ROUTING
-                  ───────────────────────────────────────────────────────────── */}
+              {/* Web Routing Channel */}
               {routingChannel === 'web' && (
-                <div className="space-y-6 animate-in fade-in duration-150">
-                  <div className="p-4 bg-indigo-50/80 dark:bg-indigo-950/20 rounded-xl border border-indigo-200 dark:border-indigo-800/40 text-xs text-indigo-900 dark:text-indigo-200">
-                    ✨ <strong>Website Chatbot Web Flow Engine:</strong> Choose whether the web widget asks questions <strong className="underline">Step-by-Step in Chat</strong> or opens the <strong className="underline">Interactive In-Chat Form Modal (Web Flow)</strong> with 1-to-1 WhatsApp parity.
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* 1. WEB APPOINTMENTS */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl border border-emerald-500/20">
-                          <Calendar className="w-5 h-5" />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* Appointments */}
+                    <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg">
+                          <Calendar className="w-4 h-4" />
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Appointments & Consultations</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Doctor, salon, clinic, and consultant scheduling</p>
-                        </div>
+                        <h5 className="text-xs font-bold text-primary-c">Website Appointments</h5>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Widget Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.appointments?.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'WEB_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.appointments?.mode === 'WEB_FLOW'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ✨ Interactive Web Flow Modal
-                          </button>
-                        </div>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-subtle-c rounded-lg border border-base-c">
+                        <button
+                          type="button"
+                          onClick={() => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'CHATBOT' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', webRoutingConfig.appointments?.mode === 'CHATBOT' ? 'surface text-primary-c shadow-xs font-bold' : 'text-muted-c')}
+                        >
+                          💬 Chatbot
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, mode: 'WEB_FLOW' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', webRoutingConfig.appointments?.mode === 'WEB_FLOW' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'text-muted-c')}
+                        >
+                          ✨ Web Modal
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button Label</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.appointments?.ctaText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, ctaText: e.target.value } }))}
-                            placeholder="e.g. 📅 Book Appointment"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">CTA Description</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.appointments?.promptText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, promptText: e.target.value } }))}
-                            placeholder="e.g. Pick your doctor & slot:"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={webRoutingConfig.appointments?.ctaText || ''}
+                          onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, ctaText: e.target.value } }))}
+                          placeholder="Button Label"
+                          className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={webRoutingConfig.appointments?.promptText || ''}
+                          onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, appointments: { ...prev.appointments, promptText: e.target.value } }))}
+                          placeholder="Prompt Text"
+                          className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                        />
                       </div>
                     </div>
 
-                    {/* 2. WEB BOOKINGS */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-xl border border-blue-500/20">
-                          <Layers className="w-5 h-5" />
+                    {/* Bookings */}
+                    <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg">
+                          <Layers className="w-4 h-4" />
                         </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Reservations & Bookings</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Events, spa, photography, classes, and table reservations</p>
-                        </div>
+                        <h5 className="text-xs font-bold text-primary-c">Website Reservations</h5>
                       </div>
 
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Widget Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.bookings?.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'WEB_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.bookings?.mode === 'WEB_FLOW'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ✨ Interactive Web Flow Modal
-                          </button>
-                        </div>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-subtle-c rounded-lg border border-base-c">
+                        <button
+                          type="button"
+                          onClick={() => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'CHATBOT' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', webRoutingConfig.bookings?.mode === 'CHATBOT' ? 'surface text-primary-c shadow-xs font-bold' : 'text-muted-c')}
+                        >
+                          💬 Chatbot
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, mode: 'WEB_FLOW' } }))}
+                          className={cx('py-1.5 px-2 rounded text-xs font-semibold transition', webRoutingConfig.bookings?.mode === 'WEB_FLOW' ? 'bg-indigo-600 text-white font-bold shadow-xs' : 'text-muted-c')}
+                        >
+                          ✨ Web Modal
+                        </button>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button Label</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.bookings?.ctaText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, ctaText: e.target.value } }))}
-                            placeholder="e.g. 🔖 Reserve Slot"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">CTA Description</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.bookings?.promptText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, promptText: e.target.value } }))}
-                            placeholder="e.g. Reserve your package slot:"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 3. WEB LEADS */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl border border-amber-500/20">
-                          <FileText className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Sales Leads & Quotes</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Custom quotes, requirement inquiries, and catalog enquiries</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Widget Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.leadGen?.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, mode: 'WEB_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.leadGen?.mode === 'WEB_FLOW'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ✨ Interactive Web Flow Modal
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button Label</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.leadGen?.ctaText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, ctaText: e.target.value } }))}
-                            placeholder="e.g. 🎯 Get a Quote"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">CTA Description</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.leadGen?.promptText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, leadGen: { ...prev.leadGen, promptText: e.target.value } }))}
-                            placeholder="e.g. Tell us your requirements:"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* 4. WEB SUPPORT */}
-                    <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                      <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
-                        <div className="p-2.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl border border-rose-500/20">
-                          <LifeBuoy className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-bold text-slate-900 dark:text-white">Customer Support Tickets</h4>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400">Technical help, billing inquiries, and customer grievances</p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block">Widget Processing Mode</label>
-                        <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, support: { ...prev.support, mode: 'CHATBOT' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.support?.mode === 'CHATBOT'
-                                ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-transparent shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            💬 Step-by-Step Chatbot
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setWebRoutingConfig(prev => ({ ...prev, support: { ...prev.support, mode: 'WEB_FLOW' } }))}
-                            className={`py-2 px-3 rounded-lg text-xs font-semibold transition ${
-                              webRoutingConfig.support?.mode === 'WEB_FLOW'
-                                ? 'bg-indigo-600 text-white shadow-sm'
-                                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                            }`}
-                          >
-                            ✨ Interactive Web Flow Modal
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-1">
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">Button Label</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.support?.ctaText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, support: { ...prev.support, ctaText: e.target.value } }))}
-                            placeholder="e.g. 🎫 Open Support Ticket"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-semibold text-slate-600 dark:text-slate-400 block mb-1">CTA Description</label>
-                          <input
-                            type="text"
-                            value={webRoutingConfig.support?.promptText || ''}
-                            onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, support: { ...prev.support, promptText: e.target.value } }))}
-                            placeholder="e.g. Log your issue with our team:"
-                            className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 rounded-xl border border-slate-200 dark:border-slate-800 text-xs"
-                          />
-                        </div>
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={webRoutingConfig.bookings?.ctaText || ''}
+                          onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, ctaText: e.target.value } }))}
+                          placeholder="Button Label"
+                          className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                        />
+                        <input
+                          type="text"
+                          value={webRoutingConfig.bookings?.promptText || ''}
+                          onChange={(e) => setWebRoutingConfig(prev => ({ ...prev, bookings: { ...prev.bookings, promptText: e.target.value } }))}
+                          placeholder="Prompt Text"
+                          className="px-2.5 py-1.5 surface border-base-c rounded-lg text-xs"
+                        />
                       </div>
                     </div>
                   </div>
 
-                  {/* Website Save Bar */}
-                  <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex justify-end pt-2">
                     <button
                       onClick={handleSaveWebRouting}
                       disabled={savingWebRouting}
-                      className="flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-950/20 transition"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg shadow-soft transition disabled:opacity-60"
                     >
-                      {savingWebRouting ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Saving Website Routing...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle2 className="w-4 h-4" />
-                          Save Website Web Flow Routing
-                        </>
-                      )}
+                      {savingWebRouting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      <span>Save Website Routing</span>
                     </button>
                   </div>
                 </div>
@@ -1462,251 +1164,195 @@ export function WhatsAppFlowsPanel() {
           )}
         </div>
       ) : (
-        /* Visual Form Builder Mode */
-        <div className="space-y-6 animate-in fade-in duration-200">
+        /* ─────────────────────────────────────────────────────────────
+            BUILDER MODE (isEditing = true)
+            ───────────────────────────────────────────────────────────── */
+        <div className="space-y-4 animate-in fade-in duration-150">
           {/* Builder Top Bar */}
-          <div className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between p-3 surface rounded-xl border-base-c shadow-xs">
+            <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setIsEditing(false)}
-                className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl transition"
+                className="p-1.5 surface hover:bg-subtle-c text-primary-c rounded-lg border-base-c"
+                title="Back"
               >
                 <ArrowLeft className="w-4 h-4" />
               </button>
               <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                <h4 className="text-sm font-bold text-primary-c">
                   {editingFlowId ? 'Edit WhatsApp Flow' : 'Create New WhatsApp Flow'}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Design your native in-app WhatsApp form screens and fields</p>
+                </h4>
+                <p className="text-[10px] text-muted-c">Configure form fields & WhatsApp live screen</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleSaveDraft}
                 disabled={actionLoading === 'draft'}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-700 transition"
+                className="px-3 py-1.5 surface hover:bg-subtle-c text-primary-c text-xs font-semibold rounded-lg border-base-c disabled:opacity-50"
               >
-                {actionLoading === 'draft' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Draft'}
+                {actionLoading === 'draft' ? 'Saving…' : 'Save Draft'}
               </button>
               <button
                 onClick={() => handlePublish()}
                 disabled={actionLoading === 'publish'}
-                className="flex items-center gap-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-emerald-950/20 transition"
+                className="flex items-center gap-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-xs disabled:opacity-50"
               >
-                {actionLoading === 'publish' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                Publish to WhatsApp
+                {actionLoading === 'publish' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                <span>Publish Flow</span>
               </button>
             </div>
           </div>
 
-          {/* Builder Content: Left Settings & Right Preview */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: Form Fields & Settings (7 Cols) */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* Basic Info */}
-              <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">Flow Details</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Left: Fields & Config (7 cols) */}
+            <div className="lg:col-span-7 space-y-4">
+              <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
+                <h5 className="text-xs font-bold text-muted-c uppercase tracking-wider">Flow Info</h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 block mb-1.5">Flow Name</label>
+                    <label className="text-[11px] font-semibold text-secondary-c block mb-1">Flow Name</label>
                     <input
                       type="text"
                       value={flowName}
                       onChange={(e) => setFlowName(e.target.value)}
-                      placeholder="e.g. Clinic Appointment Booking"
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. Clinic Appointment"
+                      className="w-full px-3 py-1.5 surface border-base-c rounded-lg text-xs text-primary-c"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-400 block mb-1.5">Business Category</label>
+                    <label className="text-[11px] font-semibold text-secondary-c block mb-1">Category</label>
                     <select
                       value={flowCategory}
                       onChange={(e) => setFlowCategory(e.target.value as FlowCategoryType)}
-                      className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-sm text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500"
+                      className="w-full px-3 py-1.5 surface border-base-c rounded-lg text-xs text-primary-c"
                     >
                       <option value="APPOINTMENT_BOOKING">📅 Appointment Booking</option>
                       <option value="LEAD_GENERATION">🎯 Lead Generation</option>
                       <option value="CUSTOMER_SUPPORT">🎫 Customer Support</option>
                       <option value="SURVEY">⭐ Feedback & Survey</option>
-                      <option value="OTHER">📋 Other Form</option>
+                      <option value="OTHER">📋 Custom Form</option>
                     </select>
                   </div>
                 </div>
               </div>
 
-              {/* Form Fields Editor */}
-              <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-                {/* Master CRM Template Loader Bar */}
-                <div className="p-3 bg-emerald-50/80 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-800/40 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-xs font-semibold text-emerald-950 dark:text-emerald-200">
-                      Sync from CRM Master Fields (master-fields.json):
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
+              {/* Fields List */}
+              <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
+                {/* 1-Click Master CRM Fields Bar */}
+                <div className="p-2.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20 flex flex-wrap items-center justify-between gap-1.5">
+                  <span className="text-[11px] font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> CRM Presets:
+                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
                     <button
                       type="button"
-                      disabled={loadingMasterFields}
                       onClick={() => handleLoadFromMasterFields('appointment')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-emerald-100 dark:hover:bg-emerald-950 text-slate-800 dark:text-slate-200 text-[11px] font-semibold rounded-lg border border-emerald-300 dark:border-emerald-700/60 shadow-xs transition"
+                      className="px-2 py-0.5 surface text-[10px] font-semibold rounded border-base-c hover:bg-subtle-c"
                     >
-                      📅 Appointment Fields
+                      📅 Appointment
                     </button>
                     <button
                       type="button"
-                      disabled={loadingMasterFields}
-                      onClick={() => handleLoadFromMasterFields('booking')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-blue-100 dark:hover:bg-blue-950 text-slate-800 dark:text-slate-200 text-[11px] font-semibold rounded-lg border border-blue-300 dark:border-blue-700/60 shadow-xs transition"
-                    >
-                      🔖 Booking Fields
-                    </button>
-                    <button
-                      type="button"
-                      disabled={loadingMasterFields}
                       onClick={() => handleLoadFromMasterFields('lead')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-amber-100 dark:hover:bg-amber-950 text-slate-800 dark:text-slate-200 text-[11px] font-semibold rounded-lg border border-amber-300 dark:border-amber-700/60 shadow-xs transition"
+                      className="px-2 py-0.5 surface text-[10px] font-semibold rounded border-base-c hover:bg-subtle-c"
                     >
-                      🎯 Lead Gen Fields
+                      🎯 Lead Gen
                     </button>
                     <button
                       type="button"
-                      disabled={loadingMasterFields}
                       onClick={() => handleLoadFromMasterFields('support')}
-                      className="px-2.5 py-1 bg-white dark:bg-slate-900 hover:bg-purple-100 dark:hover:bg-purple-950 text-slate-800 dark:text-slate-200 text-[11px] font-semibold rounded-lg border border-purple-300 dark:border-purple-700/60 shadow-xs transition"
+                      className="px-2 py-0.5 surface text-[10px] font-semibold rounded border-base-c hover:bg-subtle-c"
                     >
-                      🎫 Support Fields
+                      🎫 Support
                     </button>
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                  <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <h5 className="text-xs font-bold text-muted-c uppercase tracking-wider">
                     Form Fields ({fields.length})
-                  </h4>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <select
-                      onChange={(e) => {
-                        const targetKey = e.target.value;
-                        if (!targetKey) return;
-                        const match = CRM_MASTER_FIELDS.find(f => f.key === targetKey);
-                        if (match) handleAddMasterField(match);
-                        e.target.value = '';
-                      }}
-                      className="px-2.5 py-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700/60 rounded-lg text-xs font-semibold focus:outline-none"
-                    >
-                      <option value="">✨ + Add from CRM Master Fields</option>
-                      {CRM_MASTER_FIELDS.map(mf => (
-                        <option key={mf.key} value={mf.key}>
-                          {mf.label} ({mf.key})
-                        </option>
-                      ))}
-                    </select>
-
+                  </h5>
+                  <div className="flex items-center gap-1 flex-wrap">
                     <button
                       onClick={() => handleAddField('TEXT')}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 rounded-lg transition border border-slate-200 dark:border-slate-700"
+                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
                     >
-                      + Custom Text
+                      + Text
                     </button>
                     <button
                       onClick={() => handleAddField('DATE')}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 rounded-lg transition border border-slate-200 dark:border-slate-700"
+                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
                     >
-                      + Custom Date
+                      + Date
                     </button>
                     <button
                       onClick={() => handleAddField('SELECT')}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 rounded-lg transition border border-slate-200 dark:border-slate-700"
+                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
                     >
                       + Dropdown
                     </button>
                     <button
                       onClick={() => handleAddField('TEXTAREA')}
-                      className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 rounded-lg transition border border-slate-200 dark:border-slate-700"
+                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
                     >
-                      + Textarea
+                      + Notes
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-3 mt-3">
+                <div className="space-y-2 mt-2">
                   {fields.map((field, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 bg-slate-50 dark:bg-slate-950/70 rounded-xl border border-slate-200 dark:border-slate-800/90 space-y-3"
-                    >
-                      <div className="flex items-center justify-between gap-3">
+                    <div key={idx} className="p-3 bg-subtle-c rounded-lg border border-base-c space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="px-1.5 py-0.5 surface text-[9px] font-mono font-bold text-emerald-600 rounded border border-base-c">
+                          {field.type}
+                        </span>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-0.5 bg-slate-200 dark:bg-slate-800 text-[11px] font-mono font-semibold text-emerald-700 dark:text-emerald-400 rounded">
-                            {field.type}
-                          </span>
-                          <span className="text-xs text-slate-500 font-mono">{field.name}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 cursor-pointer">
+                          <label className="flex items-center gap-1 text-[11px] text-muted-c cursor-pointer">
                             <input
                               type="checkbox"
                               checked={field.required}
                               onChange={(e) => handleFieldChange(idx, 'required', e.target.checked)}
-                              className="rounded bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-emerald-600 focus:ring-0"
+                              className="rounded border-base-c text-emerald-600"
                             />
                             Required
                           </label>
                           <button
                             onClick={() => handleRemoveField(idx)}
-                            className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-400 hover:text-rose-500 rounded transition"
+                            className="text-muted-c hover:text-rose-500 p-0.5"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-[11px] font-medium text-slate-700 dark:text-slate-400 block mb-1">Field Label</label>
-                          <input
-                            type="text"
-                            value={field.label}
-                            onChange={(e) => handleFieldChange(idx, 'label', e.target.value)}
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[11px] font-medium text-slate-700 dark:text-slate-400 block mb-1">Payload Variable</label>
-                          <input
-                            type="text"
-                            value={field.name}
-                            onChange={(e) => handleFieldChange(idx, 'name', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-emerald-700 dark:text-emerald-300 font-mono placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="text"
+                          value={field.label}
+                          onChange={(e) => handleFieldChange(idx, 'label', e.target.value)}
+                          placeholder="Display Label"
+                          className="px-2.5 py-1 surface border-base-c rounded text-xs text-primary-c"
+                        />
+                        <input
+                          type="text"
+                          value={field.name}
+                          onChange={(e) => handleFieldChange(idx, 'name', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                          placeholder="Variable name"
+                          className="px-2.5 py-1 surface border-base-c rounded text-xs text-emerald-600 font-mono"
+                        />
                       </div>
 
                       {(field.type === 'SELECT' || field.type === 'RADIO') && (
-                        <div>
-                          <label className="text-[11px] font-medium text-slate-700 dark:text-slate-400 block mb-1">
-                            Options (comma-separated)
-                          </label>
-                          <input
-                            type="text"
-                            value={field.options?.join(', ') || ''}
-                            onChange={(e) =>
-                              handleFieldChange(
-                                idx,
-                                'options',
-                                e.target.value.split(',').map((s) => s.trim()).filter(Boolean)
-                              )
-                            }
-                            placeholder="e.g. 10:00 AM, 02:00 PM, 05:00 PM"
-                            className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
+                        <input
+                          type="text"
+                          value={field.options?.join(', ') || ''}
+                          onChange={(e) => handleFieldChange(idx, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                          placeholder="Options: Morning, Afternoon, Evening"
+                          className="w-full px-2.5 py-1 surface border-base-c rounded text-xs"
+                        />
                       )}
                     </div>
                   ))}
@@ -1714,80 +1360,50 @@ export function WhatsAppFlowsPanel() {
               </div>
 
               {/* Confirmation Message */}
-              <div className="p-5 bg-white dark:bg-slate-900/90 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-                <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                  Automated WhatsApp Confirmation
-                </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  This message is sent automatically to the customer on WhatsApp as soon as they submit the form.
-                </p>
+              <div className="surface p-4 rounded-xl border-base-c space-y-2 shadow-xs">
+                <h5 className="text-xs font-bold text-muted-c uppercase tracking-wider">WhatsApp Instant Reply</h5>
                 <textarea
                   value={confirmationMessage}
                   onChange={(e) => setConfirmationMessage(e.target.value)}
-                  rows={3}
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-                  placeholder="Thank you! We have received your booking request."
+                  rows={2}
+                  className="w-full p-2.5 surface border-base-c rounded-lg text-xs text-primary-c"
+                  placeholder="Thank you! We have received your booking."
                 />
               </div>
             </div>
 
-            {/* Right Column: WhatsApp Live Screen Preview (5 Cols) */}
-            <div className="lg:col-span-5 flex flex-col items-center">
-              <div className="sticky top-6 w-full max-w-[340px] bg-slate-950 p-4 rounded-[40px] border-4 border-slate-800 shadow-2xl space-y-4">
-                {/* Phone Notch */}
-                <div className="w-28 h-4 bg-slate-800 rounded-full mx-auto"></div>
-
-                {/* WhatsApp Screen Frame */}
-                <div className="bg-[#0b141a] rounded-[28px] p-4 text-slate-100 min-h-[480px] flex flex-col justify-between border border-slate-800/80">
-                  {/* WhatsApp Form Header */}
+            {/* Right: Phone Preview (5 cols) */}
+            <div className="lg:col-span-5 flex justify-center">
+              <div className="sticky top-4 w-full max-w-[320px] rounded-[36px] border-[6px] border-slate-900 bg-slate-900 shadow-2xl overflow-hidden">
+                <div className="h-4 bg-slate-900 flex justify-center items-center">
+                  <div className="w-16 h-1.5 bg-slate-800 rounded-full" />
+                </div>
+                <div className="bg-[#efeae2] dark:bg-[#0b141a] p-3 min-h-[460px] flex flex-col justify-between text-xs">
                   <div>
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs font-semibold text-emerald-400">
-                      <span>{flowName || 'Form Title'}</span>
-                      <span className="text-[10px] text-slate-400">WhatsApp Flow</span>
+                    <div className="pb-2 border-b border-slate-300 dark:border-slate-800 font-bold text-emerald-600 flex items-center justify-between text-[11px]">
+                      <span className="truncate">{flowName || 'Flow Form'}</span>
+                      <span className="text-[9px] text-muted-c">WhatsApp Flow</span>
                     </div>
 
-                    {/* Form Fields Preview */}
-                    <div className="mt-4 space-y-3 text-xs">
+                    <div className="mt-3 space-y-2">
                       {fields.map((f, i) => (
-                        <div key={i} className="space-y-1">
-                          <label className="text-[11px] font-medium text-slate-300 block">
-                            {f.label} {f.required && <span className="text-rose-400">*</span>}
+                        <div key={i} className="space-y-0.5">
+                          <label className="text-[10px] font-semibold text-slate-700 dark:text-slate-300">
+                            {f.label} {f.required && <span className="text-rose-500">*</span>}
                           </label>
-                          {f.type === 'SELECT' || f.type === 'RADIO' ? (
-                            <div className="p-2 bg-[#1f2c34] rounded-lg border border-slate-700 text-slate-300 flex items-center justify-between">
-                              <span>Select an option...</span>
-                              <span className="text-[10px] text-slate-500">▼</span>
-                            </div>
-                          ) : f.type === 'DATE' ? (
-                            <div className="p-2 bg-[#1f2c34] rounded-lg border border-slate-700 text-slate-300 flex items-center justify-between">
-                              <span>YYYY-MM-DD</span>
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            </div>
-                          ) : f.type === 'TEXTAREA' ? (
-                            <div className="p-2 bg-[#1f2c34] rounded-lg border border-slate-700 text-slate-500 h-12">
-                              Enter notes...
-                            </div>
-                          ) : (
-                            <div className="p-2 bg-[#1f2c34] rounded-lg border border-slate-700 text-slate-500">
-                              Enter {f.label}...
-                            </div>
-                          )}
+                          <div className="p-1.5 bg-white dark:bg-[#1f2c34] rounded border border-slate-300 dark:border-slate-700 text-[10px] text-muted-c">
+                            {f.type === 'SELECT' ? 'Select an option…' : f.type === 'DATE' ? 'YYYY-MM-DD' : `Enter ${f.label}…`}
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Submit Button */}
-                  <div className="pt-4 mt-6 border-t border-slate-800">
-                    <button
-                      disabled
-                      className="w-full py-2.5 bg-[#00a884] text-slate-950 font-bold rounded-xl text-xs shadow"
-                    >
+                  <div className="pt-3 border-t border-slate-300 dark:border-slate-800">
+                    <button disabled className="w-full py-2 bg-[#00a884] text-slate-950 font-bold rounded-lg text-xs shadow-xs">
                       Submit Form
                     </button>
-                    <p className="text-[9px] text-center text-slate-500 mt-2">
-                      Secured by Meta WhatsApp Cloud API
-                    </p>
+                    <p className="text-[8px] text-center text-muted-c mt-1">Secured by Meta WhatsApp Cloud</p>
                   </div>
                 </div>
               </div>
@@ -1796,54 +1412,34 @@ export function WhatsAppFlowsPanel() {
         </div>
       )}
 
-      {/* Pre-Built Templates Modal */}
+      {/* ─── TEMPLATES MODAL ─── */}
       {showTemplatesModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500 dark:text-amber-400" />
-                  Pre-Built WhatsApp Flow Templates
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  1-Click templates optimized for high conversion on WhatsApp
-                </p>
-              </div>
-              <button
-                onClick={() => setShowTemplatesModal(false)}
-                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition"
-              >
-                ✕
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-xl surface rounded-xl border-base-c shadow-soft-lg p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-base-c pb-3">
+              <h4 className="text-sm font-bold text-primary-c flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-500" /> WhatsApp Flow Templates
+              </h4>
+              <button onClick={() => setShowTemplatesModal(false)} className="text-muted-c hover:text-primary-c">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto">
               {templates.map((tpl) => (
-                <div
-                  key={tpl.id}
-                  className="p-4 bg-slate-50 dark:bg-slate-950/70 hover:bg-slate-100/80 dark:hover:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800/90 hover:border-emerald-500/50 transition flex flex-col justify-between"
-                >
+                <div key={tpl.id} className="p-3 bg-subtle-c rounded-lg border border-base-c flex flex-col justify-between space-y-2">
                   <div>
-                    <span className="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 dark:bg-slate-800 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-transparent">
+                    <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500/10 text-emerald-600">
                       {tpl.category.replace('_', ' ')}
                     </span>
-                    <h4 className="text-sm font-bold text-slate-900 dark:text-white mt-2">{tpl.name}</h4>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{tpl.description}</p>
-                    <div className="mt-3 flex flex-wrap gap-1">
-                      {tpl.fields.map((f, fi) => (
-                        <span key={fi} className="px-1.5 py-0.5 bg-white dark:bg-slate-900 text-[10px] text-slate-600 dark:text-slate-400 rounded border border-slate-200 dark:border-slate-800">
-                          {f.label}
-                        </span>
-                      ))}
-                    </div>
+                    <h5 className="text-xs font-bold text-primary-c mt-1.5">{tpl.name}</h5>
+                    <p className="text-[11px] text-muted-c mt-0.5">{tpl.description}</p>
                   </div>
-
                   <button
                     onClick={() => handleApplyTemplate(tpl)}
-                    className="w-full mt-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow transition"
+                    className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded shadow-xs"
                   >
-                    Use This Template
+                    Use Template
                   </button>
                 </div>
               ))}
@@ -1852,47 +1448,39 @@ export function WhatsAppFlowsPanel() {
         </div>
       )}
 
-      {/* Submissions Modal */}
+      {/* ─── RESPONSES MODAL ─── */}
       {selectedFlowForSubmissions && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                  Form Responses: {selectedFlowForSubmissions.name}
-                </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
-                  Live responses captured from WhatsApp customers
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedFlowForSubmissions(null)}
-                className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-lg transition"
-              >
-                ✕
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-2xl surface rounded-xl border-base-c shadow-soft-lg p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-base-c pb-3">
+              <h4 className="text-sm font-bold text-primary-c">
+                Responses: {selectedFlowForSubmissions.name}
+              </h4>
+              <button onClick={() => setSelectedFlowForSubmissions(null)} className="text-muted-c hover:text-primary-c">
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {loadingSubmissions ? (
-              <div className="p-12 text-center">
-                <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mx-auto mb-2" />
-                <p className="text-xs text-slate-500 dark:text-slate-400">Loading form responses...</p>
+              <div className="p-8 text-center">
+                <Loader2 className="w-5 h-5 text-emerald-500 animate-spin mx-auto mb-2" />
+                <p className="text-xs text-secondary-c">Loading responses…</p>
               </div>
             ) : submissions.length === 0 ? (
-              <div className="p-10 text-center text-slate-500 dark:text-slate-400 text-sm">
-                No customer responses recorded for this Flow yet.
+              <div className="p-6 text-center text-xs text-muted-c">
+                No customer responses recorded yet.
               </div>
             ) : (
-              <div className="max-h-[60vh] overflow-y-auto space-y-3">
+              <div className="max-h-[60vh] overflow-y-auto space-y-2">
                 {submissions.map((sub, sidx) => (
-                  <div key={sidx} className="p-4 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                    <div className="flex items-center justify-between font-semibold text-slate-800 dark:text-slate-300">
+                  <div key={sidx} className="p-3 bg-subtle-c rounded-lg border border-base-c text-xs space-y-1.5">
+                    <div className="flex items-center justify-between font-bold text-primary-c">
                       <span>📱 {sub.customerPhone || 'Unknown Phone'}</span>
-                      <span className="text-slate-500 font-mono text-[11px]">
+                      <span className="text-[10px] text-muted-c font-normal">
                         {new Date(sub.createdAt).toLocaleString()}
                       </span>
                     </div>
-                    <pre className="p-2.5 bg-slate-100 dark:bg-slate-900 text-emerald-800 dark:text-emerald-300 font-mono rounded-lg overflow-x-auto text-[11px] border border-slate-200 dark:border-slate-800">
+                    <pre className="p-2 surface text-emerald-600 dark:text-emerald-400 font-mono rounded text-[11px] overflow-x-auto border border-base-c">
                       {sub.normalizedDataJson || sub.rawResponseJson}
                     </pre>
                   </div>
@@ -1903,50 +1491,31 @@ export function WhatsAppFlowsPanel() {
         </div>
       )}
 
-      {/* Custom Archive Confirmation Modal */}
+      {/* ─── ARCHIVE MODAL ─── */}
       {flowToArchive && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-xl border border-rose-200 dark:border-rose-500/20">
-                <Trash2 className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-900 dark:text-white">Archive WhatsApp Flow</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">Deactivate flow and stop submissions</p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="w-full max-w-sm surface rounded-xl border-base-c shadow-soft-lg p-5 space-y-3">
+            <div className="flex items-center gap-2 text-rose-600">
+              <Trash2 className="w-5 h-5" />
+              <h4 className="text-sm font-bold text-primary-c">Archive Flow</h4>
             </div>
-
-            <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-              Are you sure you want to archive <strong className="text-slate-900 dark:text-white">"{flowToArchive.name}"</strong>? It will no longer receive new submissions on WhatsApp.
+            <p className="text-xs text-secondary-c">
+              Archive <strong className="text-primary-c">"{flowToArchive.name}"</strong>? It will stop receiving new submissions.
             </p>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-base-c">
               <button
                 type="button"
                 onClick={() => setFlowToArchive(null)}
-                disabled={actionLoading === `arc_${flowToArchive.id}`}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition border border-slate-200 dark:border-slate-700"
+                className="px-3 py-1.5 surface text-xs font-semibold text-secondary-c rounded-lg border-base-c"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleConfirmArchive}
-                disabled={actionLoading === `arc_${flowToArchive.id}`}
-                className="flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-rose-950/20 transition"
+                className="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-lg shadow-xs"
               >
-                {actionLoading === `arc_${flowToArchive.id}` ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Archiving...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Archive Flow
-                  </>
-                )}
+                Archive Flow
               </button>
             </div>
           </div>

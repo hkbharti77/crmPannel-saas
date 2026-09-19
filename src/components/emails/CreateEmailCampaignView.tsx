@@ -354,6 +354,18 @@ export function CreateEmailCampaignView() {
     reader.readAsText(file);
   };
 
+  const handleRemoveCsv = () => {
+    setCsvFileName('');
+    setCsvHeaders([]);
+    setCsvRows([]);
+    setFilterRules([]);
+    setManualRecipients('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    showToast('Current dataset and filter rules removed.');
+  };
+
   // Rule Evaluation Function
   const evaluateRow = (row: Record<string, string>, rules: FilterRule[], mode: 'AND' | 'OR'): boolean => {
     if (rules.length === 0) return true;
@@ -844,24 +856,34 @@ export function CreateEmailCampaignView() {
                     className="hidden"
                   />
 
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="flex-1 flex items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-indigo-500/40 bg-white/90 dark:bg-ink-900/90 p-4 text-sm font-bold text-indigo-700 dark:text-indigo-300 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-500/20 shadow-sm"
-                    >
-                      <Upload className="h-5 w-5 text-indigo-600 shrink-0" />
-                      <span>{csvFileName ? `Replace File (${csvFileName})` : 'Upload CSV / Excel Dataset File'}</span>
-                    </button>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="flex-1 flex items-center justify-center gap-2.5 rounded-xl border-2 border-dashed border-indigo-500/40 bg-white/90 dark:bg-ink-900/90 p-4 text-sm font-bold text-indigo-700 dark:text-indigo-300 transition-all hover:bg-indigo-50 dark:hover:bg-indigo-500/20 shadow-sm"
+                      >
+                        <Upload className="h-5 w-5 text-indigo-600 shrink-0" />
+                        <span>{csvFileName ? `Replace File (${csvFileName})` : 'Upload CSV / Excel Dataset File'}</span>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={handleDownloadTemplate}
-                      className="px-4 py-3 text-xs font-bold text-indigo-700 hover:text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 rounded-xl bg-white/80 dark:bg-ink-850 shrink-0 flex items-center justify-center gap-1.5 shadow-2xs"
-                    >
-                      <Download className="h-4 w-4" /> Download Sample CSV
-                    </button>
-                  </div>
+                      {csvFileName && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveCsv}
+                          className="px-4 py-3 text-xs font-bold text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30 border border-red-200 dark:border-red-900/40 rounded-xl bg-white/80 dark:bg-ink-850 shrink-0 flex items-center justify-center gap-1.5 shadow-2xs transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" /> Remove File
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        className="px-4 py-3 text-xs font-bold text-indigo-700 hover:text-indigo-800 dark:text-indigo-300 border border-indigo-500/30 rounded-xl bg-white/80 dark:bg-ink-850 shrink-0 flex items-center justify-center gap-1.5 shadow-2xs"
+                      >
+                        <Download className="h-4 w-4" /> Download Sample CSV
+                      </button>
+                    </div>
 
                   {/* Detected Columns & Email Selector */}
                   {csvHeaders.length > 0 && (

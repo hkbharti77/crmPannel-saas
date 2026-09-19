@@ -36,9 +36,11 @@ const QUICK_ACTIONS = [
 export function LeadContextPanel({
   contact,
   onClose,
+  onRequestPayment,
 }: {
   contact: ContactDTO | null;
   onClose?: () => void;
+  onRequestPayment?: () => void;
 }) {
   const name = contact?.name || contact?.waId || 'WhatsApp Lead';
   const phone = contact?.phone || contact?.waId || 'N/A';
@@ -83,6 +85,16 @@ export function LeadContextPanel({
               <Badge key={t} variant={t === 'HOT' ? 'danger' : 'primary'} className="text-[10px] px-2 py-0.5 font-bold">{t}</Badge>
             ))}
           </div>
+
+          {onRequestPayment && (
+            <button
+              onClick={onRequestPayment}
+              className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition btn-tactile"
+            >
+              <span>💳</span>
+              <span>Send WhatsApp Bill</span>
+            </button>
+          )}
         </div>
 
         {/* Contact Info Card */}

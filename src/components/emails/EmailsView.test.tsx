@@ -9,6 +9,8 @@ import React from 'react';
 // Mock the API and matchMedia
 vi.mock('../../lib/emailsApi', () => ({
   fetchEmailCampaigns: vi.fn(),
+  fetchEmailCampaignById: vi.fn(),
+  fetchCampaignInboundReplies: vi.fn().mockResolvedValue({ data: [] }),
   pauseEmailCampaign: vi.fn(),
   resumeEmailCampaign: vi.fn(),
   cancelEmailCampaign: vi.fn(),
@@ -49,6 +51,18 @@ describe('EmailsView', () => {
           }
         ],
         totalPages: 1
+      }
+    });
+    (emailsApi.fetchEmailCampaignById as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        id: 'test-uuid',
+        name: 'Quarterly Newsletter',
+        subject: 'Q3 Product Updates',
+        status: 'SCHEDULED',
+        totalSent: 0,
+        totalRecipients: 10,
+        openRate: 0,
+        createdAt: '2023-01-01T00:00:00Z',
       }
     });
   });

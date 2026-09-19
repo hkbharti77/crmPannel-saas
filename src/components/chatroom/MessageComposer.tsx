@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { cx } from '@/lib/types';
-import { Paperclip, Smile, Image as ImageIcon, Mic, Send, X, Bot, Zap, UserCheck, ShieldAlert } from 'lucide-react';
+import { Paperclip, Smile, Image as ImageIcon, Mic, Send, X, Bot, Zap, UserCheck, ShieldAlert, IndianRupee, MenuSquare } from 'lucide-react';
 
 export function MessageComposer({
   onSend,
@@ -8,6 +8,9 @@ export function MessageComposer({
   setDraft,
   botMode,
   onToggleBot,
+  onRequestPayment,
+  onSendMenu,
+  sendingMenu = false,
   theme = 'whatsapp-dark',
 }: {
   onSend: (text: string) => void;
@@ -15,6 +18,9 @@ export function MessageComposer({
   setDraft: (s: string) => void;
   botMode: boolean;
   onToggleBot: () => void;
+  onRequestPayment?: () => void;
+  onSendMenu?: () => void;
+  sendingMenu?: boolean;
   theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
 }) {
   const [showAttach, setShowAttach] = useState(false);
@@ -74,13 +80,14 @@ export function MessageComposer({
       ) : (
         /* ── HUMAN MODE: full composer ────────────────────────── */
         <>
-          {/* Status bar */}
+          {/* Action & Status toolbar */}
           <div className="mb-2.5 flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                 <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 Human Mode Active
               </div>
+
               <button
                 onClick={onToggleBot}
                 className="flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c px-3 py-1 text-[11px] font-semibold hover:border-emerald-500/40 transition-all shadow-xs"
@@ -89,6 +96,31 @@ export function MessageComposer({
                 <Bot className="h-3.5 w-3.5 text-emerald-500" />
                 Hand Back to AI Bot
               </button>
+
+              {/* Send Menu Button moved down */}
+              {onSendMenu && (
+                <button
+                  onClick={onSendMenu}
+                  disabled={sendingMenu}
+                  className="flex items-center gap-1.5 text-[11px] font-semibold rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 btn-tactile shadow-xs transition-all cursor-pointer"
+                  title="Send Automated Interactive Menu Card"
+                >
+                  <MenuSquare className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                  <span>{sendingMenu ? 'Sending…' : 'Send Menu'}</span>
+                </button>
+              )}
+
+              {/* Request Payment Button moved down */}
+              {onRequestPayment && (
+                <button
+                  onClick={onRequestPayment}
+                  className="flex items-center gap-1.5 text-[11px] font-bold rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 btn-tactile shadow-xs transition-all cursor-pointer"
+                  title="Send WhatsApp Bill & Payment Request"
+                >
+                  <IndianRupee className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <span>Request Payment</span>
+                </button>
+              )}
             </div>
 
             {/* Quick Template Chips */}
@@ -108,11 +140,12 @@ export function MessageComposer({
 
           {/* Attachment menu */}
           {showAttach && (
-            <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-base-c/80 bg-card-c p-2.5 shadow-soft animate-slide-down">
+            <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-base-c/80 bg-card-c p-2.5 shadow-soft animate-slide-down flex-wrap">
               {[
-                { icon: ImageIcon, label: 'Photo & Video', color: 'text-emerald-500' },
-                { icon: Paperclip, label: 'Document', color: 'text-indigo-500' },
-                { icon: Mic, label: 'Voice Note', color: 'text-amber-500' },
+                { icon: ImageIcon, label: 'Photo & Video', color: 'text-emerald-500', action: () => fileRef.current?.click() },
+                { icon: Paperclip, label: 'Document', color: 'text-indigo-500', action: () => fileRef.current?.click() },
+                { icon: Mic, label: 'Voice Note', color: 'text-amber-500', action: () => fileRef.current?.click() },
+                ...(onRequestPayment ? [{ icon: IndianRupee, label: 'Request Payment', color: 'text-emerald-600', action: onRequestPayment }] : []),
               ].map((a) => {
                 const Icon = a.icon;
                 return (
@@ -120,7 +153,7 @@ export function MessageComposer({
                     key={a.label}
                     onClick={() => {
                       setShowAttach(false);
-                      fileRef.current?.click();
+                      a.action();
                     }}
                     className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
                   >

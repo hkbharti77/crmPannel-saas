@@ -30,49 +30,57 @@
 
 ## 🎯 Features & Modules
 
-### 💬 1. Unified Multi-Channel Live Inbox
+### 💬 1. Unified Multi-Channel Live Inbox & Quick Action Bar
 - **Multi-Channel Chat**: Manage WhatsApp, WebChat Widget, and Voice conversations in a single unified view.
 - **STOMP WebSocket Engine**: Instant real-time message streaming, typing indicators, read receipts, and sound alerts.
-- **Agent Workstation**: Agent assignment, conversation status toggling (Open, Pending, Resolved), canned quick-responses, voice note playback, and file attachment sharing.
+- **Agent Workstation & Quick Actions**: Quick-action bar directly above the message composer with **`[Send Menu]`** button (with interactive flow menu picker) and **`[Request Payment]`** modal launcher, alongside 1-click **`Human Mode Active` / `Hand Back to AI Bot`** handover toggles.
+- **Customer 24-Hour Policy Window**: Real-time evaluation of WhatsApp 24-hour customer session window; alerts agent if a session is active (interactive bill) or expired (official Meta payment template).
 
 ### 📊 2. Kanban Sales Pipeline & Lead Detail Workspace
 - **Drag-and-Drop Kanban**: Visual lead stages (New, Contacted, Qualified, Proposal, Won, Lost) with real-time deal total calculations.
 - **Rich Lead Detail View**: Detailed customer drawer featuring activity timelines, interaction history, lead scoring badges, deal value, custom fields, and task notes.
 - **Async Bulk Import**: CSV/Excel lead importer powered by PapaParse with column field mapping, validation preview, and duplicate checking.
 
-### 📲 3. WhatsApp Embedded Signup & Coexistence (`MetaConfigView`)
+### 💳 3. In-Chat WhatsApp Payments & Payment Dashboard (`WhatsAppPaymentsDashboard`)
+- **Payment Request Modal**: Fast in-chat payment link generator with customizable amount, currency, order description, line items, and gateway routing (Razorpay, Cashfree, Stripe, PhonePe).
+- **Meta 24-Hour Window Fallback**: Automatically switches between freeform interactive payment cards (active window) and structured Meta-approved payment templates (expired window).
+- **Curated Meta Payment Templates**: Clean visual catalog of compliance-ready billing templates (`order_payment_request`, `payment_reminder_urgent`, `payment_link_cta`) with **1-Click Deploy to Meta WABA**.
+- **Transactions & Analytics**: Live revenue charts, transaction tables with payment method badges, receipt links, and real-time payment status pills (`PAID`, `PENDING`, `EXPIRED`, `FAILED`).
+
+### 📲 4. WhatsApp Embedded Signup & Coexistence (`MetaConfigView`)
 - **One-Click Meta OAuth Popup**: Connect existing WhatsApp Business App numbers directly to Meta Cloud API without losing mobile app chat history or deleting the app.
 - **Integration Diagnostics**: Live indicators for WABA ID, Phone Number ID, verified display name, quality rating, and Webhook subscription status with a 1-click retry button.
 
-### 📣 4. WhatsApp Broadcast & Campaign Studio
+### 📣 5. WhatsApp Broadcast & Campaign Studio
 - **Broadcast Campaigns**: Create targeted WhatsApp broadcast messages for specific contact tags and segments.
 - **Template Management**: Visual template editor with dynamic merge variables (`{{1}}`, `{{2}}`), category selection, and submission tracking.
+- **Campaign Cleanup & Bulk Deletion**: 1-Click **`Clear All Campaigns`** and individual campaign deletion with cascading cleanup across recipients and execution history.
 - **Campaign Analytics**: Real-time progress bars for sent, delivered, read, and failed messages.
 
-### 📧 5. Multi-Provider Email Suite
+### 📧 6. Multi-Provider Email Suite
 - **Visual Email Template Builder**: Rich HTML email template creation with live responsive preview.
 - **Provider Setup**: Configure custom SMTP credentials, SendGrid, or Amazon SES APIs.
 - **Tracking Analytics**: Monitor email delivery rates, open rates (tracking pixel), and link click-throughs.
 
-### 👑 6. Super Admin Platform Portal (`/admin/*`)
+### 👑 7. Super Admin Platform Portal (`/admin/*`)
 - **Tenant Management**: System-wide tenant provisioning, activation/suspension toggles, and resource usage inspection.
 - **Subscription & Quota Control**: Manage FREE, MIN, PRO, and ENTERPRISE plans, enforce feature entitlements, and override tenant limits.
 - **Platform Analytics & Audit**: Cross-tenant aggregated metrics (active users, total messages, total revenue) and system-wide audit log trail.
 
-### 🧠 7. FAQ & RAG Knowledge Base Engine
+### 🧠 8. FAQ & RAG Knowledge Base Engine
 - **Document Vector Ingestion**: Drag-and-drop upload for PDF, DOCX, and TXT training documents.
 - **FAQ Knowledge Base Editor**: Structured question-answer management with search indexing.
 - **AI RAG Guardrails**: Configure AI bot fallback behavior, confidence thresholds, and system prompts.
 
-### 📞 8. Voice Bot & Call Management
+### 📞 9. Voice Bot & Call Management
 - **Voice Agent Configuration**: Configure voice bot persona, language, speech speed, pitch, and Deepgram STT (`nova-2`) / TTS (`aura-stella-en`) models.
 - **Call Event Logs**: Review inbound Exotel call logs, caller details, and voice conversation transcripts.
 
-### 🎫 9. Support Tickets & Dynamic Form Builder
+### 🎫 10. Support Tickets & Dynamic Form Builder
 - **Ticket Resolution Desk**: Workspace for customer support tickets with SLA status, priority tags, and customer history.
 - **Form Configurator**: Visual builder for public support intake forms with custom input fields.
 
-### 🏷️ 10. Custom Branding & White-Labeling
+### 🏷️ 11. Custom Branding & White-Labeling
 - **Custom UI Themes**: Tenant-level custom color palette selection, header branding, custom logo URL uploads, and "Powered by" watermark removal for PRO/ENTERPRISE tiers.
 
 ---
@@ -202,6 +210,7 @@ crmpannel/
 │   │   ├── leaddetail/     # 📋 Lead detail modal, scoring, timeline
 │   │   ├── meta/           # 📲 WhatsApp Embedded Signup & Config
 │   │   ├── onboarding/     # 🚀 Multi-step onboarding wizard
+│   │   ├── payments/       # 💳 In-Chat Payments, Modals & WABA Templates
 │   │   ├── pipeline/       # 📊 Kanban Sales Pipeline workspace
 │   │   ├── settings/       # ⚙️ Business, AI, Voice, and Branding Settings
 │   │   ├── team/           # 👥 Team member roles & permissions

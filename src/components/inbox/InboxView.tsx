@@ -3,6 +3,8 @@ import { useWebSocket, type WsIncomingMessage } from '@/hooks/useWebSocket';
 import { GlassCard, Avatar, Badge } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { SkeletonChatList } from '@/components/ui/Skeleton';
+import { EmptyState as CustomEmptyState } from '@/components/ui/EmptyState';
 import { InboxToolbar, type FilterId, type ChannelId } from './InboxToolbar';
 import { ConversationItem } from './ConversationItem';
 import type { Conversation } from './inboxTypes';
@@ -325,9 +327,13 @@ export function InboxView() {
           {/* List Area */}
           <div className="flex-1 space-y-1.5 overflow-y-auto scrollbar-thin pr-1">
             {channel === 'whatsapp' ? (
-              filteredWhatsApp.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                  <MessageSquare className="h-12 w-12 text-emerald-500/40 mb-2" />
+              loading && conversations.length === 0 ? (
+                <SkeletonChatList count={5} />
+              ) : filteredWhatsApp.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-500/10 grid place-items-center text-emerald-600 dark:text-emerald-400 mb-3 ring-1 ring-emerald-500/20">
+                    <MessageSquare className="h-6 w-6" />
+                  </div>
                   <p className="text-sm font-bold text-primary-c">No WhatsApp conversations found</p>
                   <p className="text-xs text-muted-c max-w-xs mt-1">Incoming WhatsApp messages will automatically show up here in real-time.</p>
                 </div>
@@ -341,9 +347,13 @@ export function InboxView() {
                   />
                 ))
               )
+            ) : loadingWeb && webSessions.length === 0 ? (
+              <SkeletonChatList count={5} />
             ) : filteredWebSessions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <Globe className="h-12 w-12 text-indigo-500/40 mb-2" />
+              <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
+                <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 grid place-items-center text-indigo-600 dark:text-indigo-400 mb-3 ring-1 ring-indigo-500/20">
+                  <Globe className="h-6 w-6" />
+                </div>
                 <p className="text-sm font-bold text-primary-c">No WebChat widget sessions found</p>
                 <p className="text-xs text-muted-c max-w-xs mt-1">Active customer sessions on your website widget will appear here.</p>
               </div>
@@ -542,23 +552,29 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
     if (!input.trim() || sending) return;
 
     const textToSend = input.trim();
+    const tempId = 'temp-' + Date.now();
     setInput('');
     setSending(true);
+
+    // Optimistic immediate append
+    const optimisticMsg: ApiMessage = {
+      id: tempId,
+      content: textToSend,
+      direction: 'OUTGOING',
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    shouldForceScrollRef.current = true;
+    scrollToBottom();
 
     const { success } = await sendWhatsAppMessage(conv.id, textToSend);
     setSending(false);
 
-    if (success) {
-      shouldForceScrollRef.current = true;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: 'temp-' + Date.now(),
-          content: textToSend,
-          direction: 'OUTGOING',
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+    if (!success) {
+      // If sending failed, restore text so user doesn't lose it
+      setInput(textToSend);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
     }
   };
 

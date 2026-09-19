@@ -3,15 +3,28 @@ import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { Check, Loader2, Lock, Sparkles, ArrowRight } from 'lucide-react';
 
-export function PanelHeader({ title, desc, icon }: { title: string; desc: string; icon: ReactNode }) {
+export function PanelHeader({
+  title,
+  desc,
+  description,
+  icon,
+}: {
+  title: string;
+  desc?: string;
+  description?: string;
+  icon?: ReactNode;
+}) {
+  const textDesc = desc || description || '';
   return (
     <div className="mb-4 flex items-center gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl2 bg-gradient-accent-soft">
-        {icon}
-      </div>
+      {icon && (
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl2 bg-gradient-accent-soft">
+          {icon}
+        </div>
+      )}
       <div>
         <h3 className="text-base font-bold text-primary-c">{title}</h3>
-        <p className="text-xs text-secondary-c">{desc}</p>
+        {textDesc && <p className="text-xs text-secondary-c">{textDesc}</p>}
       </div>
     </div>
   );
@@ -82,8 +95,13 @@ export function SaveBar({ onSave, saving = false }: { onSave: () => void; saving
   );
 }
 
-export function SectionCard({ children }: { children: ReactNode }) {
-  return <GlassCard className="p-5 lg:p-6">{children}</GlassCard>;
+export function SectionCard({ children, title }: { children: ReactNode; title?: string }) {
+  return (
+    <GlassCard className="p-5 lg:p-6">
+      {title && <h4 className="text-sm font-bold text-primary-c mb-4">{title}</h4>}
+      {children}
+    </GlassCard>
+  );
 }
 
 export function StatPill({ label, value, color = 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300' }: { label: string; value: string; color?: string }) {

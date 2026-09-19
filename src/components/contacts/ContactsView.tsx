@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { Search, Loader2, AlertTriangle, Users, ChevronLeft, ChevronRight, Trash2, Plus, Filter, Download, MoreHorizontal, ArrowUpDown, Upload } from 'lucide-react';
 import { fetchContacts, deleteContact, exportContacts, type ContactDTO } from '@/lib/contactsApi';
 import { CreateContactModal } from './CreateContactModal';
@@ -259,19 +261,73 @@ export function ContactsView() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-ink-800">
               {loading && contacts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-20 text-center">
-                    <Loader2 className="mx-auto h-8 w-8 animate-spin text-slate-300 dark:text-slate-600" />
-                  </td>
-                </tr>
+                Array.from({ length: 6 }).map((_, rIdx) => (
+                  <tr key={`skel-row-${rIdx}`} className="animate-pulse">
+                    <td className="px-6 py-4">
+                      <Skeleton variant="rect" width={16} height={16} className="mx-auto" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton variant="circle" width={36} height={36} />
+                        <div className="space-y-1.5 flex-1">
+                          <Skeleton variant="text" width="60%" height={14} />
+                          <Skeleton variant="text" width="40%" height={11} />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton variant="text" width="70%" height={14} />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-1.5">
+                        <Skeleton variant="rect" width={50} height={20} className="rounded-md" />
+                        <Skeleton variant="rect" width={40} height={20} className="rounded-md" />
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton variant="rect" width={60} height={20} className="rounded-md" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton variant="rect" width={55} height={20} className="rounded-full" />
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Skeleton variant="rect" width={28} height={28} className="ml-auto rounded" />
+                    </td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-24 text-center">
-                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 dark:bg-ink-900">
-                      <Users className="h-6 w-6 text-slate-400" />
-                    </div>
-                    <h3 className="mt-4 text-sm font-semibold text-slate-900 dark:text-slate-100">No contacts found</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Try adjusting your search or filters.</p>
+                  <td colSpan={7} className="py-12 px-6">
+                    {contacts.length === 0 ? (
+                      <EmptyState
+                        icon={Users}
+                        title="No contacts in your CRM"
+                        description="Get started by importing a CSV list or manually adding your first customer contact."
+                        action={{
+                          label: "Add Contact",
+                          onClick: () => setIsCreateModalOpen(true),
+                          icon: Plus
+                        }}
+                        secondaryAction={{
+                          label: "Import CSV",
+                          onClick: () => setIsImportModalOpen(true)
+                        }}
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Search}
+                        title="No contacts match your filters"
+                        description="Try adjusting your keyword search query or resetting active filter tags."
+                        action={{
+                          label: "Clear Filters",
+                          onClick: () => {
+                            setQuery('');
+                            setFilterSource('ALL');
+                            setFilterBotStatus('ALL');
+                          }
+                        }}
+                      />
+                    )}
                   </td>
                 </tr>
               ) : (

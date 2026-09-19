@@ -24,7 +24,9 @@ import {
   MenuSquare,
   RefreshCw,
   MessageSquare,
+  IndianRupee,
 } from 'lucide-react';
+import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -45,6 +47,7 @@ export function ChatRoomView() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [sendingMenu, setSendingMenu] = useState(false);
   const [togglingBot, setTogglingBot] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef<boolean>(true);
   const shouldForceScrollRef = useRef<boolean>(true);
@@ -318,18 +321,6 @@ export function ChatRoomView() {
                 )}
               </button>
 
-              {contactId && contactId.includes('-') && (
-                <button
-                  onClick={handleSendMenu}
-                  disabled={sendingMenu}
-                  className="flex items-center gap-1 text-xs font-medium rounded-lg border border-primary-500/30 bg-primary-500/10 px-2 sm:px-2.5 py-1 text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 btn-tactile shrink-0"
-                >
-                  <MenuSquare className="h-3.5 w-3.5 shrink-0" />
-                  <span className="hidden sm:inline">{sendingMenu ? 'Sending…' : 'Send Menu'}</span>
-                  <span className="sm:hidden">Menu</span>
-                </button>
-              )}
-
               <button
                 onClick={loadData}
                 disabled={loadingHistory}
@@ -437,16 +428,42 @@ export function ChatRoomView() {
             botMode={botMode}
             onToggleBot={handleToggleBot}
             theme={chatTheme}
+            onRequestPayment={() => setIsPaymentModalOpen(true)}
+            onSendMenu={contactId && contactId.includes('-') ? handleSendMenu : undefined}
+            sendingMenu={sendingMenu}
           />
         </div>
 
         {/* Lead Context Drawer */}
         {showContext && (
           <div className="hidden w-80 shrink-0 overflow-hidden rounded-2xl border border-base-c/80 bg-card-c/95 lg:backdrop-blur-md xl:block shadow-md">
-            <LeadContextPanel contact={contactDetails} />
+            <LeadContextPanel
+              contact={contactDetails}
+              onRequestPayment={() => setIsPaymentModalOpen(true)}
+            />
           </div>
         )}
       </div>
+
+      {/* Payment Request Modal */}
+      <PaymentRequestModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        customerWaId={contactDetails?.phone || contactDetails?.waId || contactId || ''}
+        customerName={contactDetails?.name || ''}
+        onSuccess={(order) => {
+          loadData();
+          const payMsg: Message = {
+            id: `pay-${Date.now()}`,
+            sender: 'me',
+            type: 'text',
+            text: `💳 Payment Bill Sent: ₹${(order.totalMinor / 100).toFixed(2)} (Ref: ${order.referenceId})`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'sent',
+          };
+          setMessages((prev) => [...prev, payMsg]);
+        }}
+      />
     </div>
   );
 }

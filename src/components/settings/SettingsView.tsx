@@ -7,7 +7,7 @@ import {
   Plug, LayoutList, FormInput, ListTree,
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, SlidersHorizontal, Smartphone, ChevronRight,
-  Mail,
+  Mail, FileText,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -28,15 +28,17 @@ import { SupportCategoriesPanel } from './panels/AiSystemPanels';
 import { SystemHealthPanel } from './panels/AiSystemPanels';
 import { NeedHelpPanel } from './panels/AiSystemPanels';
 import { BroadcastFilterConfigPanel } from './panels/BroadcastFilterConfigPanel';
+import { PaymentGatewaySettingsPanel } from './panels/PaymentGatewaySettingsPanel';
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 export type SettingsSub =
-  | 'account-profile' | 'security' | 'google-calendar' | 'billing'
+  | 'account-profile' | 'security' | 'google-calendar' | 'billing' | 'payment-gateways'
   | 'branding' | 'dark-mode'
   | 'notifications'
   | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
   | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'email-branding'
   | 'quick-responses' | 'flow-cta' | 'broadcast-filter-config'
+  | 'ai-catalogs'
   | 'support-categories'
   | 'lead-emails'
   | 'system-health'
@@ -63,6 +65,7 @@ const NAV: NavGroup[] = [
       { id: 'security', label: 'Security & Privacy', desc: 'Password & authentication', icon: Shield },
       { id: 'google-calendar', label: 'Google Meet Sync', desc: 'Link Google Meetings', icon: Globe },
       { id: 'billing', label: 'Subscription & Billing', desc: 'Limits & plan pricing', icon: CreditCard },
+      { id: 'payment-gateways', label: 'Payment Gateways', desc: 'Meta Pay & Razorpay/PayU', icon: CreditCard },
     ],
   },
   {
@@ -86,7 +89,6 @@ const NAV: NavGroup[] = [
       { id: 'form-fields', label: 'Form Fields', desc: 'WhatsApp form fields', icon: FormInput },
       { id: 'custom-submenus', label: 'Custom Sub-Menus', desc: 'Create custom lists', icon: ListTree },
       { id: 'email-providers', label: 'Email Providers', desc: 'AWS SES, SMTP, Brevo', icon: Plug },
-      { id: 'broadcast-filter-config', label: 'Broadcast CSV Filters', desc: 'Audience column filters', icon: SlidersHorizontal },
       { id: 'quick-responses', label: 'Quick Responses', desc: 'Text & image replies', icon: MessageSquare },
       { id: 'flow-cta', label: 'Flow CTA Buttons', desc: 'Cancel & complete buttons', icon: MousePointerClick },
     ],
@@ -116,6 +118,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'security': SecurityPanel,
   'google-calendar': GoogleCalendarPanel,
   'billing': BillingPanel,
+  'payment-gateways': PaymentGatewaySettingsPanel,
   'branding': () => <CustomBrandingPanel defaultTab="global" />,
   'dark-mode': () => <Navigate to="/settings/branding" replace />,
   'notifications': NotificationsPanel,
@@ -130,7 +133,8 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'email-branding': () => <CustomBrandingPanel defaultTab="email" />,
   'quick-responses': QuickResponsesPanel,
   'flow-cta': FlowCTAPanel,
-  'broadcast-filter-config': BroadcastFilterConfigPanel,
+  'broadcast-filter-config': () => <Navigate to="/settings" replace />,
+  'ai-catalogs': () => <Navigate to="/products?tab=ai-catalogs" replace />,
   'support-categories': SupportCategoriesPanel,
   'lead-emails': () => <Navigate to="/pipeline" replace />,
   'system-health': SystemHealthPanel,

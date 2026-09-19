@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { cx } from '@/lib/types';
+import { SkeletonTable } from '@/components/ui/Skeleton';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   HelpCircle, Plus, Search, Trash2, Edit3, CheckCircle,
   AlertCircle, Sparkles, RefreshCw, Zap, Loader2, X,
@@ -501,22 +503,44 @@ export function FaqManagementView() {
       )}
 
       {/* FAQ Data Table with 10-Row Pagination */}
-      {loading ? (
-        <div className="grid h-56 place-items-center rounded-2xl border border-base-c/80 bg-card-c">
-          <div className="flex items-center gap-2 text-xs text-muted-c">
-            <Loader2 className="h-5 w-5 animate-spin text-emerald-600" /> Loading FAQ Database...
-          </div>
+      {loading && faqs.length === 0 ? (
+        <div className="rounded-2xl border border-base-c/80 bg-card-c p-5 shadow-xs">
+          <SkeletonTable rows={6} cols={6} />
         </div>
       ) : filteredFaqs.length === 0 ? (
-        <div className="grid h-56 place-items-center rounded-2xl border border-dashed border-base-c/80 bg-card-c p-6 text-center">
-          <div className="space-y-2">
-            <HelpCircle className="mx-auto h-10 w-10 text-muted-c opacity-40" />
-            <p className="text-base font-bold text-primary-c">No FAQs Found</p>
-            <p className="text-xs text-muted-c max-w-sm mx-auto">
-              {searchQuery ? "No FAQ matched your search query." : "Add or bulk upload FAQs to activate the high-confidence 85% fast-path."}
-            </p>
-          </div>
-        </div>
+        faqs.length === 0 ? (
+          <EmptyState
+            icon={Zap}
+            title="No FAQs configured yet"
+            description="Add common questions or import your existing FAQ knowledge sheet to activate instant 85% vector fast-path matching."
+            action={{
+              label: "Add Single FAQ",
+              onClick: handleOpenCreate,
+              icon: Plus,
+            }}
+            secondaryAction={{
+              label: "Bulk Import CSV",
+              onClick: () => {
+                setBulkFiles([]);
+                setParsedFaqs([]);
+                setShowBulkModal(true);
+              }
+            }}
+          />
+        ) : (
+          <EmptyState
+            icon={Search}
+            title="No FAQs match your search"
+            description={`No question or answer matched "${searchQuery}". Try a different keyword or select "All" categories.`}
+            action={{
+              label: "Clear Search",
+              onClick: () => {
+                setSearchQuery('');
+                setSelectedCategory('ALL');
+              }
+            }}
+          />
+        )
       ) : (
         <div className="overflow-hidden rounded-2xl border border-base-c/80 bg-card-c shadow-xs">
           <div className="overflow-x-auto">

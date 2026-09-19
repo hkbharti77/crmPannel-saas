@@ -14,7 +14,17 @@ export function SalesChart({ revenueReport }: { revenueReport?: RevenueReportDTO
   const totalRev = revenueReport?.receivedRevenue || revenueReport?.totalPipelineValue || 0;
   const formattedTotal = `₹${totalRev.toLocaleString('en-IN')}`;
 
-  const values = [12000, 24000, 18000, 32000, 28000, 45000, totalRev || 52000];
+  const values = totalRev > 0
+    ? [
+        Math.round(totalRev * 0.45),
+        Math.round(totalRev * 0.62),
+        Math.round(totalRev * 0.55),
+        Math.round(totalRev * 0.78),
+        Math.round(totalRev * 0.72),
+        Math.round(totalRev * 0.91),
+        totalRev,
+      ]
+    : [12000, 24000, 18000, 32000, 28000, 45000, 52000];
 
   return (
     <GlassCard className="p-5 space-y-4">

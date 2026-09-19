@@ -84,35 +84,127 @@ export function AreaChart({
   );
 }
 
-/** Mini trend line for KPI cards. */
+/** Mini trend line for KPI cards with smooth curves and gradient fill. */
 export function Sparkline({
-  data,
+  data = [],
   color = '#2563EB',
+  height = 36,
+  strokeWidth = 2.5,
+  showArea = true,
   className,
 }: {
   data: number[];
   color?: string;
+  height?: number;
+  strokeWidth?: number;
+  showArea?: boolean;
   className?: string;
 }) {
   const width = 120;
-  const height = 36;
-  const path = useMemo(() => {
+  const padX = 3;
+  const padY = 5;
+  const gid = useMemo(() => `spark-${Math.random().toString(36).slice(2, 9)}`, []);
+
+  const { path, area, lastPoint, isZero } = useMemo(() => {
+    if (!data || data.length === 0) {
+      return { path: '', area: '', lastPoint: null, isZero: true };
+    }
+
     const max = Math.max(...data);
     const min = Math.min(...data);
-    const range = max - min || 1;
-    const step = width / (data.length - 1);
-    return data
-      .map((v, i) => {
-        const x = i * step;
-        const y = (1 - (v - min) / range) * height;
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-      })
-      .join(' ');
-  }, [data]);
+    const allZero = max === 0 && min === 0;
+    const isFlat = max === min;
+
+    const effectiveLength = Math.max(data.length, 2);
+    const step = (width - padX * 2) / (effectiveLength - 1);
+    const drawHeight = height - padY * 2;
+
+    if (allZero || isFlat) {
+      const midY = height * 0.65;
+      const pts: [number, number][] = [
+        [padX, midY],
+        [width - padX, midY],
+      ];
+      return {
+        path: `M ${pts[0][0]} ${pts[0][1]} L ${pts[1][0]} ${pts[1][1]}`,
+        area: '',
+        lastPoint: pts[1],
+        isZero: allZero,
+      };
+    }
+
+    const range = max - min;
+    const pts: [number, number][] = data.map((v, i) => {
+      const x = padX + i * step;
+      const y = padY + (1 - (v - min) / range) * drawHeight;
+      return [x, y];
+    });
+
+    // Catmull-Rom to Cubic Bézier spline for silky smooth curves
+    let curvePath = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+
+      const cp1x = p1[0] + (p2[0] - p0[0]) / 6;
+      const cp1y = p1[1] + (p2[1] - p0[1]) / 6;
+      const cp2x = p2[0] - (p3[0] - p1[0]) / 6;
+      const cp2y = p2[1] - (p3[1] - p1[1]) / 6;
+
+      curvePath += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+
+    const areaPath = `${curvePath} L ${pts[pts.length - 1][0].toFixed(1)} ${height} L ${pts[0][0].toFixed(1)} ${height} Z`;
+
+    return {
+      path: curvePath,
+      area: areaPath,
+      lastPoint: pts[pts.length - 1],
+      isZero: false,
+    };
+  }, [data, height]);
 
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className={className} preserveAspectRatio="none">
-      <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
+    <svg
+      viewBox={`0 0 ${width} ${height}`}
+      className={className}
+      preserveAspectRatio="none"
+      style={{ overflow: 'visible' }}
+    >
+      <defs>
+        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+
+      {showArea && area && !isZero && (
+        <path d={area} fill={`url(#${gid})`} />
+      )}
+
+      {path && (
+        <path
+          d={path}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeOpacity={isZero ? 0.35 : 0.95}
+          strokeDasharray={isZero ? '4 4' : undefined}
+        />
+      )}
+
+      {lastPoint && !isZero && (
+        <circle
+          cx={lastPoint[0]}
+          cy={lastPoint[1]}
+          r={strokeWidth * 1.05}
+          fill={color}
+        />
+      )}
     </svg>
   );
 }

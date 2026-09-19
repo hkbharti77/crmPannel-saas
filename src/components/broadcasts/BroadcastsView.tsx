@@ -11,6 +11,8 @@ import {
 import {
   fetchCampaigns,
   cancelCampaign,
+  deleteCampaign,
+  deleteAllCampaigns,
   fetchWhatsAppTemplates,
   deleteWhatsAppTemplate,
   fetchCampaignRecipients,
@@ -43,6 +45,7 @@ import {
   Smartphone,
   ChevronLeft,
   MoreVertical,
+  Edit3,
   TrendingUp,
   Sparkles,
   BarChart3,
@@ -198,12 +201,52 @@ export function BroadcastsView() {
     };
   }, [broadcasts]);
 
-  const handleDelete = async (id: string) => {
-    if (id.includes('-')) {
-      await cancelCampaign(id);
+  const [isClearingAll, setIsClearingAll] = useState(false);
+  const [deleteCampaignConfirm, setDeleteCampaignConfirm] = useState<{
+    isOpen: boolean;
+    id: string;
+    title: string;
+    isAll?: boolean;
+  }>({ isOpen: false, id: '', title: '' });
+
+  const handleDelete = (id: string) => {
+    const camp = broadcasts.find((b) => b.id === id);
+    setDeleteCampaignConfirm({
+      isOpen: true,
+      id,
+      title: camp ? camp.title : 'this campaign',
+      isAll: false,
+    });
+  };
+
+  const handleClearAll = () => {
+    setDeleteCampaignConfirm({
+      isOpen: true,
+      id: 'ALL',
+      title: 'ALL broadcast campaigns',
+      isAll: true,
+    });
+  };
+
+  const confirmDeleteCampaign = async () => {
+    const { id, isAll } = deleteCampaignConfirm;
+    setDeleteCampaignConfirm({ isOpen: false, id: '', title: '' });
+
+    if (isAll) {
+      setIsClearingAll(true);
+      const res = await deleteAllCampaigns();
+      setIsClearingAll(false);
+      if (res.success) {
+        setBroadcasts([]);
+        setSelectedId(null);
+      }
+    } else if (id) {
+      const res = await deleteCampaign(id);
+      if (res.success) {
+        setBroadcasts((prev) => prev.filter((b) => b.id !== id));
+        if (selectedId === id) setSelectedId(null);
+      }
     }
-    setBroadcasts((prev) => prev.filter((b) => b.id !== id));
-    if (selectedId === id) setSelectedId(null);
   };
 
   const [deleteConfirmState, setDeleteConfirmState] = useState<{
@@ -249,13 +292,25 @@ export function BroadcastsView() {
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto">
           {tab === 'broadcasts' ? (
-            <button
-              onClick={() => navigate('/broadcasts/create')}
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-4 py-2.5 text-xs font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-            >
-              <Plus className="h-4 w-4" />
-              <span>New Broadcast</span>
-            </button>
+            <div className="flex items-center gap-2">
+              {broadcasts.length > 0 && (
+                <button
+                  onClick={handleClearAll}
+                  disabled={isClearingAll}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span>{isClearingAll ? 'Clearing...' : 'Clear All Campaigns'}</span>
+                </button>
+              )}
+              <button
+                onClick={() => navigate('/broadcasts/create')}
+                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-4 py-2.5 text-xs font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              >
+                <Plus className="h-4 w-4" />
+                <span>New Broadcast</span>
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
               <button
@@ -417,6 +472,17 @@ export function BroadcastsView() {
         />
       )}
 
+      {/* Delete Campaign Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteCampaignConfirm.isOpen}
+        title={deleteCampaignConfirm.isAll ? 'Clear All Broadcast Campaigns' : 'Delete Broadcast Campaign'}
+        message={`Are you sure you want to delete ${deleteCampaignConfirm.title}? All associated logs, analytics and recipient queues will be permanently removed.`}
+        confirmText={deleteCampaignConfirm.isAll ? 'Clear All Campaigns' : 'Delete Campaign'}
+        variant="danger"
+        onConfirm={confirmDeleteCampaign}
+        onCancel={() => setDeleteCampaignConfirm({ isOpen: false, id: '', title: '' })}
+      />
+
       {/* Reusable Confirmation Modal */}
       <ConfirmModal
         isOpen={deleteConfirmState.isOpen}
@@ -443,6 +509,7 @@ function TemplatesTab({
   onDelete: (name: string) => void;
   onCreateNew: () => void;
 }) {
+  const navigate = useNavigate();
   const [selectedName, setSelectedName] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -578,6 +645,11 @@ function TemplatesTab({
         {selected ? (
           <WhatsAppTemplateCard
             template={selected}
+            onEdit={() => {
+              navigate('/broadcasts/edit-template/' + encodeURIComponent(selected.name), {
+                state: { template: selected }
+              });
+            }}
             onDelete={() => {
               onDelete(selected.name);
               setSelectedName(null);
@@ -598,7 +670,7 @@ function TemplatesTab({
 }
 
 /* ─── WhatsApp Template Smartphone Card Component ─── */
-function WhatsAppTemplateCard({ template, onDelete }: { template: WhatsAppTemplateDto; onDelete: () => void }) {
+function WhatsAppTemplateCard({ template, onEdit, onDelete }: { template: WhatsAppTemplateDto; onEdit: () => void; onDelete: () => void }) {
   const status = (template.status || 'APPROVED').toUpperCase();
 
   let statusBg = 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/20';
@@ -621,13 +693,23 @@ function WhatsAppTemplateCard({ template, onDelete }: { template: WhatsAppTempla
             <span className="text-xs font-medium text-muted-c">{template.language || 'en_US'}</span>
           </div>
         </div>
-        <button
-          onClick={onDelete}
-          className="rounded-xl hover:bg-rose-50 text-muted-c hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 p-2.5 transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
-          title="Delete Template"
-        >
-          <Trash2 className="h-4.5 w-4.5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 rounded-xl bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-500/20 px-3 py-2 text-xs font-bold transition-all border border-primary-200 dark:border-primary-500/30 cursor-pointer shadow-2xs"
+            title="Edit Template on Meta"
+          >
+            <Edit3 className="h-4 w-4" />
+            <span>Edit</span>
+          </button>
+          <button
+            onClick={onDelete}
+            className="rounded-xl hover:bg-rose-50 text-muted-c hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400 p-2.5 transition-colors border border-transparent hover:border-rose-200 cursor-pointer"
+            title="Delete Template"
+          >
+            <Trash2 className="h-4.5 w-4.5" />
+          </button>
+        </div>
       </div>
 
       {template.rejectedReason && (
@@ -879,7 +961,7 @@ function BroadcastDetail({
           onClick={onDelete}
           className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
         >
-          <Trash2 className="h-3.5 w-3.5" /> Cancel Campaign
+          <Trash2 className="h-3.5 w-3.5" /> Delete Campaign
         </button>
       </div>
 
