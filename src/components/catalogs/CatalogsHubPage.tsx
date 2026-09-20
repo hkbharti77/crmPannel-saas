@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { 
   Store, Link2, RefreshCw, Loader2, Plus, 
   ShoppingCart, Box, ArrowRight, Check, Copy, 
-  Settings, Eye, CreditCard, Banknote, AlertTriangle
+  Settings, Eye, CreditCard, Banknote, AlertTriangle,
+  Info, ExternalLink, Sparkles, X
 } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { Modal, Drawer, Badge } from '@/components/ui/primitives';
@@ -25,6 +26,7 @@ export function CatalogsHubPage({
   showToast,
 }: CatalogsHubPageProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showSetupGuide, setShowSetupGuide] = useState(true);
 
   // Modals & Drawers
   const [isAddCatalogModalOpen, setIsAddCatalogModalOpen] = useState(false);
@@ -186,6 +188,76 @@ export function CatalogsHubPage({
           </button>
         </div>
       </div>
+
+      {/* ── META COMMERCE SETUP & CONNECT GUIDE BANNER ── */}
+      {showSetupGuide && (
+        <div className="relative overflow-hidden rounded-2xl border border-blue-500/20 bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-purple-500/10 p-5 shadow-xs">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-3xl">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md bg-blue-500/15 px-2 py-0.5 text-[11px] font-bold text-blue-600 dark:text-blue-400">
+                  <Sparkles className="w-3.5 h-3.5" /> Recommended Workflow
+                </span>
+                <h3 className="text-sm font-bold text-primary-c">
+                  How to setup & connect your Meta Catalog (Takes 2 Minutes)
+                </h3>
+              </div>
+              <p className="text-xs text-secondary-c leading-relaxed">
+                Creating your catalog in Meta Commerce Manager and connecting via <strong>Catalog ID</strong> avoids Meta Business Manager API permission restrictions and connects instantly to your WhatsApp Business Account.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <a
+                href="https://business.facebook.com/commerce"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-soft transition-all"
+              >
+                <span>Open Meta Commerce</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowSetupGuide(false)}
+                className="p-2 text-secondary-c hover:text-primary-c rounded-lg hover:bg-base-c transition-colors cursor-pointer"
+                title="Dismiss guide"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-4 border-t border-blue-500/15 text-xs text-secondary-c">
+            <div className="flex items-start gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                1
+              </div>
+              <div>
+                <strong className="text-primary-c block">Create or Select Catalog</strong>
+                <span>Open Meta Commerce Manager and choose your catalog or click <em>Add Catalogue (E-commerce)</em>.</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                2
+              </div>
+              <div>
+                <strong className="text-primary-c block">Copy Catalog ID</strong>
+                <span>Click <strong>⚙️ Settings</strong> in Commerce Manager and copy the 15–16 digit <strong>Catalogue ID</strong> (or from URL).</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5">
+              <div className="w-5 h-5 rounded-full bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                3
+              </div>
+              <div>
+                <strong className="text-primary-c block">Paste & Connect</strong>
+                <span>Click <strong>Connect Existing</strong>, paste your Catalog ID, and start showcasing products on WhatsApp!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Metrics Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -391,9 +463,13 @@ export function CatalogsHubPage({
 
         {addCatalogMode === 'create' ? (
           <div className="space-y-4">
-            <p className="text-xs text-secondary-c mb-4">
-              Create a brand new Meta Commerce catalog directly from this dashboard and link it to your WhatsApp Business Account.
-            </p>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] leading-relaxed">
+                <strong>Important Note:</strong> Creating catalogs directly via API requires Full Admin rights on your Meta Business Portfolio. If you encounter permission errors, we recommend creating your catalog in <a href="https://business.facebook.com/commerce" target="_blank" rel="noreferrer" className="underline font-bold">Meta Commerce Manager ↗</a> and using the <strong>Connect Existing</strong> tab.
+              </p>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-primary-c mb-1.5">Catalog Name *</label>
               <input
@@ -409,15 +485,33 @@ export function CatalogsHubPage({
               disabled={!newCatalogName.trim() || isCreating}
               className="w-full mt-6 flex justify-center items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
             >
-              {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Create & Open Catalog
             </button>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-xs text-secondary-c mb-4">
-              Connect an existing catalog using its Meta Catalog ID from your Meta Business Manager.
-            </p>
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 text-xs space-y-2">
+              <div className="flex items-center justify-between font-bold text-primary-c">
+                <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <Info className="w-4 h-4" /> How to find your Meta Catalog ID:
+                </span>
+                <a
+                  href="https://business.facebook.com/commerce"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-[11px]"
+                >
+                  Open Commerce Manager <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-secondary-c pl-0.5 leading-relaxed">
+                <li>Go to <strong>Meta Commerce Manager</strong> and open your catalog (or create one via <em>Add Catalogue</em>).</li>
+                <li>In the left sidebar, click <strong>⚙️ Settings</strong> (Catalogue Settings).</li>
+                <li>Copy the 15–16 digit <strong>Catalogue ID</strong> (or copy it from your browser URL).</li>
+              </ol>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-primary-c mb-1.5">Meta Catalog ID *</label>
               <input
@@ -433,7 +527,7 @@ export function CatalogsHubPage({
               disabled={!connectCatalogId.trim() || isConnecting}
               className="w-full mt-6 flex justify-center items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer"
             >
-              {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {isConnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
               Connect & Open Catalog
             </button>
           </div>

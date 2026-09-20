@@ -133,7 +133,8 @@ export function OnboardingScreen() {
   const [whatsappMode, setWhatsappMode] = useState<'embedded' | 'manual'>('embedded');
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [accessToken, setAccessToken] = useState('');
-  const [wabaId, _setWabaId] = useState('');
+  const [wabaId, setWabaId] = useState('');
+  const [businessId, setBusinessId] = useState('');
   const [verifyToken] = useState(() => 'crm_' + Math.random().toString(36).substring(2, 12));
   const [isMetaConnecting, setIsMetaConnecting] = useState(false);
   const [metaConnected, setMetaConnected] = useState(false);
@@ -169,6 +170,8 @@ export function OnboardingScreen() {
         setMetaConnected(true);
         setPhoneNumberId(payload?.phoneNumberId || 'CONNECTED_VIA_META');
         setAccessToken('CONNECTED_VIA_META_GATEWAY');
+        if (payload?.wabaId) setWabaId(payload.wabaId);
+        if (payload?.businessId) setBusinessId(payload.businessId);
         setMetaPhoneDisplay(
           payload?.displayPhoneNumber || payload?.phoneNumberId
             ? `Phone: ${payload.displayPhoneNumber || payload.phoneNumberId}`
@@ -279,6 +282,8 @@ export function OnboardingScreen() {
             setMetaConnected(true);
             setPhoneNumberId(res.data?.phoneNumberId || 'CONNECTED_VIA_META');
             setAccessToken('CONNECTED_VIA_META_OAUTH');
+            if (res.data?.wabaId) setWabaId(res.data.wabaId);
+            if (res.data?.businessId) setBusinessId(res.data.businessId);
             setMetaPhoneDisplay(
               res.data?.displayPhoneNumber || res.data?.phoneNumberId
                 ? `Phone: ${res.data.displayPhoneNumber || res.data.phoneNumberId}`
@@ -754,6 +759,23 @@ export function OnboardingScreen() {
                           {metaPhoneDisplay || 'Meta Tech Provider integration active.'}
                         </p>
                       </div>
+
+                      {/* Display Resolved Meta IDs */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left pt-1 max-w-sm mx-auto">
+                        {businessId && (
+                          <div className="rounded-xl bg-card-c/80 dark:bg-card-c/60 p-2.5 border border-emerald-500/20 shadow-2xs">
+                            <span className="text-[10px] text-secondary-c uppercase font-bold tracking-wider block mb-0.5">Business Portfolio ID</span>
+                            <span className="text-xs font-mono font-bold text-primary-c break-all">{businessId}</span>
+                          </div>
+                        )}
+                        {wabaId && (
+                          <div className="rounded-xl bg-card-c/80 dark:bg-card-c/60 p-2.5 border border-emerald-500/20 shadow-2xs">
+                            <span className="text-[10px] text-secondary-c uppercase font-bold tracking-wider block mb-0.5">WABA ID</span>
+                            <span className="text-xs font-mono font-bold text-primary-c break-all">{wabaId}</span>
+                          </div>
+                        )}
+                      </div>
+
                       <p className="text-[11px] text-secondary-c">
                         You're all set! Click <strong>"Continue"</strong> below to proceed.
                       </p>

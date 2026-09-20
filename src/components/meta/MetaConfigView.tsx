@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Plug, Check, Copy, AlertCircle, CheckCircle2,
   ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, Eye, EyeOff,
-  RefreshCw, Zap, MessageSquare, Shield, ArrowUpRight
+  RefreshCw, Zap, MessageSquare, Shield, ArrowUpRight, Building2
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
@@ -370,7 +370,7 @@ export function MetaConfigView() {
       </div>
 
       {/* ── META API KPI STATS HEADER CARDS ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Card 1: Connection Mode */}
         <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
           <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
@@ -408,7 +408,36 @@ export function MetaConfigView() {
           <p className="mt-1 text-[11px] text-muted-c">Real-time incoming WhatsApp events</p>
         </div>
 
-        {/* Card 3: WABA Account ID */}
+        {/* Card 3: Business Portfolio ID */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Business Portfolio ID</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+              <Building2 className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-base font-black font-mono text-primary-c truncate max-w-[180px]">
+              {config?.businessId || 'Not Configured'}
+            </span>
+          </div>
+          <p className="mt-1 text-[11px] text-muted-c">
+            {config?.businessId ? (
+              <a
+                href={`https://business.facebook.com/settings/info?business_id=${config.businessId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+              >
+                Meta Portfolio ↗
+              </a>
+            ) : (
+              'Meta Business Portfolio'
+            )}
+          </p>
+        </div>
+
+        {/* Card 4: WABA Account ID */}
         <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
           <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
             <span>WABA Account ID</span>
@@ -424,7 +453,7 @@ export function MetaConfigView() {
           <p className="mt-1 text-[11px] text-muted-c">WhatsApp Business Account ID</p>
         </div>
 
-        {/* Card 4: WhatsApp Phone ID */}
+        {/* Card 5: WhatsApp Phone ID */}
         <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
           <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
             <span>Phone Number ID</span>
@@ -523,7 +552,23 @@ export function MetaConfigView() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono text-primary-c pt-3 border-t border-emerald-500/20">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs font-mono text-primary-c pt-3 border-t border-emerald-500/20">
+                  <div className="rounded-xl bg-card-c/60 p-3 border border-emerald-500/20">
+                    <span className="text-[10px] text-muted-c uppercase font-sans font-bold block mb-0.5">Business Portfolio ID</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold">{config.businessId || 'Not Configured'}</span>
+                      {config.businessId && (
+                        <a
+                          href={`https://business.facebook.com/settings/info?business_id=${config.businessId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline font-sans font-medium inline-flex items-center gap-0.5"
+                        >
+                          Meta ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
                   <div className="rounded-xl bg-card-c/60 p-3 border border-emerald-500/20">
                     <span className="text-[10px] text-muted-c uppercase font-sans font-bold block mb-0.5">WABA ID</span>
                     <span className="font-bold">{config.wabaId || '987654321098765'}</span>
@@ -533,7 +578,7 @@ export function MetaConfigView() {
                     <span className="font-bold">{config.phoneNumberId || '123456789012345'}</span>
                   </div>
                   {config.verifiedName && (
-                    <div className="col-span-1 sm:col-span-2 rounded-xl bg-card-c/60 p-3 border border-emerald-500/20 flex items-center justify-between">
+                    <div className="col-span-1 sm:col-span-3 rounded-xl bg-card-c/60 p-3 border border-emerald-500/20 flex items-center justify-between">
                       <span className="text-[10px] text-muted-c uppercase font-sans font-bold">Verified Meta Name</span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">{config.verifiedName}</span>
                     </div>

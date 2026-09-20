@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Store, Link2, Plus, Loader2 } from 'lucide-react';
+import { Store, Link2, Plus, Loader2, Info, ExternalLink } from 'lucide-react';
 import { Modal } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 
@@ -97,9 +97,13 @@ export function AddCatalogModal({
         {/* Form Fields */}
         {mode === 'create' ? (
           <div className="space-y-4">
-            <p className="text-xs text-secondary-c">
-              Create a brand new Meta Commerce catalog directly inside your WhatsApp Business Account.
-            </p>
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+              <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] leading-relaxed">
+                <strong>Important:</strong> Direct catalog creation via API requires Full Admin rights on your Meta Business Portfolio. If you encounter permission errors, we recommend creating your catalog in <a href="https://business.facebook.com/commerce" target="_blank" rel="noreferrer" className="underline font-bold">Meta Commerce Manager ↗</a> and switching to the <strong>Connect Existing</strong> tab.
+              </p>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-primary-c mb-1.5">Catalog Name *</label>
               <input
@@ -122,9 +126,27 @@ export function AddCatalogModal({
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-xs text-secondary-c">
-              Connect an existing Meta catalog using its Catalog ID from your Meta Business Manager.
-            </p>
+            <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3.5 text-xs space-y-2">
+              <div className="flex items-center justify-between font-bold text-primary-c">
+                <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <Info className="w-4 h-4" /> How to find your Meta Catalog ID:
+                </span>
+                <a
+                  href="https://business.facebook.com/commerce"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 text-[11px]"
+                >
+                  Open Commerce Manager <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-secondary-c pl-0.5 leading-relaxed">
+                <li>Go to <strong>Meta Commerce Manager</strong> and open your catalog (or create one via <em>Add Catalogue</em>).</li>
+                <li>In the left sidebar, click <strong>⚙️ Settings</strong> (Catalogue Settings).</li>
+                <li>Copy the 15–16 digit <strong>Catalogue ID</strong> (or copy it from your browser URL).</li>
+              </ol>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-primary-c mb-1.5">Meta Catalog ID *</label>
               <input
