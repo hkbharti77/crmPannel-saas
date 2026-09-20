@@ -138,6 +138,7 @@ export function OnboardingScreen() {
   const [isMetaConnecting, setIsMetaConnecting] = useState(false);
   const [metaConnected, setMetaConnected] = useState(false);
   const [metaPhoneDisplay, setMetaPhoneDisplay] = useState<string | null>(null);
+  const [fbReady, setFbReady] = useState(false);
 
   // Step 4: Permissions & Consent
   const [consentMessages, setConsentMessages] = useState(false);
@@ -182,23 +183,33 @@ export function OnboardingScreen() {
   }, []);
 
   const loadFacebookSdk = () => {
-    if (window.FB) return;
+    if (window.FB) {
+      setFbReady(true);
+      return;
+    }
 
     window.fbAsyncInit = function () {
       window.FB?.init({
         appId: META_APP_ID,
         cookie: true,
         xfbml: true,
-        version: 'v20.0',
+        version: 'v21.0',
       });
+      setFbReady(true);
     };
 
     (function (d, s, id) {
-      if (d.getElementById(id)) return;
+      if (d.getElementById(id)) {
+        if (window.FB) setFbReady(true);
+        return;
+      }
       const fjs = d.getElementsByTagName(s)[0];
       const js = d.createElement(s) as HTMLScriptElement;
       js.id = id;
       js.src = 'https://connect.facebook.net/en_US/sdk.js';
+      js.async = true;
+      js.defer = true;
+      js.crossOrigin = 'anonymous';
       fjs.parentNode?.insertBefore(js, fjs);
     })(document, 'script', 'facebook-jssdk');
   };
@@ -227,7 +238,7 @@ export function OnboardingScreen() {
   const handleLaunchMetaSignup = () => {
     setError(null);
 
-    if (!window.FB) {
+    if (!window.FB || !fbReady) {
       handleLaunchBackendGatewayPopup();
       return;
     }
@@ -278,7 +289,7 @@ export function OnboardingScreen() {
         override_default_response_type: true,
         extras: {
           setup: {},
-          featureType: 'coexistence',
+          featureType: 'whatsapp_business_app_onboarding',
           sessionInfoVersion: '3',
         },
       }

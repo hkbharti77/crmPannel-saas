@@ -83,6 +83,11 @@
 ### 🏷️ 11. Custom Branding & White-Labeling
 - **Custom UI Themes**: Tenant-level custom color palette selection, header branding, custom logo URL uploads, and "Powered by" watermark removal for PRO/ENTERPRISE tiers.
 
+### 🛒 12. Meta Commerce Catalog Hub & Paginated Product Buyers Drawer
+- **Catalogs & Product Studio (`CatalogsHubPage`, `CatalogProductsPage`)**: Manage synced Meta Commerce Catalog products, prices, stock statuses, variants, and image galleries.
+- **Interactive Product Catalog Modals (`SendProductModal`, `SendMultiProductModal`, `SendCatalogModal`)**: Send single or multi-product interactive catalog cards directly to WhatsApp chats.
+- **Product Buyers Badge & Slide-Over Drawer (`ProductsSection`, `ProductBuyersDrawer`)**: Interactive `[🛒 Buyers]` count badge on product rows opening a paginated slide-over drawer (20 per page) with search, skeleton state, customer details, and order history.
+
 ---
 
 ## 🏗️ Frontend Architecture
