@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getAuthToken } from '@/lib/api';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { cx } from '@/lib/types';
 
@@ -182,7 +182,7 @@ export function MetaConfigView() {
     setMessage(null);
     setError(null);
 
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken') || '';
+    const token = getAuthToken() || localStorage.getItem('crmlite_token') || localStorage.getItem('authToken') || '';
 
     try {
       const sessionRes = await apiFetch<{ launcherUrl?: string; appId?: string; configId?: string; sessionId?: string }>(

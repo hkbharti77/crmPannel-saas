@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
-import { onboardingApi, categoryApi, metaGatewayApi, apiFetch, type OnboardingData } from '@/lib/api';
+import { onboardingApi, categoryApi, metaGatewayApi, apiFetch, getAuthToken, type OnboardingData } from '@/lib/api';
 import { cx } from '@/lib/types';
 import {
   User,
@@ -217,7 +217,8 @@ export function OnboardingScreen() {
   const handleLaunchBackendGatewayPopup = () => {
     setError(null);
     setIsMetaConnecting(true);
-    const launchUrl = metaGatewayApi.getLaunchUrl();
+    const token = getAuthToken() || localStorage.getItem('crmlite_token') || '';
+    const launchUrl = metaGatewayApi.getLaunchUrl(token);
     const width = 520;
     const height = 660;
     const left = window.screen.width / 2 - width / 2;
