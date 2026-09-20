@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Plus, Trash2, Edit2, Shield, CheckCircle2, AlertTriangle, Key, Server, Globe, ExternalLink, Loader2, Star } from 'lucide-react';
+import { Mail, Plus, Trash2, Edit2, Shield, CheckCircle2, AlertTriangle, Key, Server, Globe, ExternalLink, Loader2, Star, Eye, EyeOff } from 'lucide-react';
 import { cx } from '@/lib/types';
 import {
   fetchEmailProviders,
@@ -58,6 +58,9 @@ export function EmailProvidersPanel() {
   const [encryption, setEncryption] = useState('TLS');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     loadProviders();
@@ -165,12 +168,20 @@ export function EmailProvidersPanel() {
     }
 
     setSaving(true);
+    const payload = buildPayload();
+    const hasCredentials = editingId
+      ? payload !== '{"region":"","accessKeyId":"","secretAccessKey":""}' &&
+        payload !== '{"apiKey":""}' &&
+        payload !== '{"host":"","port":"","encryption":"TLS","username":"","password":""}' &&
+        payload !== '{"host":"","port":"","encryption":"SSL","username":"","password":""}'
+      : true;
+
     const providerData: EmailProviderDTO = {
       id: editingId || undefined,
       providerType: selectedType,
       name: name.trim(),
       fromEmail: fromEmail.trim(),
-      credentialsPayload: buildPayload(),
+      credentialsPayload: hasCredentials ? payload : '',
       isDefault,
     };
 
@@ -467,13 +478,20 @@ export function EmailProvidersPanel() {
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-c" />
                       <input
-                        type="password"
-                        required
+                        type={showSecretAccessKey ? 'text' : 'password'}
+                        required={!editingId}
                         value={secretAccessKey}
                         onChange={(e) => setSecretAccessKey(e.target.value)}
-                        placeholder="••••••••••••••••••••••••"
-                        className="form-input pl-9 text-sm bg-white dark:bg-ink-900"
+                        placeholder={editingId ? '•••••••••••••••••••• (leave blank to keep current)' : '••••••••••••••••••••••••'}
+                        className="form-input pl-9 pr-10 text-sm bg-white dark:bg-ink-900"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowSecretAccessKey(!showSecretAccessKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c transition-colors"
+                      >
+                        {showSecretAccessKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -486,13 +504,20 @@ export function EmailProvidersPanel() {
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-c" />
                       <input
-                        type="password"
-                        required
+                        type={showApiKey ? 'text' : 'password'}
+                        required={!editingId}
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="xkeysib-..."
-                        className="form-input pl-9 text-sm bg-white dark:bg-ink-900"
+                        placeholder={editingId ? '•••••••• (leave blank to keep current)' : 'xkeysib-...'}
+                        className="form-input pl-9 pr-10 text-sm bg-white dark:bg-ink-900"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c transition-colors"
+                      >
+                        {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
                   <p className="text-xs text-muted-c flex items-center gap-1">
@@ -550,14 +575,23 @@ export function EmailProvidersPanel() {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Password</label>
-                    <input
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="form-input text-sm bg-white dark:bg-ink-900"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required={!editingId}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={editingId ? '•••••••• (leave blank to keep current)' : '••••••••'}
+                        className="form-input pr-10 text-sm bg-white dark:bg-ink-900"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-c hover:text-primary-c transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
