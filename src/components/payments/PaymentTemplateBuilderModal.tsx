@@ -93,7 +93,7 @@ export function PaymentTemplateBuilderModal({
       const res = await generateAiWhatsAppTemplate(promptText);
       if (res.data) {
         if (res.data.name) setTemplateName(res.data.name.toLowerCase().replace(/[^a-z0-9_]/g, '_'));
-        if (res.data.body) setBodyText(res.data.body);
+        if (res.data.bodyText) setBodyText(res.data.bodyText);
         if (res.data.category) setCategory(res.data.category as 'UTILITY' | 'MARKETING');
       }
     } catch (err: any) {
@@ -109,7 +109,7 @@ export function PaymentTemplateBuilderModal({
       language: language,
       category: category,
       headerType: headerText ? 'TEXT' : 'NONE',
-      headerText: headerText ? headerText.trim() : undefined,
+      headerContent: headerText ? headerText.trim() : undefined,
       bodyText: bodyText.trim(),
       footerText: footerText ? footerText.trim() : undefined,
       buttons: [
@@ -129,8 +129,8 @@ export function PaymentTemplateBuilderModal({
       category: dto.category,
       language: dto.language,
       components: [
-        ...(dto.headerText
-          ? [{ type: 'HEADER', format: 'TEXT', text: dto.headerText }]
+        ...(dto.headerContent
+          ? [{ type: 'HEADER', format: 'TEXT', text: dto.headerContent }]
           : []),
         { type: 'BODY', text: dto.bodyText },
         ...(dto.footerText ? [{ type: 'FOOTER', text: dto.footerText }] : []),
