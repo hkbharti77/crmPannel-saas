@@ -16,6 +16,7 @@ import {
   Sparkles,
   X,
   ShieldCheck,
+  ShoppingBag,
 } from 'lucide-react';
 
 const STAGE_COLORS: Record<string, string> = {
@@ -37,10 +38,12 @@ export function LeadContextPanel({
   contact,
   onClose,
   onRequestPayment,
+  onSendCatalog,
 }: {
   contact: ContactDTO | null;
   onClose?: () => void;
   onRequestPayment?: () => void;
+  onSendCatalog?: () => void;
 }) {
   const name = contact?.name || contact?.waId || 'WhatsApp Lead';
   const phone = contact?.phone || contact?.waId || 'N/A';
@@ -89,10 +92,20 @@ export function LeadContextPanel({
           {onRequestPayment && (
             <button
               onClick={onRequestPayment}
-              className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition btn-tactile"
+              className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition btn-tactile cursor-pointer"
             >
               <span>💳</span>
               <span>Send WhatsApp Bill</span>
+            </button>
+          )}
+
+          {onSendCatalog && (
+            <button
+              onClick={onSendCatalog}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-sm transition btn-tactile cursor-pointer"
+            >
+              <ShoppingBag className="h-3.5 w-3.5" />
+              <span>Send Catalog Products</span>
             </button>
           )}
         </div>

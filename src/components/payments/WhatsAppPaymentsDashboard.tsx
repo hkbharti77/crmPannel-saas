@@ -49,9 +49,10 @@ import { PaymentRequestModal } from './PaymentRequestModal';
 import { PaymentTemplateBuilderModal } from './PaymentTemplateBuilderModal';
 import { OrderDetailDrawer } from './OrderDetailDrawer';
 import { PaymentGatewaySettingsPanel } from '@/components/settings/panels/PaymentGatewaySettingsPanel';
+import { OrderDashboard } from '@/components/orders/OrderDashboard';
 
 export function WhatsAppPaymentsDashboard() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'transactions' | 'refunds' | 'templates' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'commerce' | 'transactions' | 'refunds' | 'templates' | 'settings'>('orders');
   const [orders, setOrders] = useState<WhatsAppOrderResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -259,7 +260,8 @@ export function WhatsAppPaymentsDashboard() {
       {/* Tabs */}
       <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-2 overflow-x-auto">
         {[
-          { id: 'orders', label: 'Orders & Bills', count: totalOrders },
+          { id: 'orders', label: 'In-Chat Invoices & Bills', count: totalOrders },
+          { id: 'commerce', label: 'WhatsApp Catalog Orders' },
           { id: 'transactions', label: 'Transactions', count: allTransactions.length },
           { id: 'refunds', label: 'Refunds', count: allRefunds.length },
           { id: 'templates', label: 'Payment Templates', count: PREBUILT_PAYMENT_TEMPLATES.length },
@@ -423,6 +425,11 @@ export function WhatsAppPaymentsDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Tab: Catalog Commerce Orders */}
+      {activeTab === 'commerce' && (
+        <OrderDashboard />
       )}
 
       {/* Tab 2: Transactions */}

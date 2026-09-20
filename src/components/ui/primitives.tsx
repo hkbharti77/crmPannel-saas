@@ -165,3 +165,110 @@ export function IconButton({
     </button>
   );
 }
+
+export function Toast({ message, onClose, isError = false }: { message: string; onClose: () => void; isError?: boolean }) {
+  return (
+    <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-card-c text-primary-c rounded-xl shadow-soft-lg border border-base-c animate-in fade-in slide-in-from-bottom-4">
+      {isError ? (
+        <svg className="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+      ) : (
+        <svg className="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+      )}
+      <span className="text-xs font-semibold">{message}</span>
+      <button onClick={onClose} className="text-muted-c hover:text-primary-c ml-1">
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+      </button>
+    </div>
+  );
+}
+
+import { createPortal } from 'react-dom';
+
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
+  className
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  if (!isOpen) return null;
+  return createPortal(
+    <>
+      <div 
+        className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9998] bg-slate-950/65 backdrop-blur-md transition-opacity animate-in fade-in duration-200" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9999] pointer-events-none flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+        <div className={cx("pointer-events-auto relative bg-card-c border border-base-c rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95", className)}>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-base-c">
+            <h3 className="text-base font-semibold text-primary-c">{title}</h3>
+            <button onClick={onClose} className="p-1 text-muted-c hover:text-primary-c rounded-md transition-colors hover:bg-base-c cursor-pointer">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+          <div className="p-6 overflow-y-auto">
+            {children}
+          </div>
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+export function Drawer({
+  isOpen,
+  onClose,
+  title,
+  children,
+  footer,
+  className
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: ReactNode;
+  footer?: ReactNode;
+  className?: string;
+}) {
+  if (!isOpen) return null;
+  return createPortal(
+    <>
+      <div 
+        className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9998] bg-slate-950/65 backdrop-blur-md transition-opacity animate-in fade-in duration-200" 
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9999] pointer-events-none overflow-hidden flex justify-end">
+        <div className={cx(
+          "pointer-events-auto relative flex flex-col w-full sm:w-[480px] h-full bg-card-c border-l border-base-c shadow-2xl animate-in slide-in-from-right duration-300",
+          className
+        )}>
+          <div className="flex items-center justify-between px-6 py-4 border-b border-base-c bg-slate-50/50 dark:bg-ink-850 shrink-0">
+            <h3 className="text-base font-semibold text-primary-c">{title}</h3>
+            <button onClick={onClose} className="p-1.5 text-muted-c hover:text-primary-c rounded-md transition-colors hover:bg-base-c cursor-pointer">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+            {children}
+          </div>
+          {footer && (
+            <div className="px-6 py-4 border-t border-base-c bg-slate-50/80 dark:bg-ink-850 flex items-center justify-end gap-3 shrink-0">
+              {footer}
+            </div>
+          )}
+        </div>
+      </div>
+    </>,
+    document.body
+  );
+}
+

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { cx } from '@/lib/types';
-import { Paperclip, Smile, Image as ImageIcon, Mic, Send, X, Bot, Zap, UserCheck, ShieldAlert, IndianRupee, MenuSquare, FormInput } from 'lucide-react';
+import { Paperclip, Smile, Image as ImageIcon, Mic, Send, X, Bot, Zap, UserCheck, ShieldAlert, IndianRupee, MenuSquare, FormInput, ShoppingBag } from 'lucide-react';
 
 export function MessageComposer({
   onSend,
@@ -11,6 +11,7 @@ export function MessageComposer({
   onRequestPayment,
   onSendMenu,
   onSendFlow,
+  onSendCatalog,
   sendingMenu = false,
   theme = 'whatsapp-dark',
 }: {
@@ -22,6 +23,7 @@ export function MessageComposer({
   onRequestPayment?: () => void;
   onSendMenu?: () => void;
   onSendFlow?: () => void;
+  onSendCatalog?: () => void;
   sendingMenu?: boolean;
   theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
 }) {
@@ -124,7 +126,7 @@ export function MessageComposer({
                 </button>
               )}
 
-              {/* Request Payment Button moved down */}
+              {/* Request Payment Button */}
               {onRequestPayment && (
                 <button
                   onClick={onRequestPayment}
@@ -133,6 +135,18 @@ export function MessageComposer({
                 >
                   <IndianRupee className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                   <span>Request Payment</span>
+                </button>
+              )}
+
+              {/* Send Catalog Button */}
+              {onSendCatalog && (
+                <button
+                  onClick={onSendCatalog}
+                  className="flex items-center gap-1.5 text-[11px] font-bold rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 btn-tactile shadow-xs transition-all cursor-pointer"
+                  title="Send WhatsApp Catalog Products (SPM / MPM)"
+                >
+                  <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-violet-500" />
+                  <span>Send Catalog</span>
                 </button>
               )}
             </div>
@@ -160,6 +174,7 @@ export function MessageComposer({
                 { icon: Paperclip, label: 'Document', color: 'text-indigo-500', action: () => fileRef.current?.click() },
                 { icon: Mic, label: 'Voice Note', color: 'text-amber-500', action: () => fileRef.current?.click() },
                 ...(onRequestPayment ? [{ icon: IndianRupee, label: 'Request Payment', color: 'text-emerald-600', action: onRequestPayment }] : []),
+                ...(onSendCatalog ? [{ icon: ShoppingBag, label: 'Catalog Products', color: 'text-violet-600', action: onSendCatalog }] : []),
               ].map((a) => {
                 const Icon = a.icon;
                 return (

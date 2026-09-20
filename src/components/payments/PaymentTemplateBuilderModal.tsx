@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import {
   X,
@@ -60,6 +61,17 @@ export function PaymentTemplateBuilderModal({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -179,9 +191,18 @@ export function PaymentTemplateBuilderModal({
     .replace(/\{\{3\}\}/g, sampleVar3 || '4,999.00')
     .replace(/\{\{(\d+)\}\}/g, '[$1]');
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+  return createPortal(
+    <>
+      {/* Full Viewport Backdrop */}
+      <div
+        className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[10000] bg-slate-950/65 backdrop-blur-md transition-all animate-in fade-in duration-200"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal Dialog Viewport Container */}
+      <div className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[10001] pointer-events-none flex items-center justify-center p-4 overflow-y-auto">
+        <div className="pointer-events-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
           <div className="flex items-center gap-3">
@@ -512,5 +533,7 @@ export function PaymentTemplateBuilderModal({
         </div>
       </div>
     </div>
-  );
+  </>,
+  document.body
+);
 }

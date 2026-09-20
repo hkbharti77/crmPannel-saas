@@ -16,6 +16,7 @@ import {
   Contact,
   Sparkles,
   CreditCard,
+  Store,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -39,6 +40,7 @@ export type ViewId =
   | 'reports'
   | 'team'
   | 'contacts'
+  | 'catalogs'
   | 'settings';
 
 export type NavItem = {
@@ -65,5 +67,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'team', label: 'Team', icon: Users },
   { id: 'contacts', label: 'Contacts', icon: Contact },
+  { id: 'catalogs', label: 'Catalogs', icon: Store },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];

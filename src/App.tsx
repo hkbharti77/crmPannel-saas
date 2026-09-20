@@ -32,6 +32,8 @@ import { ReportsView } from '@/components/reports/ReportsView';
 import { TeamView } from '@/components/team/TeamView';
 import { ContactsView } from '@/components/contacts/ContactsView';
 import { ContactDetailView } from '@/components/contacts/ContactDetailView';
+import { OrderDashboard } from '@/components/orders/OrderDashboard';
+import { CatalogsView } from '@/components/catalogs/CatalogsView';
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 import { AdminShell } from '@/components/admin/AdminShell';
@@ -370,6 +372,18 @@ function AppContent() {
               }
             />
           </Route>
+          <Route
+            path="orders"
+            element={<Navigate to="/payments" replace />}
+          />
+          <Route
+            path="catalogs"
+            element={
+              <TenantRouteGuard pageKey="PAGE_SETTINGS">
+                <CatalogsView />
+              </TenantRouteGuard>
+            }
+          />
           <Route
             path="settings/whatsapp-flows/:flowId/responses"
             element={

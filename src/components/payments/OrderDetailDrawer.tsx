@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import {
   X,
@@ -44,6 +45,21 @@ export function OrderDetailDrawer({
   const [refundReason, setRefundReason] = useState('');
   const [copied, setCopied] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || !order) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showRefundModal) {
+          setShowRefundModal(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, order, showRefundModal, onClose]);
 
   if (!isOpen || !order) return null;
 
@@ -121,10 +137,18 @@ export function OrderDetailDrawer({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col">
+  return createPortal(
+    <>
+      {/* Full Viewport Backdrop */}
+      <div
+        className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9998] bg-slate-950/65 backdrop-blur-md transition-all animate-in fade-in duration-200"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Right-Side Drawer Container */}
+      <div className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9999] pointer-events-none overflow-hidden flex justify-end">
+        <div className="pointer-events-auto w-screen max-w-xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-full animate-in slide-in-from-right duration-200">
           {/* Header */}
           <div className="px-6 py-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/70 dark:bg-slate-800/50">
             <div>
@@ -336,60 +360,68 @@ export function OrderDetailDrawer({
 
       {/* Refund Modal */}
       {showRefundModal && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Process Refund</h3>
-            <form onSubmit={handleRefundSubmit} className="space-y-4 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Refund Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max={order.totalMinor / 100}
-                  value={refundAmountRupees || ''}
-                  onChange={(e) => setRefundAmountRupees(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-rose-500 font-bold"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                  Reason for Refund
-                </label>
-                <textarea
-                  value={refundReason}
-                  onChange={(e) => setRefundReason(e.target.value)}
-                  placeholder="e.g. Customer requested cancellation / defective item"
-                  rows={3}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-rose-500"
-                  required
-                />
-              </div>
+        <>
+          <div
+            className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[10000] bg-slate-950/70 backdrop-blur-md transition-all animate-in fade-in duration-200"
+            onClick={() => setShowRefundModal(false)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[10001] pointer-events-none flex items-center justify-center p-4 overflow-y-auto">
+            <div className="pointer-events-auto bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Process Refund</h3>
+              <form onSubmit={handleRefundSubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Refund Amount (₹)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={order.totalMinor / 100}
+                    value={refundAmountRupees || ''}
+                    onChange={(e) => setRefundAmountRupees(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-rose-500 font-bold"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Reason for Refund
+                  </label>
+                  <textarea
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    placeholder="e.g. Customer requested cancellation / defective item"
+                    rows={3}
+                    className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-rose-500"
+                    required
+                  />
+                </div>
 
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRefundModal(false)}
-                  className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={refunding}
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {refunding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                  Confirm Refund (₹{refundAmountRupees.toFixed(2)})
-                </button>
-              </div>
-            </form>
+                <div className="flex items-center justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowRefundModal(false)}
+                    className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={refunding}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    {refunding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                    Confirm Refund (₹{refundAmountRupees.toFixed(2)})
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </>
       )}
-    </div>
+    </>,
+    document.body
   );
 }

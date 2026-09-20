@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from '@/lib/types';
 import {
   X,
@@ -129,6 +130,17 @@ export function PaymentRequestModal({
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleAddItem = () => {
@@ -230,9 +242,18 @@ export function PaymentRequestModal({
   const remainingHours = sessionInfo ? Math.floor(sessionInfo.remainingSeconds / 3600) : 0;
   const remainingMins = sessionInfo ? Math.floor((sessionInfo.remainingSeconds % 3600) / 60) : 0;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
+  return createPortal(
+    <>
+      {/* Full Viewport Backdrop */}
+      <div
+        className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9998] bg-slate-950/65 backdrop-blur-md transition-all animate-in fade-in duration-200"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal Dialog Viewport Container */}
+      <div className="fixed inset-0 top-0 right-0 bottom-0 left-0 w-screen h-screen z-[9999] pointer-events-none flex items-center justify-center p-4 overflow-y-auto">
+        <div className="pointer-events-auto bg-white dark:bg-slate-900 w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2.5">
@@ -704,6 +725,7 @@ export function PaymentRequestModal({
             </button>
           </div>
         </form>
+        </div>
       </div>
 
       {/* Embedded Payment Template Builder Modal */}
@@ -716,6 +738,7 @@ export function PaymentRequestModal({
           setIsBuilderOpen(false);
         }}
       />
-    </div>
+    </>,
+    document.body
   );
 }

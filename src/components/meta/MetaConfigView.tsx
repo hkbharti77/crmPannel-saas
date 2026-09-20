@@ -21,6 +21,7 @@ interface WhatsAppConfigDto {
   verifiedName?: string;
   phoneNumberId?: string;
   wabaId?: string;
+  businessId?: string;
   accessToken?: string;
   verifyToken?: string;
   appSecret?: string;
@@ -52,6 +53,7 @@ export function MetaConfigView() {
   // Legacy Cloud API state
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [wabaId, setWabaId] = useState('');
+  const [businessId, setBusinessId] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [verifyToken, setVerifyToken] = useState('CRM_TOKEN_2026');
   const [appSecret, setAppSecret] = useState('');
@@ -126,6 +128,7 @@ export function MetaConfigView() {
       setConfig(data);
       if (data.phoneNumberId) setPhoneNumberId(data.phoneNumberId);
       if (data.wabaId) setWabaId(data.wabaId);
+      if (data.businessId) setBusinessId(data.businessId);
       if (data.accessToken) setAccessToken(data.accessToken);
       if (data.verifyToken) setVerifyToken(data.verifyToken);
       if (data.appSecret) setAppSecret(data.appSecret);
@@ -149,6 +152,7 @@ export function MetaConfigView() {
         connectionType: 'LEGACY',
         phoneNumberId: phoneNumberId.trim(),
         wabaId: wabaId.trim(),
+        businessId: businessId.trim(),
         accessToken: accessToken.trim(),
         verifyToken: verifyToken.trim(),
         appSecret: appSecret.trim(),
@@ -276,6 +280,7 @@ export function MetaConfigView() {
       setConfig(null);
       setPhoneNumberId('');
       setWabaId('');
+      setBusinessId('');
       setAccessToken('');
       setMessage('WhatsApp Meta configuration disconnected successfully.');
       setTimeout(() => setMessage(null), 4000);
@@ -631,6 +636,20 @@ export function MetaConfigView() {
                       value={phoneNumberId}
                       onChange={(e) => setPhoneNumberId(e.target.value)}
                       placeholder="e.g. 104820491823901"
+                      className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">Business Manager ID</label>
+                  <div className="relative">
+                    <Database className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
+                    <input
+                      required
+                      value={businessId}
+                      onChange={(e) => setBusinessId(e.target.value)}
+                      placeholder="e.g. 1412570260808930"
                       className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                     />
                   </div>

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
 import { SendFlowModal } from './SendFlowModal';
+import { SendCatalogModal } from './SendCatalogModal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -50,6 +51,7 @@ export function ChatRoomView() {
   const [togglingBot, setTogglingBot] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isSendFlowModalOpen, setIsSendFlowModalOpen] = useState(false);
+  const [isSendCatalogModalOpen, setIsSendCatalogModalOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isAtBottomRef = useRef<boolean>(true);
   const shouldForceScrollRef = useRef<boolean>(true);
@@ -433,6 +435,7 @@ export function ChatRoomView() {
             onRequestPayment={() => setIsPaymentModalOpen(true)}
             onSendMenu={contactId && contactId.includes('-') ? handleSendMenu : undefined}
             onSendFlow={contactId && contactId.includes('-') ? () => setIsSendFlowModalOpen(true) : undefined}
+            onSendCatalog={() => setIsSendCatalogModalOpen(true)}
             sendingMenu={sendingMenu}
           />
         </div>
@@ -443,6 +446,7 @@ export function ChatRoomView() {
             <LeadContextPanel
               contact={contactDetails}
               onRequestPayment={() => setIsPaymentModalOpen(true)}
+              onSendCatalog={() => setIsSendCatalogModalOpen(true)}
             />
           </div>
         )}
@@ -477,6 +481,28 @@ export function ChatRoomView() {
           onSuccess={() => loadData()}
         />
       )}
+
+      {/* Send Catalog Modal */}
+      <SendCatalogModal
+        isOpen={isSendCatalogModalOpen}
+        onClose={() => setIsSendCatalogModalOpen(false)}
+        customerWaId={contactDetails?.phone || contactDetails?.waId || contactId || ''}
+        customerName={contactDetails?.name || ''}
+        onSuccess={(result) => {
+          loadData();
+          const catMsg: Message = {
+            id: `cat-${Date.now()}`,
+            sender: 'me',
+            type: 'text',
+            text: result.type === 'single'
+              ? `🛍️ Sent Product: ${result.summary}`
+              : `🛍️ Sent WhatsApp Catalog Collection: ${result.summary}`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'sent',
+          };
+          setMessages((prev) => [...prev, catMsg]);
+        }}
+      />
     </div>
   );
 }
