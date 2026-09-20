@@ -176,11 +176,12 @@ export const metaGatewayApi = {
       sessionInfoVersion: string;
     }>('/api/v1/integrations/meta/gateway/session'),
 
-  getLaunchUrl: (token?: string, theme?: string) => {
+  getLaunchUrl: (token?: string, sessionId?: string, theme?: string) => {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
     const authToken = token || getAuthToken() || '';
     const activeTheme = theme || (document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-    return `${baseUrl}/api/v1/integrations/meta/gateway/launch?token=${encodeURIComponent(authToken)}&theme=${encodeURIComponent(activeTheme)}`;
+    const sessionParam = sessionId ? `&sessionId=${encodeURIComponent(sessionId)}` : '';
+    return `${baseUrl}/api/v1/integrations/meta/gateway/launch?token=${encodeURIComponent(authToken)}${sessionParam}&theme=${encodeURIComponent(activeTheme)}`;
   },
 
   exchangeCode: (code: string) =>

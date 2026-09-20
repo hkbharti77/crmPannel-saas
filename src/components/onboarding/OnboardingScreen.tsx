@@ -214,24 +214,34 @@ export function OnboardingScreen() {
     })(document, 'script', 'facebook-jssdk');
   };
 
-  const handleLaunchBackendGatewayPopup = () => {
+  const handleLaunchBackendGatewayPopup = async () => {
     setError(null);
     setIsMetaConnecting(true);
-    const token = getAuthToken() || localStorage.getItem('crmlite_token') || '';
-    const launchUrl = metaGatewayApi.getLaunchUrl(token);
-    const width = 520;
-    const height = 660;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
 
-    const popup = window.open(
-      launchUrl,
-      'MetaWhatsAppGateway',
-      `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, width=${width}, height=${height}, top=${top}, left=${left}`
-    );
+    try {
+      // 1. Establish an authenticated session on the backend for this tenant
+      const sessionRes = await metaGatewayApi.getSession();
+      const sessionId = sessionRes.data?.sessionId;
+      const token = getAuthToken() || localStorage.getItem('crmlite_token') || '';
+      const launchUrl = metaGatewayApi.getLaunchUrl(token, sessionId);
 
-    if (!popup) {
-      setError('Popup was blocked by browser. Please allow popups or use Facebook Login button below.');
+      const width = 520;
+      const height = 660;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+
+      const popup = window.open(
+        launchUrl,
+        'MetaWhatsAppGateway',
+        `toolbar=no, location=no, directories=no, status=no, menubar=no, scrollbars=yes, resizable=yes, width=${width}, height=${height}, top=${top}, left=${left}`
+      );
+
+      if (!popup) {
+        setError('Popup was blocked by browser. Please allow popups or use Facebook Login button below.');
+        setIsMetaConnecting(false);
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to initialize Meta Gateway session.');
       setIsMetaConnecting(false);
     }
   };
