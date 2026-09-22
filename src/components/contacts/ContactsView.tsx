@@ -59,6 +59,7 @@ export function ContactsView() {
 
   const [filterSource, setFilterSource] = useState<string>('ALL');
   const [filterBotStatus, setFilterBotStatus] = useState<string>('ALL');
+  const [filterMarketing, setFilterMarketing] = useState<string>('ALL');
   const [showFilters, setShowFilters] = useState(false);
 
   const filtered = useMemo(() => {
@@ -75,18 +76,26 @@ export function ContactsView() {
       result = result.filter(c => !!c.botPaused === isPaused);
     }
 
+    // Apply marketing opt-out filter
+    if (filterMarketing !== 'ALL') {
+      const isOptedOut = filterMarketing === 'OPTED_OUT';
+      result = result.filter(c => !!c.marketingOptedOut === isOptedOut);
+    }
+
     // Apply search query
     if (query) {
       const q = query.toLowerCase();
-      result = result.filter(c => 
+      result = result.filter(c =>
         (c.name && c.name.toLowerCase().includes(q)) ||
         (c.email && c.email.toLowerCase().includes(q)) ||
-        (c.phone && c.phone.toLowerCase().includes(q))
+        (c.phone && c.phone.toLowerCase().includes(q)) ||
+        (c.waId && c.waId.toLowerCase().includes(q)) ||
+        (c.bsuid && c.bsuid.toLowerCase().includes(q))
       );
     }
     
     return result.reverse(); // Assuming insertion order, reverse for newest first
-  }, [contacts, query, filterSource, filterBotStatus]);
+  }, [contacts, query, filterSource, filterBotStatus, filterMarketing]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedContacts = useMemo(() => {
@@ -96,7 +105,7 @@ export function ContactsView() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [query, filterSource, filterBotStatus]);
+  }, [query, filterSource, filterBotStatus, filterMarketing]);
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
@@ -122,7 +131,7 @@ export function ContactsView() {
   const handleExport = async () => {
     setIsExporting(true);
     setApiError(null);
-    const { error } = await exportContacts(query, filterSource, filterBotStatus);
+    const { error } = await exportContacts(query, filterSource, filterBotStatus, filterMarketing);
     if (error) {
       setApiError(error);
     }
@@ -148,7 +157,7 @@ export function ContactsView() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search users by name, email, or phone…"
+              placeholder="Search by name, email, phone, or BSUID…"
               className="w-full rounded-lg border border-slate-300 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-900 placeholder:text-slate-500 transition-colors focus:border-primary-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-100"
             />
           </div>
@@ -157,16 +166,16 @@ export function ContactsView() {
             <button 
               onClick={() => setShowFilters(!showFilters)}
               className={`flex items-center justify-center gap-2 rounded-lg border px-3 sm:px-4 py-2 text-sm font-medium shadow-sm transition-colors btn-tactile ${
-                showFilters || filterSource !== 'ALL' || filterBotStatus !== 'ALL'
+                showFilters || filterSource !== 'ALL' || filterBotStatus !== 'ALL' || filterMarketing !== 'ALL'
                   ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
                   : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-ink-700 dark:bg-ink-900 dark:text-slate-300 dark:hover:bg-ink-800'
               }`}
             >
               <Filter className="h-4 w-4" />
               <span>Filters</span>
-              {(filterSource !== 'ALL' || filterBotStatus !== 'ALL') && (
+              {(filterSource !== 'ALL' || filterBotStatus !== 'ALL' || filterMarketing !== 'ALL') && (
                 <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary-600 text-[10px] font-bold text-white">
-                  {(filterSource !== 'ALL' ? 1 : 0) + (filterBotStatus !== 'ALL' ? 1 : 0)}
+                  {(filterSource !== 'ALL' ? 1 : 0) + (filterBotStatus !== 'ALL' ? 1 : 0) + (filterMarketing !== 'ALL' ? 1 : 0)}
                 </span>
               )}
             </button>
@@ -225,6 +234,19 @@ export function ContactsView() {
                   <option value="ALL">All Statuses</option>
                   <option value="ACTIVE">Active (Bot Responds)</option>
                   <option value="PAUSED">Paused (Human Only)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Marketing</label>
+                <select
+                  value={filterMarketing}
+                  onChange={(e) => setFilterMarketing(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-ink-700 dark:bg-ink-950 dark:text-slate-100"
+                >
+                  <option value="ALL">All</option>
+                  <option value="OPTED_IN">Opted In</option>
+                  <option value="OPTED_OUT">Opted Out</option>
                 </select>
               </div>
             </div>
@@ -358,7 +380,9 @@ export function ContactsView() {
                           </div>
                           <div className="flex flex-col min-w-0">
                             <span className="text-sm font-semibold text-slate-900 truncate dark:text-slate-100">{contact.name || 'Unknown User'}</span>
-                            <span className="text-xs text-slate-500 truncate dark:text-slate-400 mt-0.5">{contact.waId}</span>
+                            <span className="text-xs text-slate-500 truncate dark:text-slate-400 mt-0.5 font-mono">
+                              {contact.waId ?? contact.bsuid ?? contact.parentBsuid ?? '—'}
+                            </span>
                           </div>
                         </div>
                       </td>
@@ -393,17 +417,25 @@ export function ContactsView() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        {contact.botPaused ? (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-ink-800 dark:text-slate-300">
-                            <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
-                            Paused
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
-                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                            Active
-                          </span>
-                        )}
+                        <div className="flex flex-col gap-1.5">
+                          {contact.botPaused ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-ink-800 dark:text-slate-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                              Paused
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+                              Active
+                            </span>
+                          )}
+                          {contact.marketingOptedOut && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
+                              <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                              Mkt Opt-Out
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>

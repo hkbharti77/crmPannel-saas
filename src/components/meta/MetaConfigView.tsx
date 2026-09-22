@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Plug, Check, Copy, AlertCircle, CheckCircle2,
   ShieldCheck, Loader2, Key, Phone, Database, Server, Smartphone, Sparkles, LogOut, Info, ExternalLink, X, FileText, Eye, EyeOff,
-  RefreshCw, Zap, MessageSquare, Shield, ArrowUpRight, Building2
+  RefreshCw, Zap, MessageSquare, Shield, ArrowUpRight, Building2, Clock
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { fetchSubscriptionStatus } from '@/lib/billingApi';
@@ -28,6 +28,17 @@ interface WhatsAppConfigDto {
   embeddedBusinessId?: string;
   embeddedWabaId?: string;
   embeddedPhoneId?: string;
+  botCooldownMinutes?: number;
+  // Meta Priority 1 Webhook Fields
+  accountStatus?: string;
+  accountStatusReason?: string;
+  qualityRating?: string;
+  messagingLimitRaw?: string;
+  messagingLimitValue?: number;
+  restrictionJson?: Record<string, any>;
+  capabilityJson?: Record<string, any>;
+  violationJson?: Record<string, any>;
+  banInfoJson?: Record<string, any>;
 }
 
 interface FacebookSdk {
@@ -74,6 +85,13 @@ export function MetaConfigView() {
   // Show/hide toggles for sensitive fields
   const [showAccessToken, setShowAccessToken] = useState(false);
   const [showAppSecret, setShowAppSecret] = useState(false);
+
+  // WhatsApp Coexistence Bot Cooldown State
+  const [botCooldownMinutes, setBotCooldownMinutes] = useState<number>(15);
+  const [customCooldownMinutes, setCustomCooldownMinutes] = useState<string>('');
+  const [isCustomCooldown, setIsCustomCooldown] = useState(false);
+  const [savingCooldown, setSavingCooldown] = useState(false);
+  const [cooldownMessage, setCooldownMessage] = useState<string | null>(null);
 
   useEffect(() => {
     // Load subscription plan & whatsapp configuration in parallel
@@ -137,6 +155,13 @@ export function MetaConfigView() {
       } else {
         setActiveTab('embedded');
       }
+      if (data.botCooldownMinutes) {
+        setBotCooldownMinutes(data.botCooldownMinutes);
+        if (![5, 10, 15, 30, 60].includes(data.botCooldownMinutes)) {
+          setIsCustomCooldown(true);
+          setCustomCooldownMinutes(String(data.botCooldownMinutes));
+        }
+      }
     }
   };
 
@@ -166,6 +191,30 @@ export function MetaConfigView() {
       setTimeout(() => setMessage(null), 4000);
     } else {
       setError(`Failed to save: ${res.error}`);
+    }
+  };
+
+  const handleUpdateCooldown = async (minutes: number) => {
+    if (minutes < 1) return;
+    setSavingCooldown(true);
+    setCooldownMessage(null);
+    setError(null);
+
+    const res = await apiFetch<any>('/api/v1/whatsapp-config', {
+      method: 'POST',
+      body: JSON.stringify({
+        botCooldownMinutes: minutes,
+      }),
+    });
+
+    setSavingCooldown(false);
+    if (!res.error) {
+      setBotCooldownMinutes(minutes);
+      if (config) setConfig({ ...config, botCooldownMinutes: minutes });
+      setCooldownMessage(`AI Bot Cooldown updated to ${minutes} minutes successfully!`);
+      setTimeout(() => setCooldownMessage(null), 4000);
+    } else {
+      setError(`Failed to update cooldown timer: ${res.error}`);
     }
   };
 
@@ -469,6 +518,86 @@ export function MetaConfigView() {
           <p className="mt-1 text-[11px] text-muted-c">Verified Meta Phone Sender</p>
         </div>
       </div>
+
+      {/* ── META ACCOUNT HEALTH, QUALITY & LIMITS CARD ── */}
+      {isConnected && (
+        <div className="rounded-2xl border border-base-c/80 bg-card-c p-5 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-c/50 pb-3">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-emerald-500" />
+              <h3 className="text-sm font-bold text-primary-c">Meta Account Health &amp; Operational Limits</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cx(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase",
+                config?.accountStatus === 'ACTIVE' || !config?.accountStatus ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" :
+                config?.accountStatus?.includes('RESTRICT') || config?.accountStatus?.includes('WARN') ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30" :
+                "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30"
+              )}>
+                <span className={cx("h-1.5 w-1.5 rounded-full",
+                  config?.accountStatus === 'ACTIVE' || !config?.accountStatus ? "bg-emerald-500" :
+                  config?.accountStatus?.includes('RESTRICT') ? "bg-amber-500" : "bg-rose-500"
+                )} />
+                {config?.accountStatus || 'ACTIVE'}
+              </span>
+              <span className={cx(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase",
+                config?.qualityRating === 'GREEN' || !config?.qualityRating || config?.qualityRating === 'UNKNOWN' ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30" :
+                config?.qualityRating === 'YELLOW' ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30" :
+                config?.qualityRating === 'RED' ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30" :
+                "bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30"
+              )}>
+                Quality: {config?.qualityRating || 'GREEN'}
+              </span>
+            </div>
+          </div>
+
+          {/* Active Restrictions Banner if any */}
+          {((config?.restrictionJson && Object.keys(config.restrictionJson).length > 0) ||
+            (config?.accountStatus && ['RESTRICTED', 'DISABLED', 'BANNED', 'SUSPENDED'].includes(config.accountStatus))) && (
+            <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-800 dark:text-rose-300 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-rose-600 dark:text-rose-400">
+                <AlertCircle className="h-4 w-4" />
+                <span>Meta Policy Restriction Active: {config?.accountStatusReason || config?.accountStatus}</span>
+              </div>
+              {config?.restrictionJson && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 pt-2 border-t border-rose-500/20">
+                  {Object.entries(config.restrictionJson).map(([key, val]: [string, any]) => (
+                    <div key={key} className="bg-white/60 dark:bg-ink-900/60 p-2 rounded-lg text-[11px]">
+                      <span className="font-semibold text-rose-700 dark:text-rose-400 capitalize">{key.replace(/_/g, ' ')}:</span>{' '}
+                      <span>{typeof val === 'object' ? JSON.stringify(val) : String(val)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Limits & Capabilities Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-ink-900/50 border border-base-c/60">
+              <span className="text-muted-c block text-[11px]">Tier Messaging Limit</span>
+              <span className="font-bold text-primary-c text-sm mt-0.5 block">{config?.messagingLimitRaw || 'TIER_1K (Standard)'}</span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-ink-900/50 border border-base-c/60">
+              <span className="text-muted-c block text-[11px]">Outbound Campaigns</span>
+              <span className={cx("font-bold text-sm mt-0.5 block",
+                config?.accountStatus === 'ACTIVE' && config?.qualityRating !== 'RED' ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400"
+              )}>
+                {config?.accountStatus === 'ACTIVE' && config?.qualityRating !== 'RED' ? 'Permitted' : 'Limited / Paused'}
+              </span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-ink-900/50 border border-base-c/60">
+              <span className="text-muted-c block text-[11px]">Customer Care Replies</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm mt-0.5 block">24h Window Active</span>
+            </div>
+            <div className="p-3 rounded-xl bg-slate-50 dark:bg-ink-900/50 border border-base-c/60">
+              <span className="text-muted-c block text-[11px]">Security Two-Factor</span>
+              <span className="font-bold text-indigo-600 dark:text-indigo-400 text-sm mt-0.5 block">PIN Protected (2FA)</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── SUBSCRIPTION WARNING BANNER ── */}
       {planLocked && (
@@ -806,6 +935,118 @@ export function MetaConfigView() {
           </div>
         </div>
       )}
+
+      {/* ── COEXISTENCE & HUMAN AGENT BOT COOLDOWN TIMER CARD ── */}
+      <div className="rounded-2xl border border-base-c/80 bg-card-c p-6 space-y-5 shadow-xs">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shadow-soft">
+              <Clock className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-bold text-primary-c">WhatsApp Coexistence AI Bot Cooldown Timer</h3>
+                <span className="text-[11px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                  Admin Control
+                </span>
+              </div>
+              <p className="text-xs text-muted-c mt-0.5">
+                Automatically pauses automated AI replies when an agent or business owner replies from the WhatsApp mobile app or CRM Live Chat.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-c font-medium">Current Timer:</span>
+            <span className="text-xs font-bold font-mono px-3 py-1 rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25">
+              {botCooldownMinutes} Minutes
+            </span>
+          </div>
+        </div>
+
+        {cooldownMessage && (
+          <div className="flex items-center gap-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs font-semibold text-emerald-700 dark:text-emerald-300 animate-fade-in">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
+            <span>{cooldownMessage}</span>
+          </div>
+        )}
+
+        <div className="rounded-xl bg-slate-50 dark:bg-ink-850/60 border border-base-c/60 p-4 space-y-3">
+          <p className="text-xs text-secondary-c leading-relaxed">
+            <strong>How it works:</strong> When you or your team send a message to a customer directly from the physical WhatsApp Business app on your phone, Meta sends a message echo. The CRM detects human intervention and immediately puts the AI Bot on cooldown for this customer so the bot will not talk over the human agent. When the timer expires, automated AI workflows resume automatically.
+          </p>
+
+          <div className="pt-2">
+            <label className="block text-xs font-bold text-primary-c uppercase tracking-wider mb-2">
+              Select Bot Pause Duration:
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              {[5, 10, 15, 30, 60].map((mins) => {
+                const active = botCooldownMinutes === mins && !isCustomCooldown;
+                return (
+                  <button
+                    key={mins}
+                    type="button"
+                    disabled={savingCooldown}
+                    onClick={() => {
+                      setIsCustomCooldown(false);
+                      handleUpdateCooldown(mins);
+                    }}
+                    className={cx(
+                      'rounded-xl px-4 py-2 text-xs font-bold transition-all border shadow-xs',
+                      active
+                        ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-500/20'
+                        : 'bg-card-c text-primary-c border-base-c hover:border-emerald-500/50 hover:bg-emerald-500/5'
+                    )}
+                  >
+                    {mins} Min {mins === 15 ? '(Default)' : ''}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                disabled={savingCooldown}
+                onClick={() => {
+                  setIsCustomCooldown(true);
+                  if (!customCooldownMinutes) setCustomCooldownMinutes(String(botCooldownMinutes));
+                }}
+                className={cx(
+                  'rounded-xl px-4 py-2 text-xs font-bold transition-all border shadow-xs',
+                  isCustomCooldown
+                    ? 'bg-emerald-600 text-white border-emerald-600 ring-2 ring-emerald-500/20'
+                    : 'bg-card-c text-primary-c border-base-c hover:border-emerald-500/50 hover:bg-emerald-500/5'
+                )}
+              >
+                Custom
+              </button>
+            </div>
+
+            {isCustomCooldown && (
+              <div className="mt-3 flex items-center gap-2 animate-fade-in max-w-sm">
+                <input
+                  type="number"
+                  min="1"
+                  max="1440"
+                  value={customCooldownMinutes}
+                  onChange={(e) => setCustomCooldownMinutes(e.target.value)}
+                  placeholder="Minutes (e.g. 20, 45, 120)"
+                  className="w-full rounded-xl border border-base-c bg-card-c px-3 py-2 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  disabled={savingCooldown || !customCooldownMinutes || parseInt(customCooldownMinutes, 10) < 1}
+                  onClick={() => handleUpdateCooldown(parseInt(customCooldownMinutes, 10))}
+                  className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-4 py-2 text-xs font-bold text-white shadow-soft disabled:opacity-50 shrink-0"
+                >
+                  {savingCooldown ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  <span>Save</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Meta Terms & Conditions Modal */}
       {showTermsModal && createPortal(

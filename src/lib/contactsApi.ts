@@ -2,19 +2,31 @@ import { apiFetch } from './api';
 
 export interface ContactDTO {
   id: string;
-  waId: string;
+  /** Nullable — BSUID-only contacts (Meta 2026) may have no phone/waId */
+  waId: string | null;
+  /** Business-Scoped User ID (Meta 2026 identity) */
+  bsuid?: string | null;
+  /** Portfolio-level Parent BSUID */
+  parentBsuid?: string | null;
   name: string;
   email: string | null;
   phone: string | null;
   tags: string[];
   source: string | null;
   botPaused: boolean;
+  /** Marketing channel opt-out (WhatsApp user_preferences webhook) */
+  marketingOptedOut?: boolean;
+  marketingOptedOutAt?: string | null;
+  marketingOptOutSource?: string | null;
 }
 
 export interface CreateContactRequest {
   name?: string;
   email?: string;
-  waId: string;
+  /** Optional — contacts can be created without a phone/waId if a BSUID is known */
+  waId?: string;
+  bsuid?: string;
+  parentBsuid?: string;
   tags?: string[];
 }
 
@@ -128,11 +140,12 @@ export async function importContactsBatch(contacts: ContactImportRowDTO[]) {
   }
 }
 
-export function getExportUrl(search?: string, source?: string, botStatus?: string) {
+export function getExportUrl(search?: string, source?: string, botStatus?: string, marketingStatus?: string) {
   const params = new URLSearchParams();
   if (search) params.append('search', search);
   if (source && source !== 'ALL') params.append('source', source);
   if (botStatus && botStatus !== 'ALL') params.append('botStatus', botStatus);
+  if (marketingStatus && marketingStatus !== 'ALL') params.append('marketingStatus', marketingStatus);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
 
@@ -141,12 +154,13 @@ export function getExportUrl(search?: string, source?: string, botStatus?: strin
   return `${baseUrl}/api/v1/contacts/export?${params.toString()}`;
 }
 
-export async function exportContacts(search?: string, source?: string, botStatus?: string) {
+export async function exportContacts(search?: string, source?: string, botStatus?: string, marketingStatus?: string) {
   try {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     if (source && source !== 'ALL') params.append('source', source);
     if (botStatus && botStatus !== 'ALL') params.append('botStatus', botStatus);
+    if (marketingStatus && marketingStatus !== 'ALL') params.append('marketingStatus', marketingStatus);
 
     const token = localStorage.getItem('token');
     const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';

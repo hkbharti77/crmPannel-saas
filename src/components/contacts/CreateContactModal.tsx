@@ -26,16 +26,18 @@ export function CreateContactModal({
     ? 'Please enter a valid email address'
     : undefined;
   
-  const phoneError = touched.phone && !waId
-    ? 'WhatsApp phone number is required'
+  // waId is optional — BSUID-only contacts (Meta 2026) are valid without a phone number
+  const phoneError = touched.phone && !waId && name.trim() === ''
+    ? 'Provide at least a name or a WhatsApp number'
     : undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ name: true, email: true, phone: true });
 
-    if (!waId) {
-      setError('WhatsApp Number is required');
+    // Require at least a name or a phone number to identify the contact
+    if (!name.trim() && !waId) {
+      setError('Please provide at least a name or a WhatsApp number');
       return;
     }
 

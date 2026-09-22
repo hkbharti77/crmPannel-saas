@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { GlassCard } from '@/components/ui/primitives';
-import { Loader2, AlertTriangle, ArrowLeft, Bot, Mail, Phone, Hash, UserSquare, Tag as TagIcon, Plus, Target, Calendar, ClipboardList } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, Bot, Mail, Phone, Hash, UserSquare, Tag as TagIcon, Plus, Target, Calendar, ClipboardList, ShieldOff, Fingerprint } from 'lucide-react';
 import { fetchContactById, toggleContactBot, type ContactDTO } from '@/lib/contactsApi';
 import { fetchLeadsByContactId, type LeadDTO } from '@/lib/leadsApi';
 import { fetchBookingsByContactId, type BookingDto } from '@/lib/bookingsApi';
@@ -140,9 +140,28 @@ export function ContactDetailView() {
               <div>
                 <label className="text-[11px] text-muted-c font-medium uppercase tracking-wider">WhatsApp ID</label>
                 <p className="mt-1 flex items-center gap-2 text-sm text-primary-c font-mono">
-                  <Hash className="h-3.5 w-3.5 text-muted-c" /> {contact.waId || 'N/A'}
+                  <Hash className="h-3.5 w-3.5 text-muted-c" />
+                  {contact.waId ?? <span className="text-muted-c italic not-italic font-normal text-xs">Not set</span>}
                 </p>
               </div>
+              {contact.bsuid && (
+                <div>
+                  <label className="text-[11px] text-muted-c font-medium uppercase tracking-wider">BSUID</label>
+                  <p className="mt-1 flex items-center gap-2 text-sm text-primary-c font-mono break-all">
+                    <Fingerprint className="h-3.5 w-3.5 shrink-0 text-muted-c" />
+                    {contact.bsuid}
+                  </p>
+                </div>
+              )}
+              {contact.parentBsuid && (
+                <div>
+                  <label className="text-[11px] text-muted-c font-medium uppercase tracking-wider">Parent BSUID</label>
+                  <p className="mt-1 flex items-center gap-2 text-sm text-secondary-c font-mono break-all">
+                    <Fingerprint className="h-3.5 w-3.5 shrink-0 text-muted-c" />
+                    {contact.parentBsuid}
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-[11px] text-muted-c font-medium uppercase tracking-wider">Source</label>
                 <p className="mt-1 text-sm text-primary-c">{contact.source || 'Manual'}</p>
@@ -160,6 +179,26 @@ export function ContactDetailView() {
                     </span>
                   )}
                 </p>
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-c font-medium uppercase tracking-wider">Marketing</label>
+                <p className="mt-1">
+                  {contact.marketingOptedOut ? (
+                    <span className="inline-flex items-center gap-1.5 rounded bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-500/10 dark:text-orange-400">
+                      <ShieldOff className="h-3 w-3" /> Opted Out
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded bg-success-50 px-2 py-0.5 text-xs font-semibold text-success-700 dark:bg-success-500/10 dark:text-success-400">
+                      Opted In
+                    </span>
+                  )}
+                </p>
+                {contact.marketingOptedOutAt && (
+                  <p className="mt-1 text-[11px] text-muted-c">
+                    Since {new Date(contact.marketingOptedOutAt).toLocaleDateString()}
+                    {contact.marketingOptOutSource && ` · ${contact.marketingOptOutSource}`}
+                  </p>
+                )}
               </div>
             </div>
           </GlassCard>
