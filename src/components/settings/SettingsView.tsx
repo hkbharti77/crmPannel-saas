@@ -31,12 +31,14 @@ import { BroadcastFilterConfigPanel } from './panels/BroadcastFilterConfigPanel'
 import { PaymentGatewaySettingsPanel } from './panels/PaymentGatewaySettingsPanel';
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
+import { SmsProvidersPanel } from './panels/SmsProvidersPanel';
+
 export type SettingsSub =
   | 'account-profile' | 'security' | 'google-calendar' | 'billing' | 'payment-gateways'
   | 'branding' | 'dark-mode'
   | 'notifications'
   | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
-  | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'email-branding'
+  | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'sms-providers' | 'email-branding'
   | 'quick-responses' | 'flow-cta' | 'broadcast-filter-config'
   | 'ai-catalogs'
   | 'support-categories'
@@ -89,6 +91,7 @@ const NAV: NavGroup[] = [
       { id: 'form-fields', label: 'Form Fields', desc: 'WhatsApp form fields', icon: FormInput },
       { id: 'custom-submenus', label: 'Custom Sub-Menus', desc: 'Create custom lists', icon: ListTree },
       { id: 'email-providers', label: 'Email Providers', desc: 'AWS SES, SMTP, Brevo', icon: Plug },
+      { id: 'sms-providers', label: 'SMS Gateways', desc: 'Twilio, MSG91, Fast2SMS', icon: MessageSquare },
       { id: 'quick-responses', label: 'Quick Responses', desc: 'Text & image replies', icon: MessageSquare },
       { id: 'flow-cta', label: 'Flow CTA Buttons', desc: 'Cancel & complete buttons', icon: MousePointerClick },
     ],
@@ -130,6 +133,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'custom-submenus': CustomSubMenusPanel,
   'email-templates': () => <Navigate to="/emails?tab=templates" replace />,
   'email-providers': EmailProvidersPanel,
+  'sms-providers': SmsProvidersPanel,
   'email-branding': () => <CustomBrandingPanel defaultTab="email" />,
   'quick-responses': QuickResponsesPanel,
   'flow-cta': FlowCTAPanel,

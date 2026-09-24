@@ -14,10 +14,51 @@ export interface ContactDTO {
   tags: string[];
   source: string | null;
   botPaused: boolean;
+  /** Channel Tri-State Consent Statuses: OPTED_IN, OPTED_OUT, UNKNOWN */
+  whatsappConsentStatus?: string;
+  emailConsentStatus?: string;
+  smsConsentStatus?: string;
   /** Marketing channel opt-out (WhatsApp user_preferences webhook) */
   marketingOptedOut?: boolean;
   marketingOptedOutAt?: string | null;
   marketingOptOutSource?: string | null;
+}
+
+export interface ConsentAuditLogEntry {
+  id: string;
+  channel: string;
+  previousStatus: string;
+  newStatus: string;
+  source: string;
+  reason?: string;
+  performedBy?: string;
+  timestamp: string;
+}
+
+export interface ContactConsentDTO {
+  contactId: string;
+  contactName: string;
+  phone?: string;
+  email?: string;
+  whatsappConsentStatus: string;
+  whatsappAllowed: boolean;
+  emailConsentStatus: string;
+  emailAllowed: boolean;
+  smsConsentStatus: string;
+  smsAllowed: boolean;
+  globallySuppressed: boolean;
+  marketingOptedOut: boolean;
+  updatedAt: string;
+  lastSource: string;
+  recentAuditLogs: ConsentAuditLogEntry[];
+}
+
+export interface UpdateConsentRequest {
+  channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | 'ALL';
+  status: 'OPTED_IN' | 'OPTED_OUT' | 'UNKNOWN';
+  reason?: string;
+  source?: string;
+  isGloballySuppressed?: boolean;
 }
 
 export interface CreateContactRequest {
@@ -191,5 +232,38 @@ export async function exportContacts(search?: string, source?: string, botStatus
   } catch (error: unknown) {
     console.error('Error exporting contacts:', error);
     return { error: (error as Error).message };
+  }
+}
+
+export async function fetchContactConsent(contactId: string) {
+  try {
+    const res = await apiFetch<ContactConsentDTO>(`/api/v1/contacts/${contactId}/consent`);
+    return { data: res.data, error: res.error };
+  } catch (error: unknown) {
+    console.error('Error fetching contact consent:', error);
+    return { data: null, error: (error as Error).message };
+  }
+}
+
+export async function updateContactConsent(contactId: string, data: UpdateConsentRequest) {
+  try {
+    const res = await apiFetch<ContactConsentDTO>(`/api/v1/contacts/${contactId}/consent`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    });
+    return { data: res.data, error: res.error };
+  } catch (error: unknown) {
+    console.error('Error updating contact consent:', error);
+    return { data: null, error: (error as Error).message };
+  }
+}
+
+export async function fetchConsentSummary() {
+  try {
+    const res = await apiFetch<any>('/api/v1/contacts/consent/summary');
+    return { data: res.data, error: res.error };
+  } catch (error: unknown) {
+    console.error('Error fetching consent summary:', error);
+    return { data: null, error: (error as Error).message };
   }
 }

@@ -9,6 +9,7 @@ import {
   CalendarCheck,
   Ticket,
   Mail,
+  Send,
   Settings,
   ShoppingBag,
   BarChart3,
@@ -27,6 +28,7 @@ export type ViewId =
   | 'chatroom'
   | 'pipeline'
   | 'broadcasts'
+  | 'journeys'
   | 'meta-config'
   | 'knowledge-base'
   | 'leaddetail'
@@ -34,6 +36,7 @@ export type ViewId =
   | 'booking'
   | 'tickets'
   | 'emails'
+  | 'sms'
   | 'payments'
   | 'products'
   | 'properties'
@@ -56,6 +59,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: 3 },
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone },
+  { id: 'journeys', label: 'Automation Journeys', icon: Sparkles },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'meta-config', label: 'Meta Configuration', icon: Plug },
   { id: 'knowledge-base', label: 'Knowledge Base', icon: Brain },
@@ -63,6 +67,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'booking', label: 'Booking', icon: CalendarCheck },
   { id: 'tickets', label: 'Tickets', icon: Ticket, badge: 2 },
   { id: 'emails', label: 'Emails', icon: Mail },
+  { id: 'sms', label: 'SMS Campaigns', icon: Send },
   { id: 'products', label: 'Services', icon: ShoppingBag },
   { id: 'reports', label: 'Reports', icon: BarChart3 },
   { id: 'team', label: 'Team', icon: Users },

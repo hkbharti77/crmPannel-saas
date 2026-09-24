@@ -24,6 +24,9 @@ import { BookingView } from '@/components/booking/BookingView';
 import { TicketsView } from '@/components/tickets/TicketsView';
 import { EmailsView } from '@/components/emails/EmailsView';
 import { CreateEmailCampaignView } from '@/components/emails/CreateEmailCampaignView';
+import { SmsView } from '@/components/sms/SmsView';
+import { CreateSmsCampaignView } from '@/components/sms/CreateSmsCampaignView';
+import { JourneyBuilderView } from '@/components/journeys/JourneyBuilderView';
 import { SettingsView } from '@/components/settings/SettingsView';
 import { FlowResponsesPage } from '@/components/settings/panels/FlowResponsesPage';
 import { WhatsAppPaymentsDashboard } from '@/components/payments/WhatsAppPaymentsDashboard';
@@ -322,6 +325,32 @@ function AppContent() {
               }
             />
           </Route>
+          <Route path="sms">
+            <Route
+              index
+              element={
+                <TenantRouteGuard pageKey="PAGE_BROADCASTS">
+                  <SmsView />
+                </TenantRouteGuard>
+              }
+            />
+            <Route
+              path="create"
+              element={
+                <TenantRouteGuard pageKey="PAGE_BROADCASTS">
+                  <CreateSmsCampaignView />
+                </TenantRouteGuard>
+              }
+            />
+          </Route>
+          <Route
+            path="journeys"
+            element={
+              <TenantRouteGuard pageKey="PAGE_BROADCASTS">
+                <JourneyBuilderView />
+              </TenantRouteGuard>
+            }
+          />
           <Route
             path="products"
             element={

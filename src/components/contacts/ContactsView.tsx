@@ -60,6 +60,9 @@ export function ContactsView() {
   const [filterSource, setFilterSource] = useState<string>('ALL');
   const [filterBotStatus, setFilterBotStatus] = useState<string>('ALL');
   const [filterMarketing, setFilterMarketing] = useState<string>('ALL');
+  const [filterWaConsent, setFilterWaConsent] = useState<string>('ALL');
+  const [filterEmailConsent, setFilterEmailConsent] = useState<string>('ALL');
+  const [filterSmsConsent, setFilterSmsConsent] = useState<string>('ALL');
   const [showFilters, setShowFilters] = useState(false);
 
   const filtered = useMemo(() => {
@@ -82,6 +85,21 @@ export function ContactsView() {
       result = result.filter(c => !!c.marketingOptedOut === isOptedOut);
     }
 
+    // Apply WhatsApp consent filter
+    if (filterWaConsent !== 'ALL') {
+      result = result.filter(c => (c.whatsappConsentStatus || 'UNKNOWN') === filterWaConsent);
+    }
+
+    // Apply Email consent filter
+    if (filterEmailConsent !== 'ALL') {
+      result = result.filter(c => (c.emailConsentStatus || 'UNKNOWN') === filterEmailConsent);
+    }
+
+    // Apply SMS consent filter
+    if (filterSmsConsent !== 'ALL') {
+      result = result.filter(c => (c.smsConsentStatus || 'UNKNOWN') === filterSmsConsent);
+    }
+
     // Apply search query
     if (query) {
       const q = query.toLowerCase();
@@ -95,7 +113,7 @@ export function ContactsView() {
     }
     
     return result.reverse(); // Assuming insertion order, reverse for newest first
-  }, [contacts, query, filterSource, filterBotStatus, filterMarketing]);
+  }, [contacts, query, filterSource, filterBotStatus, filterMarketing, filterWaConsent, filterEmailConsent, filterSmsConsent]);
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedContacts = useMemo(() => {
@@ -238,15 +256,44 @@ export function ContactsView() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Marketing</label>
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">WA Consent</label>
                 <select
-                  value={filterMarketing}
-                  onChange={(e) => setFilterMarketing(e.target.value)}
+                  value={filterWaConsent}
+                  onChange={(e) => setFilterWaConsent(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-ink-700 dark:bg-ink-950 dark:text-slate-100"
                 >
-                  <option value="ALL">All</option>
+                  <option value="ALL">All WA</option>
                   <option value="OPTED_IN">Opted In</option>
                   <option value="OPTED_OUT">Opted Out</option>
+                  <option value="UNKNOWN">Default/Unknown</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">Email Consent</label>
+                <select
+                  value={filterEmailConsent}
+                  onChange={(e) => setFilterEmailConsent(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-ink-700 dark:bg-ink-950 dark:text-slate-100"
+                >
+                  <option value="ALL">All Email</option>
+                  <option value="OPTED_IN">Opted In</option>
+                  <option value="OPTED_OUT">Opted Out</option>
+                  <option value="UNKNOWN">Default/Unknown</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 font-mono">SMS Consent</label>
+                <select
+                  value={filterSmsConsent}
+                  onChange={(e) => setFilterSmsConsent(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-ink-700 dark:bg-ink-950 dark:text-slate-100"
+                >
+                  <option value="ALL">All SMS</option>
+                  <option value="OPTED_IN">Opted In</option>
+                  <option value="OPTED_OUT">Opted Out</option>
+                  <option value="UNKNOWN">Default/Unknown</option>
                 </select>
               </div>
             </div>
@@ -275,6 +322,7 @@ export function ContactsView() {
                   </div>
                 </th>
                 <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Contact Info</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Consent (WA/Mail/SMS)</th>
                 <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Tags</th>
                 <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Source</th>
                 <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
@@ -301,6 +349,9 @@ export function ContactsView() {
                       <Skeleton variant="text" width="70%" height={14} />
                     </td>
                     <td className="px-6 py-4">
+                      <Skeleton variant="rect" width={120} height={20} className="rounded-md" />
+                    </td>
+                    <td className="px-6 py-4">
                       <div className="flex gap-1.5">
                         <Skeleton variant="rect" width={50} height={20} className="rounded-md" />
                         <Skeleton variant="rect" width={40} height={20} className="rounded-md" />
@@ -319,7 +370,7 @@ export function ContactsView() {
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 px-6">
+                  <td colSpan={8} className="py-12 px-6">
                     {contacts.length === 0 ? (
                       <EmptyState
                         icon={Users}
@@ -389,6 +440,51 @@ export function ContactsView() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col min-w-0">
                           {contact.email ? <span className="text-sm text-slate-700 truncate dark:text-slate-300">{contact.email}</span> : <span className="text-sm text-slate-400">-</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1.5 flex-wrap max-w-[210px]">
+                          {/* WhatsApp Consent Badge */}
+                          <span
+                            title={`WhatsApp Consent: ${contact.whatsappConsentStatus || 'UNKNOWN'}`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                              contact.whatsappConsentStatus === 'OPTED_IN'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
+                                : contact.whatsappConsentStatus === 'OPTED_OUT' || contact.marketingOptedOut
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800'
+                                : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-ink-800 dark:text-slate-400 dark:border-ink-700'
+                            }`}
+                          >
+                            WA: {contact.whatsappConsentStatus === 'OPTED_IN' ? 'In' : contact.whatsappConsentStatus === 'OPTED_OUT' || contact.marketingOptedOut ? 'Out' : 'Default'}
+                          </span>
+
+                          {/* Email Consent Badge */}
+                          <span
+                            title={`Email Consent: ${contact.emailConsentStatus || 'UNKNOWN'}`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                              contact.emailConsentStatus === 'OPTED_IN'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
+                                : contact.emailConsentStatus === 'OPTED_OUT'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800'
+                                : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-ink-800 dark:text-slate-400 dark:border-ink-700'
+                            }`}
+                          >
+                            Mail: {contact.emailConsentStatus === 'OPTED_IN' ? 'In' : contact.emailConsentStatus === 'OPTED_OUT' ? 'Out' : 'Default'}
+                          </span>
+
+                          {/* SMS Consent Badge */}
+                          <span
+                            title={`SMS Consent: ${contact.smsConsentStatus || 'UNKNOWN'}`}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                              contact.smsConsentStatus === 'OPTED_IN'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
+                                : contact.smsConsentStatus === 'OPTED_OUT'
+                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-400 dark:border-rose-800'
+                                : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-ink-800 dark:text-slate-400 dark:border-ink-700'
+                            }`}
+                          >
+                            SMS: {contact.smsConsentStatus === 'OPTED_IN' ? 'In' : contact.smsConsentStatus === 'OPTED_OUT' ? 'Out' : 'Default'}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4">

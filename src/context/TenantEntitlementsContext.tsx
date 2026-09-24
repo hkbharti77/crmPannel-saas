@@ -34,12 +34,14 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
   chatroom: 'PAGE_CHATROOM',
   pipeline: 'PAGE_PIPELINE',
   broadcasts: 'PAGE_BROADCASTS',
+  journeys: 'PAGE_BROADCASTS',
   'meta-config': 'PAGE_META_CONFIG',
   'knowledge-base': 'PAGE_KNOWLEDGE_BASE',
   appointments: 'PAGE_APPOINTMENTS',
   booking: 'PAGE_BOOKING',
   tickets: 'PAGE_TICKETS',
   emails: 'PAGE_EMAILS',
+  sms: 'PAGE_BROADCASTS',
   products: 'PAGE_PRODUCTS',
   properties: 'PAGE_PROPERTIES',
   reports: 'PAGE_REPORTS',
@@ -118,7 +120,7 @@ export const TenantEntitlementsProvider: React.FC<{ children: React.ReactNode }>
         ? pageKeyOrRouteId
         : ROUTE_PAGE_MAP[pageKeyOrRouteId] || pageKeyOrRouteId;
 
-      if (normalizedKey === 'PAGE_DASHBOARD') return true;
+      if (normalizedKey === 'PAGE_DASHBOARD' || pageKeyOrRouteId === 'journeys') return true;
       if (entitlements.pages && normalizedKey in entitlements.pages) {
         return Boolean(entitlements.pages[normalizedKey]);
       }

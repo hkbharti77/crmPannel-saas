@@ -69,6 +69,13 @@ const SHORTCUTS: RouteShortcut[] = [
     tag: 'Marketing',
   },
   {
+    title: 'Automation Journeys',
+    desc: 'Omnichannel journey builder & customer automation engine',
+    path: '/journeys',
+    icon: Compass,
+    tag: 'Engine',
+  },
+  {
     title: 'AI Knowledge Base',
     desc: 'Custom personas, RAG docs & chatbot configurations',
     path: '/knowledge-base',
