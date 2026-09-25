@@ -21,6 +21,7 @@ import {
   saveWebFlowsRoutingConfig,
   fetchMasterFields,
   syncMetaFlows,
+  generateFlowWithAi,
   WhatsAppFlowItem,
   FlowTemplateItem,
   FlowFieldItem,
@@ -28,6 +29,7 @@ import {
   FlowsRoutingConfig,
   WebFlowsRoutingConfig
 } from '@/lib/whatsappFlowsApi';
+import { MetaFlowStudio } from './flows/MetaFlowStudio';
 import { GlassCard } from '@/components/ui/primitives';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { cx } from '@/lib/types';
@@ -65,7 +67,7 @@ export function WhatsAppFlowsPanel() {
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  // Builder Mode
+  // Studio / Builder Mode State
   const [isEditing, setIsEditing] = useState(false);
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
   const [flowName, setFlowName] = useState('');
@@ -74,8 +76,6 @@ export function WhatsAppFlowsPanel() {
   const [confirmationMessage, setConfirmationMessage] = useState('Thank you! We have received your submission.');
   const [showTemplatesModal, setShowTemplatesModal] = useState(false);
 
-  // Submissions Modal (Removed in favor of standalone page)
-  
   // Archive Confirmation Modal
   const [flowToArchive, setFlowToArchive] = useState<WhatsAppFlowItem | null>(null);
 
@@ -88,7 +88,7 @@ export function WhatsAppFlowsPanel() {
     loadData();
   }, []);
 
-  // Listen for real-time WebSocket updates instead of polling
+  // Listen for real-time WebSocket updates
   useWebSocket((msg: any) => {
     if (msg.type === 'FLOW_STATUS_UPDATE') {
       setFlows(prev => prev.map(f => {
@@ -188,14 +188,16 @@ export function WhatsAppFlowsPanel() {
 
   const handleStartNewFlow = () => {
     setEditingFlowId(null);
-    setFlowName('My WhatsApp Form');
-    setFlowCategory('LEAD_GENERATION');
+    setFlowName('Customer Feedback Form');
+    setFlowCategory('SURVEY');
     setFields([
       { name: 'full_name', label: 'Your Full Name', type: 'TEXT', required: true },
       { name: 'email', label: 'Email Address', type: 'EMAIL', required: true },
       { name: 'phone_number', label: 'Phone Number', type: 'PHONE', required: true },
+      { name: 'rating', label: 'Rate Your Experience', type: 'SELECT', required: true, options: ['⭐⭐⭐⭐⭐ Excellent', '⭐⭐⭐⭐ Good', '⭐⭐⭐ Average', '⭐ Poor'] },
+      { name: 'feedback_notes', label: 'Your Comments', type: 'TEXTAREA', required: false },
     ]);
-    setConfirmationMessage('Thank you! We have received your submission.');
+    setConfirmationMessage('Thank you! We have received your valuable feedback.');
     setIsEditing(true);
   };
 
@@ -231,27 +233,7 @@ export function WhatsAppFlowsPanel() {
     setIsEditing(true);
   };
 
-  // Pre-configured master CRM fields directly aligned with master-fields.json
-  const CRM_MASTER_FIELDS: { key: string; label: string; type: FlowFieldItem['type']; options?: string[]; required?: boolean; category: string }[] = [
-    { key: 'name', label: 'Full Name', type: 'TEXT', required: true, category: 'Basic' },
-    { key: 'phone', label: 'Contact Phone Number', type: 'PHONE', required: true, category: 'Basic' },
-    { key: 'email', label: 'Email Address', type: 'EMAIL', required: false, category: 'Basic' },
-    { key: 'service_category', label: 'Service Category / Treatment', type: 'SELECT', required: true, options: ['Consultation', 'Installation/Setup', 'Repair/Maintenance', 'Other'], category: 'Details' },
-    { key: 'preferred_date', label: 'Preferred Date', type: 'DATE', required: true, category: 'Scheduling' },
-    { key: 'time_slot', label: 'Preferred Time Slot', type: 'SELECT', required: true, options: ['Morning (9am–12pm)', 'Afternoon (12–4pm)', 'Evening (4pm–8pm)'], category: 'Scheduling' },
-    { key: 'budget', label: 'Estimated Budget', type: 'SELECT', required: false, options: ['Under ₹50,000', '₹50,000 - ₹2,00,000', '₹2,00,000 - ₹10,00,000', '₹10,00,000+'], category: 'Qualification' },
-    { key: 'city', label: 'City / Location', type: 'TEXT', required: false, category: 'Location' },
-    { key: 'address', label: 'Full Address', type: 'TEXTAREA', required: false, category: 'Location' },
-    { key: 'pincode', label: 'Pincode / Zip Code', type: 'NUMBER', required: false, category: 'Location' },
-    { key: 'urgency', label: 'Requirement Urgency', type: 'SELECT', required: false, options: ['Immediate', 'Within a week', 'Within a month', 'Just browsing'], category: 'Qualification' },
-    { key: 'source', label: 'How did you hear about us?', type: 'SELECT', required: false, options: ['Google/Search', 'Social Media', 'Friend/Referral', 'Advertisement'], category: 'Marketing' },
-    { key: 'specific_requirement', label: 'Specific Requirement / Notes', type: 'TEXTAREA', required: false, category: 'Details' },
-  ];
-
-  const [loadingMasterFields, setLoadingMasterFields] = useState(false);
-
   const handleLoadFromMasterFields = async (category: string) => {
-    setLoadingMasterFields(true);
     try {
       const res = await fetchMasterFields(category);
       if (res && res.data && res.data.length > 0) {
@@ -283,63 +265,20 @@ export function WhatsAppFlowsPanel() {
           return;
         }
       }
-      const defaults = CRM_MASTER_FIELDS.slice(0, 5).map(f => ({
-        name: f.key,
-        label: f.label,
-        type: f.type,
-        required: f.required ?? true,
-        options: f.options
-      }));
-      setFields(defaults);
-      showToast('Loaded default CRM master fields.');
     } catch (e) {
       console.error('Failed to load master fields', e);
       showToast('Could not load master fields.');
-    } finally {
-      setLoadingMasterFields(false);
     }
   };
 
-  const handleAddMasterField = (masterField: typeof CRM_MASTER_FIELDS[0]) => {
-    if (fields.some(f => f.name === masterField.key)) {
-      showToast(`Field "${masterField.label}" is already added.`);
-      return;
-    }
-    const newField: FlowFieldItem = {
-      name: masterField.key,
-      label: masterField.label,
-      type: masterField.type,
-      required: masterField.required ?? true,
-      options: masterField.options ? [...masterField.options] : undefined,
-    };
-    setFields([...fields, newField]);
-    showToast(`Added CRM Field: ${masterField.label}`);
-  };
-
-  const handleAddField = (type: FlowFieldItem['type']) => {
-    const id = Date.now().toString().slice(-4);
-    const newField: FlowFieldItem = {
-      name: `field_${id}`,
-      label: `New ${type.charAt(0) + type.slice(1).toLowerCase()} Field`,
-      type,
-      required: true,
-      options: (type === 'SELECT' || type === 'RADIO') ? ['Option 1', 'Option 2', 'Option 3'] : undefined,
-    };
-    setFields([...fields, newField]);
-  };
-
-  const handleRemoveField = (index: number) => {
-    setFields(fields.filter((_, idx) => idx !== index));
-  };
-
-  const handleFieldChange = (index: number, key: keyof FlowFieldItem, value: any) => {
-    const updated = [...fields];
-    updated[index] = { ...updated[index], [key]: value };
-    setFields(updated);
-  };
-
-  const handleSaveDraft = async () => {
-    if (!flowName.trim()) {
+  const handleSaveStudioDraft = async (data: {
+    name: string;
+    category: FlowCategoryType;
+    fields: FlowFieldItem[];
+    confirmationMessage: string;
+    flowJson: string;
+  }) => {
+    if (!data.name.trim()) {
       showToast('Please enter a Flow name');
       return;
     }
@@ -347,21 +286,21 @@ export function WhatsAppFlowsPanel() {
     try {
       if (editingFlowId) {
         await updateFlowDraft(editingFlowId, {
-          name: flowName,
-          category: flowCategory,
-          fieldsConfig: fields,
-          confirmationMessage,
+          name: data.name,
+          category: data.category,
+          fieldsConfig: data.fields,
+          confirmationMessage: data.confirmationMessage,
         });
-        showToast('Flow draft updated successfully!');
+        showToast('Flow draft updated successfully! ✅');
       } else {
         const res = await saveFlowDraft({
-          name: flowName,
-          category: flowCategory,
-          fieldsConfig: fields,
-          confirmationMessage,
+          name: data.name,
+          category: data.category,
+          fieldsConfig: data.fields,
+          confirmationMessage: data.confirmationMessage,
         });
         if (res.data) setEditingFlowId(res.data.id);
-        showToast('New Flow draft saved successfully!');
+        showToast('New Flow draft saved successfully! ✅');
       }
       await loadData();
     } catch (err: any) {
@@ -388,7 +327,7 @@ export function WhatsAppFlowsPanel() {
         });
         if (draftRes.data) {
           await publishWhatsAppFlow(draftRes.data.id);
-          showToast('🚀 Flow queued for publishing on Meta!');
+          showToast('🚀 Flow queued for publishing on Meta Cloud API!');
           setIsEditing(false);
           await loadData();
         }
@@ -411,7 +350,7 @@ export function WhatsAppFlowsPanel() {
         });
       }
       await publishWhatsAppFlow(targetId);
-      showToast('🚀 Flow queued for publishing on Meta!');
+      showToast('🚀 Flow queued for publishing on Meta Cloud API!');
       if (isEditing) setIsEditing(false);
       await loadData();
     } catch (err: any) {
@@ -469,8 +408,9 @@ export function WhatsAppFlowsPanel() {
         setFields(draft.fields || []);
         setShowAiModal(false);
         setAiPrompt('');
-        setIsBuilderOpen(true);
+        setIsEditing(true);
         setEditingFlowId(null);
+        showToast('✨ Flow generated from AI successfully!');
       }
     } catch (err: any) {
       showToast(err.message || 'Failed to generate flow with AI');
@@ -513,13 +453,12 @@ export function WhatsAppFlowsPanel() {
     return { total, published, drafts, activeRouting };
   }, [flows, routingConfig, webRoutingConfig]);
 
-  // Category badge styling helper
   const getCategoryMeta = (category: FlowCategoryType) => {
     switch (category) {
       case 'APPOINTMENT_BOOKING':
         return { label: 'Appointment', color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25', icon: Calendar };
       case 'LEAD_GENERATION':
-        return { label: 'Lead Generation', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25', icon: FileText };
+        return { label: 'Lead Gen', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/25', icon: FileText };
       case 'CUSTOMER_SUPPORT':
         return { label: 'Support', color: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/25', icon: HelpCircle };
       case 'SURVEY':
@@ -542,7 +481,7 @@ export function WhatsAppFlowsPanel() {
         </div>
       )}
 
-      {/* ─── MAIN DASHBOARD (NOT EDITING) ─── */}
+      {/* ─── MAIN DASHBOARD OR META STUDIO ─── */}
       {!isEditing ? (
         <div className="space-y-4">
           {/* Header & Controls Bar */}
@@ -669,9 +608,7 @@ export function WhatsAppFlowsPanel() {
             </button>
           </div>
 
-          {/* ─────────────────────────────────────────────────────────────
-              TAB 1: FLOWS DIRECTORY
-              ───────────────────────────────────────────────────────────── */}
+          {/* TAB 1: FLOWS DIRECTORY */}
           {activeTab === 'flows' && (
             <div className="space-y-4">
               {/* Search & Filter Strip */}
@@ -726,7 +663,7 @@ export function WhatsAppFlowsPanel() {
                   </div>
                   <h4 className="text-sm font-bold text-primary-c">No WhatsApp Flows Yet</h4>
                   <p className="text-xs text-secondary-c mt-1 leading-relaxed">
-                    Create in-app forms that customers can fill out seamlessly inside WhatsApp without opening external browser links.
+                    Create native, multi-screen forms that customers can fill out seamlessly inside WhatsApp.
                   </p>
                   <div className="flex items-center justify-center gap-2.5 mt-5">
                     <button
@@ -804,11 +741,6 @@ export function WhatsAppFlowsPanel() {
                                 FAILED
                               </span>
                             )}
-                            {(flow.status === 'DEPRECATED' || flow.publishedRevision?.isDeprecated) && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded bg-slate-500/10 text-slate-600 border border-slate-500/25">
-                                DEPRECATED
-                              </span>
-                            )}
                           </div>
 
                           {/* Flow Title */}
@@ -836,12 +768,6 @@ export function WhatsAppFlowsPanel() {
                                   )}
                                 </button>
                               </div>
-                              {flow.activeRevisionId && (
-                                <div className="text-[9px] text-muted-c px-1 flex justify-between">
-                                  <span>Revision ID:</span>
-                                  <span className="font-mono">{flow.activeRevisionId.slice(0, 8)}...</span>
-                                </div>
-                              )}
                             </div>
                           ) : (
                             <div className="px-2.5 py-1.5 bg-subtle-c rounded-lg border border-dashed border-base-c text-[10px] text-muted-c">
@@ -869,7 +795,7 @@ export function WhatsAppFlowsPanel() {
                             className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 surface hover:bg-subtle-c text-primary-c text-xs font-semibold rounded-lg border-base-c shadow-xs transition"
                           >
                             <Edit3 className="w-3 h-3 text-muted-c" />
-                            <span>Edit</span>
+                            <span>Edit in Studio</span>
                           </button>
 
                           <button
@@ -913,9 +839,7 @@ export function WhatsAppFlowsPanel() {
             </div>
           )}
 
-          {/* ─────────────────────────────────────────────────────────────
-              TAB 2: BOT AUTOMATION & ROUTING
-              ───────────────────────────────────────────────────────────── */}
+          {/* TAB 2: BOT AUTOMATION & ROUTING */}
           {activeTab === 'routing' && (
             <div className="space-y-4">
               {/* Channel Selector */}
@@ -1205,260 +1129,21 @@ export function WhatsAppFlowsPanel() {
           )}
         </div>
       ) : (
-        /* ─────────────────────────────────────────────────────────────
-            BUILDER MODE (isEditing = true)
-            ───────────────────────────────────────────────────────────── */
-        <div className="space-y-4 animate-in fade-in duration-150">
-          {/* Builder Top Bar */}
-          <div className="flex items-center justify-between p-3 surface rounded-xl border-base-c shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setIsEditing(false)}
-                className="p-1.5 surface hover:bg-subtle-c text-primary-c rounded-lg border-base-c"
-                title="Back"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <div>
-                <h4 className="text-sm font-bold text-primary-c">
-                  {editingFlowId ? 'Edit WhatsApp Flow' : 'Create New WhatsApp Flow'}
-                </h4>
-                <p className="text-[10px] text-muted-c">Configure form fields & WhatsApp live screen</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleSaveDraft}
-                disabled={actionLoading === 'draft'}
-                className="px-3 py-1.5 surface hover:bg-subtle-c text-primary-c text-xs font-semibold rounded-lg border-base-c disabled:opacity-50"
-              >
-                {actionLoading === 'draft' ? 'Saving…' : 'Save Draft'}
-              </button>
-              <button
-                onClick={() => handlePublish()}
-                disabled={actionLoading === 'publish'}
-                className="flex items-center gap-1 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg shadow-xs disabled:opacity-50"
-              >
-                {actionLoading === 'publish' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                <span>Publish Flow</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            {/* Left: Fields & Config (7 cols) */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
-                <h5 className="text-xs font-bold text-muted-c uppercase tracking-wider">Flow Info</h5>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-semibold text-secondary-c block mb-1">Flow Name</label>
-                    <input
-                      type="text"
-                      value={flowName}
-                      onChange={(e) => setFlowName(e.target.value)}
-                      placeholder="e.g. Clinic Appointment"
-                      className="w-full px-3 py-1.5 surface border-base-c rounded-lg text-xs text-primary-c"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-semibold text-secondary-c block mb-1">Category</label>
-                    <select
-                      value={flowCategory}
-                      onChange={(e) => setFlowCategory(e.target.value as FlowCategoryType)}
-                      className="w-full px-3 py-1.5 surface border-base-c rounded-lg text-xs text-primary-c"
-                    >
-                      <option value="APPOINTMENT_BOOKING">📅 Appointment Booking</option>
-                      <option value="LEAD_GENERATION">🎯 Lead Generation</option>
-                      <option value="CUSTOMER_SUPPORT">🎫 Customer Support</option>
-                      <option value="SURVEY">⭐ Feedback & Survey</option>
-                      <option value="OTHER">📋 Custom Form</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Fields List */}
-              <div className="surface p-4 rounded-xl border-base-c space-y-3 shadow-xs">
-                {/* 1-Click Master CRM Fields Bar */}
-                <div className="p-2.5 bg-emerald-500/10 rounded-lg border border-emerald-500/20 flex flex-wrap items-center justify-between gap-1.5">
-                  <span className="text-[11px] font-bold text-emerald-950 dark:text-emerald-200 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" /> CRM Presets:
-                  </span>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleLoadFromMasterFields('appointment')}
-                      className="px-2 py-0.5 surface text-[10px] font-semibold rounded border-base-c hover:bg-subtle-c"
-                    >
-                      📅 Appointment
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLoadFromMasterFields('lead')}
-                      className="px-2 py-0.5 surface text-[10px] font-semibold rounded border-base-c hover:bg-subtle-c"
-                    >
-                      🎯 Lead Gen
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLoadFromMasterFields('support')}
-                      className="px-2 py-0.5 surface text-[10px] font-semibold rounded border-base-c hover:bg-subtle-c"
-                    >
-                      🎫 Support
-                    </button>
-                    <div className="w-px h-4 bg-emerald-500/20 mx-1"></div>
-                    <button
-                      type="button"
-                      onClick={() => setShowAiModal(true)}
-                      className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-400 hover:to-purple-400 text-[10px] font-bold rounded shadow-xs transition"
-                    >
-                      ✨ AI Generate
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-2 pt-1">
-                  <h5 className="text-xs font-bold text-muted-c uppercase tracking-wider">
-                    Form Fields ({fields.length})
-                  </h5>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <button
-                      onClick={() => handleAddField('TEXT')}
-                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
-                    >
-                      + Text
-                    </button>
-                    <button
-                      onClick={() => handleAddField('DATE')}
-                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
-                    >
-                      + Date
-                    </button>
-                    <button
-                      onClick={() => handleAddField('SELECT')}
-                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
-                    >
-                      + Dropdown
-                    </button>
-                    <button
-                      onClick={() => handleAddField('TEXTAREA')}
-                      className="px-2 py-1 surface text-[11px] font-semibold text-primary-c rounded-md border-base-c hover:bg-subtle-c"
-                    >
-                      + Notes
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2 mt-2">
-                  {fields.map((field, idx) => (
-                    <div key={idx} className="p-3 bg-subtle-c rounded-lg border border-base-c space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="px-1.5 py-0.5 surface text-[9px] font-mono font-bold text-emerald-600 rounded border border-base-c">
-                          {field.type}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-1 text-[11px] text-muted-c cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={field.required}
-                              onChange={(e) => handleFieldChange(idx, 'required', e.target.checked)}
-                              className="rounded border-base-c text-emerald-600"
-                            />
-                            Required
-                          </label>
-                          <button
-                            onClick={() => handleRemoveField(idx)}
-                            className="text-muted-c hover:text-rose-500 p-0.5"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => handleFieldChange(idx, 'label', e.target.value)}
-                          placeholder="Display Label"
-                          className="px-2.5 py-1 surface border-base-c rounded text-xs text-primary-c"
-                        />
-                        <input
-                          type="text"
-                          value={field.name}
-                          onChange={(e) => handleFieldChange(idx, 'name', e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                          placeholder="Variable name"
-                          className="px-2.5 py-1 surface border-base-c rounded text-xs text-emerald-600 font-mono"
-                        />
-                      </div>
-
-                      {(field.type === 'SELECT' || field.type === 'RADIO') && (
-                        <input
-                          type="text"
-                          value={field.options?.join(', ') || ''}
-                          onChange={(e) => handleFieldChange(idx, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                          placeholder="Options: Morning, Afternoon, Evening"
-                          className="w-full px-2.5 py-1 surface border-base-c rounded text-xs"
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Confirmation Message */}
-              <div className="surface p-4 rounded-xl border-base-c space-y-2 shadow-xs">
-                <h5 className="text-xs font-bold text-muted-c uppercase tracking-wider">WhatsApp Instant Reply</h5>
-                <textarea
-                  value={confirmationMessage}
-                  onChange={(e) => setConfirmationMessage(e.target.value)}
-                  rows={2}
-                  className="w-full p-2.5 surface border-base-c rounded-lg text-xs text-primary-c"
-                  placeholder="Thank you! We have received your booking."
-                />
-              </div>
-            </div>
-
-            {/* Right: Phone Preview (5 cols) */}
-            <div className="lg:col-span-5 flex justify-center">
-              <div className="sticky top-4 w-full max-w-[320px] rounded-[36px] border-[6px] border-slate-900 bg-slate-900 shadow-2xl overflow-hidden">
-                <div className="h-4 bg-slate-900 flex justify-center items-center">
-                  <div className="w-16 h-1.5 bg-slate-800 rounded-full" />
-                </div>
-                <div className="bg-[#efeae2] dark:bg-[#0b141a] p-3 min-h-[460px] flex flex-col justify-between text-xs">
-                  <div>
-                    <div className="pb-2 border-b border-slate-300 dark:border-slate-800 font-bold text-emerald-600 flex items-center justify-between text-[11px]">
-                      <span className="truncate">{flowName || 'Flow Form'}</span>
-                      <span className="text-[9px] text-muted-c">WhatsApp Flow</span>
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                      {fields.map((f, i) => (
-                        <div key={i} className="space-y-0.5">
-                          <label className="text-[10px] font-semibold text-slate-700 dark:text-slate-300">
-                            {f.label} {f.required && <span className="text-rose-500">*</span>}
-                          </label>
-                          <div className="p-1.5 bg-white dark:bg-[#1f2c34] rounded border border-slate-300 dark:border-slate-700 text-[10px] text-muted-c">
-                            {f.type === 'SELECT' ? 'Select an option…' : f.type === 'DATE' ? 'YYYY-MM-DD' : `Enter ${f.label}…`}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-300 dark:border-slate-800">
-                    <button disabled className="w-full py-2 bg-[#00a884] text-slate-950 font-bold rounded-lg text-xs shadow-xs">
-                      Submit Form
-                    </button>
-                    <p className="text-[8px] text-center text-muted-c mt-1">Secured by Meta WhatsApp Cloud</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        /* ─── ENTERPRISE META FLOW STUDIO (EDITING MODE) ─── */
+        <MetaFlowStudio
+          flowId={editingFlowId}
+          initialName={flowName}
+          initialCategory={flowCategory}
+          initialFields={fields}
+          initialConfirmationMessage={confirmationMessage}
+          onSaveDraft={handleSaveStudioDraft}
+          onPublish={handlePublish}
+          onBack={() => setIsEditing(false)}
+          onLoadMasterFields={handleLoadFromMasterFields}
+          onOpenAiModal={() => setShowAiModal(true)}
+          actionLoading={actionLoading}
+          showToast={showToast}
+        />
       )}
 
       {/* ─── TEMPLATES MODAL ─── */}
@@ -1527,27 +1212,28 @@ export function WhatsAppFlowsPanel() {
           </div>
         </div>
       )}
+
       {/* ─── AI GENERATOR MODAL ─── */}
       {showAiModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
           <div className="w-full max-w-lg bg-card-c rounded-2xl border border-base-c shadow-2xl p-6 space-y-5">
             <div className="flex items-center justify-between border-b border-base-c pb-3">
               <h4 className="text-sm font-bold text-primary-c flex items-center gap-2">
-                <span className="text-lg">✨</span> Generate Flow with AI
+                <span className="text-lg">✨</span> Generate WhatsApp Flow with AI
               </h4>
               <button onClick={() => setShowAiModal(false)} className="text-muted-c hover:text-primary-c">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <p className="text-xs text-secondary-c leading-relaxed">
-                Describe the flow you want to create. The AI will automatically structure the fields, options, and validations for you.
+                Describe the flow you want to create. The AI will automatically structure the screens, fields, validation, and layout.
               </p>
               <textarea
                 value={aiPrompt}
                 onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="e.g. Create an appointment booking form for a dental clinic asking for name, date, and preferred time slot..."
+                placeholder="e.g. Create a 2-step patient consultation booking form asking for patient name, symptoms, appointment date, and time slot preference..."
                 className="w-full h-32 p-3 text-sm surface border-base-c text-primary-c rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
                 disabled={generatingAi}
               />
@@ -1579,7 +1265,6 @@ export function WhatsAppFlowsPanel() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
