@@ -22,6 +22,7 @@ interface WhatsAppConfigDto {
   phoneNumberId?: string;
   wabaId?: string;
   businessId?: string;
+  datasetId?: string;
   accessToken?: string;
   verifyToken?: string;
   appSecret?: string;
@@ -65,6 +66,7 @@ export function MetaConfigView() {
   const [phoneNumberId, setPhoneNumberId] = useState('');
   const [wabaId, setWabaId] = useState('');
   const [businessId, setBusinessId] = useState('');
+  const [datasetId, setDatasetId] = useState('');
   const [accessToken, setAccessToken] = useState('');
   const [verifyToken, setVerifyToken] = useState('CRM_TOKEN_2026');
   const [appSecret, setAppSecret] = useState('');
@@ -72,6 +74,11 @@ export function MetaConfigView() {
   // Meta Terms Modal State
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [agreedTerms, setAgreedTerms] = useState(false);
+
+  // Meta Dataset Modal State
+  const [showDatasetModal, setShowDatasetModal] = useState(false);
+  const [customDatasetName, setCustomDatasetName] = useState('');
+  const [creatingDataset, setCreatingDataset] = useState(false);
 
   // Status & Feedback
   const [loading, setLoading] = useState(true);
@@ -147,6 +154,7 @@ export function MetaConfigView() {
       if (data.phoneNumberId) setPhoneNumberId(data.phoneNumberId);
       if (data.wabaId) setWabaId(data.wabaId);
       if (data.businessId) setBusinessId(data.businessId);
+      if (data.datasetId) setDatasetId(data.datasetId);
       if (data.accessToken) setAccessToken(data.accessToken);
       if (data.verifyToken) setVerifyToken(data.verifyToken);
       if (data.appSecret) setAppSecret(data.appSecret);
@@ -178,6 +186,7 @@ export function MetaConfigView() {
         phoneNumberId: phoneNumberId.trim(),
         wabaId: wabaId.trim(),
         businessId: businessId.trim(),
+        datasetId: datasetId.trim(),
         accessToken: accessToken.trim(),
         verifyToken: verifyToken.trim(),
         appSecret: appSecret.trim(),
@@ -215,6 +224,30 @@ export function MetaConfigView() {
       setTimeout(() => setCooldownMessage(null), 4000);
     } else {
       setError(`Failed to update cooldown timer: ${res.error}`);
+    }
+  };
+
+  const handleCreateDataset = async () => {
+    setCreatingDataset(true);
+    setError(null);
+    setMessage(null);
+
+    const res = await apiFetch<any>('/api/v1/whatsapp-config/meta-dataset', {
+      method: 'POST',
+      body: JSON.stringify({
+        datasetName: customDatasetName.trim()
+      }),
+    });
+
+    setCreatingDataset(false);
+    if (!res.error) {
+      setShowDatasetModal(false);
+      setMessage(`Meta Dataset created/linked successfully! (ID: ${res.data?.datasetId})`);
+      setCustomDatasetName('');
+      fetchConfig();
+      setTimeout(() => setMessage(null), 5000);
+    } else {
+      setError(`Failed to create dataset: ${res.error}`);
     }
   };
 
@@ -330,6 +363,7 @@ export function MetaConfigView() {
       setPhoneNumberId('');
       setWabaId('');
       setBusinessId('');
+      setDatasetId('');
       setAccessToken('');
       setMessage('WhatsApp Meta configuration disconnected successfully.');
       setTimeout(() => setMessage(null), 4000);
@@ -516,6 +550,32 @@ export function MetaConfigView() {
             </span>
           </div>
           <p className="mt-1 text-[11px] text-muted-c">Verified Meta Phone Sender</p>
+        </div>
+        {/* Card 5: Meta Dataset ID */}
+        <div className="relative overflow-hidden rounded-2xl border border-base-c/80 bg-card-c p-4 shadow-xs transition-all hover:shadow-md">
+          <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+            <span>Meta Dataset ID</span>
+            <div className="grid h-8 w-8 place-items-center rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-2">
+            <span className="text-base font-black font-mono text-primary-c truncate max-w-[180px]">
+              {config?.datasetId || 'Not Linked'}
+            </span>
+          </div>
+          <div className="mt-1 flex items-center justify-between">
+            <p className="text-[11px] text-muted-c">CAPI Business Event Storage</p>
+            {isConnected && (
+              <button
+                type="button"
+                onClick={() => setShowDatasetModal(true)}
+                className="text-[10px] bg-teal-500/10 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded font-bold transition-colors"
+              >
+                {config?.datasetId ? 'Link New' : 'Create'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -712,6 +772,24 @@ export function MetaConfigView() {
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">{config.verifiedName}</span>
                     </div>
                   )}
+                  {config.datasetId ? (
+                    <div className="col-span-1 sm:col-span-3 rounded-xl bg-card-c/60 p-3 border border-emerald-500/20 flex items-center justify-between">
+                      <span className="text-[10px] text-muted-c uppercase font-sans font-bold">Meta Event Dataset ID</span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold font-mono text-primary-c">{config.datasetId}</span>
+                        <button onClick={() => setShowDatasetModal(true)} className="text-[10px] bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded font-bold transition-colors">
+                          Change
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="col-span-1 sm:col-span-3 rounded-xl bg-card-c/60 p-3 border border-emerald-500/20 flex items-center justify-between">
+                      <span className="text-[10px] text-amber-600 uppercase font-sans font-bold">Meta Event Dataset Missing</span>
+                      <button onClick={() => setShowDatasetModal(true)} className="text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded font-bold transition-colors">
+                        Create Dataset
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {config.webhookSubscriptionStatus === 'FAILED' && (
@@ -824,6 +902,19 @@ export function MetaConfigView() {
                       value={businessId}
                       onChange={(e) => setBusinessId(e.target.value)}
                       placeholder="e.g. 1412570260808930"
+                      className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">Meta Dataset ID (Optional)</label>
+                  <div className="relative">
+                    <ShieldCheck className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
+                    <input
+                      value={datasetId}
+                      onChange={(e) => setDatasetId(e.target.value)}
+                      placeholder="Leave blank for auto-creation"
                       className="w-full rounded-xl border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs font-mono text-primary-c focus:border-emerald-500 focus:outline-none transition-all"
                     />
                   </div>
@@ -1119,6 +1210,65 @@ export function MetaConfigView() {
               >
                 <Check className="h-4 w-4" />
                 <span>Agree &amp; Launch Meta Login</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Dataset Creation Modal */}
+      {showDatasetModal && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-md p-4 animate-fade-in" onClick={() => setShowDatasetModal(false)}>
+          <div
+            className="flex w-full max-w-md flex-col rounded-2xl border border-base-c/80 bg-card-c shadow-2xl animate-slide-up overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-base-c/80 px-6 py-4 bg-card-c/90">
+              <div className="flex items-center gap-2.5">
+                <div className="grid h-9 w-9 place-items-center rounded-xl bg-teal-500/15 text-teal-600 dark:text-teal-400">
+                  <Database className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-primary-c">Create / Link Meta Dataset</h3>
+                  <p className="text-xs text-muted-c">Link an existing dataset or create a new one.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDatasetModal(false)} className="grid h-8 w-8 place-items-center rounded-lg text-muted-c hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-primary-c mb-1.5">Dataset Name (Optional)</label>
+                <input
+                  type="text"
+                  value={customDatasetName}
+                  onChange={(e) => setCustomDatasetName(e.target.value)}
+                  placeholder="e.g. My Business Conversions"
+                  className="w-full rounded-xl border border-base-c bg-slate-50 dark:bg-ink-900 px-4 py-2.5 text-xs font-medium text-primary-c focus:border-teal-500 focus:outline-none"
+                />
+                <p className="text-[10px] text-muted-c mt-1.5">
+                  Leave blank to auto-generate a name. If a dataset is already attached to this WABA, it will be automatically linked instead of creating a duplicate.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t border-base-c/80 px-6 py-4 bg-slate-50/50 dark:bg-ink-900/40">
+              <button
+                onClick={() => setShowDatasetModal(false)}
+                className="rounded-xl border border-base-c bg-card-c px-4 py-2 text-xs font-bold text-muted-c hover:text-primary-c"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateDataset}
+                disabled={creatingDataset}
+                className="flex items-center gap-2 rounded-xl bg-teal-600 hover:bg-teal-700 px-6 py-2.5 text-xs font-bold text-white shadow-soft transition-all disabled:opacity-50"
+              >
+                {creatingDataset ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                <span>Link Dataset</span>
               </button>
             </div>
           </div>

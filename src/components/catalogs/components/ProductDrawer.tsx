@@ -252,8 +252,14 @@ export function ProductDrawer({
     setApiError(null);
 
     try {
-      const priceInCents = Math.round(parseFloat(formData.price || '0') * 100);
-      const salePriceInCents = formData.sale_price ? Math.round(parseFloat(formData.sale_price) * 100) : undefined;
+      const priceVal = parseFloat(formData.price || '0');
+      const formattedPrice = `${priceVal.toFixed(2)} ${formData.currency}`;
+
+      let formattedSalePrice = undefined;
+      if (formData.sale_price) {
+        const saleVal = parseFloat(formData.sale_price);
+        formattedSalePrice = `${saleVal.toFixed(2)} ${formData.currency}`;
+      }
 
       const normalizeAvailability = (val: string) => {
         const s = (val || '').toLowerCase().trim().replace(/_/g, ' ');
@@ -275,8 +281,8 @@ export function ProductDrawer({
         retailer_id: formData.retailer_id.trim() || undefined,
         name: formData.name.trim(),
         description: formData.description.trim(),
-        price: priceInCents,
-        sale_price: salePriceInCents,
+        price: formattedPrice,
+        sale_price: formattedSalePrice,
         currency: formData.currency,
         url: formData.url.trim() || 'https://gyanvaniai.online',
         image_url: formData.images[0] || '',

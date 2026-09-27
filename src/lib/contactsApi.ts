@@ -1,4 +1,4 @@
-import { apiFetch } from './api';
+import { apiFetch, getAuthToken, getTenantId } from './api';
 
 export interface ContactDTO {
   id: string;
@@ -203,15 +203,18 @@ export async function exportContacts(search?: string, source?: string, botStatus
     if (botStatus && botStatus !== 'ALL') params.append('botStatus', botStatus);
     if (marketingStatus && marketingStatus !== 'ALL') params.append('marketingStatus', marketingStatus);
 
-    const token = localStorage.getItem('token');
+    const token = getAuthToken();
+    const tenantId = getTenantId();
     const baseUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
     const url = `${baseUrl}/api/v1/contacts/export?${params.toString()}`;
 
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    if (tenantId) headers['X-Tenant-ID'] = tenantId;
+
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      headers
     });
 
     if (!response.ok) {

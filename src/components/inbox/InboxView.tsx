@@ -637,9 +637,10 @@ function ChatPreview({ conv, wsMessages, onClearWsMessages, onOpenChat, onBotTog
             <button
               onClick={async () => {
                 try {
+                  const { authHeaders } = await import('@/lib/api');
                   const res = await fetch(`/api/v1/leads/${conv.leadId}/claim`, {
                     method: 'POST',
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                    headers: authHeaders()
                   });
                   if (res.ok) {
                     window.location.reload();

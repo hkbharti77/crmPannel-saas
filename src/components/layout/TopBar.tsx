@@ -45,11 +45,11 @@ export function TopBar({
   useEffect(() => {
     const sendHeartbeat = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
+        const { getAuthToken, authHeaders } = await import('@/lib/api');
+        if (!getAuthToken()) return;
         await fetch('/api/livechat/heartbeat', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` }
+          headers: authHeaders()
         });
       } catch {
         // silent fail
@@ -63,14 +63,11 @@ export function TopBar({
   const handleStatusChange = async (newStatus: 'AVAILABLE' | 'BUSY' | 'OFFLINE') => {
     setAvailability(newStatus);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) return;
+      const { getAuthToken, authHeaders } = await import('@/lib/api');
+      if (!getAuthToken()) return;
       await fetch('/api/livechat/availability', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: authHeaders(),
         body: JSON.stringify({ status: newStatus })
       });
     } catch (err) {
