@@ -25,6 +25,7 @@ import {
   Video,
   MoreVertical,
   ChevronLeft,
+  RefreshCw,
 } from 'lucide-react';
 
 /* ─── WhatsApp Text Formatter Helper ─── */
@@ -92,6 +93,22 @@ export default function CreateBroadcastView() {
   
   // Fetch templates directly
   const [fetchedTemplates, setFetchedTemplates] = useState<WhatsAppTemplateDto[]>([]);
+  const [syncingTemplates, setSyncingTemplates] = useState(false);
+
+  const handleSyncTemplates = async () => {
+    setSyncingTemplates(true);
+    try {
+      const res = await fetchWhatsAppTemplates(true);
+      if (res.data) {
+        setFetchedTemplates(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to sync templates from Meta:', err);
+    } finally {
+      setSyncingTemplates(false);
+    }
+  };
+
   useEffect(() => {
     const fetchTemplates = async () => {
       const res = await fetchWhatsAppTemplates();
@@ -247,7 +264,7 @@ export default function CreateBroadcastView() {
   return (
     <div className="flex flex-col h-full bg-base-c text-primary-c overflow-hidden">
       {/* Enterprise Header */}
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-base-c bg-card-c px-8 shadow-sm z-10">
+      <header className="flex h-16 shrink-0 items-center justify-between border-b border-base-c bg-card-c px-6 lg:px-8 shadow-sm z-10">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate('/broadcasts')} 
@@ -287,11 +304,11 @@ export default function CreateBroadcastView() {
       <div className="grid flex-1 overflow-hidden lg:grid-cols-[1fr_380px] xl:grid-cols-[1fr_420px]">
         
         {/* Left Form Controls */}
-        <div className="overflow-y-auto p-8 lg:p-12 space-y-10 scrollbar-thin">
-          <div className="max-w-3xl mx-auto space-y-10">
+        <div className="overflow-y-auto p-6 lg:p-8 space-y-8 scrollbar-thin">
+          <div className="max-w-4xl space-y-8">
             
             {/* Section: Campaign Identity */}
-            <section className="flex gap-6">
+            <section className="flex gap-4 sm:gap-5">
               <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400">
                 <Megaphone className="h-5 w-5" />
               </div>
@@ -313,7 +330,19 @@ export default function CreateBroadcastView() {
 
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <label className="text-sm font-semibold text-primary-c">Select Approved Meta Template *</label>
+                      <div className="flex items-center gap-2">
+                        <label className="text-sm font-semibold text-primary-c">Select Approved Meta Template *</label>
+                        <button
+                          type="button"
+                          onClick={handleSyncTemplates}
+                          disabled={syncingTemplates}
+                          title="Sync live templates from Meta & clean removed DB templates"
+                          className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg border border-base-c text-xs font-semibold text-secondary-c hover:bg-subtle-c hover:text-primary-c transition-all disabled:opacity-50"
+                        >
+                          <RefreshCw className={cx('h-3 w-3', syncingTemplates && 'animate-spin text-indigo-500')} />
+                          <span>{syncingTemplates ? 'Syncing…' : 'Sync Meta'}</span>
+                        </button>
+                      </div>
                       {selectedTemplate && (
                         <span className="text-[10px] font-mono font-bold text-primary-600 dark:text-primary-400 bg-primary-500/10 px-2.5 py-0.5 rounded-full border border-primary-500/20">
                           {selectedTemplate.status || 'APPROVED'}
@@ -338,7 +367,7 @@ export default function CreateBroadcastView() {
             </section>
 
             {/* Section: Audience */}
-            <section className="flex gap-6">
+            <section className="flex gap-4 sm:gap-5">
               <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400">
                 <Users className="h-5 w-5" />
               </div>
@@ -511,7 +540,7 @@ export default function CreateBroadcastView() {
             </section>
 
             {/* Section: Personalization & Delivery */}
-            <section className="flex gap-6 pb-20">
+            <section className="flex gap-4 sm:gap-5 pb-20">
               <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400">
                 <Send className="h-5 w-5" />
               </div>
