@@ -224,10 +224,10 @@ export function LeadDetailHeader({
           {onEmail && (
             <button
               onClick={onEmail}
-              className="flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c hover:border-primary-500/50 hover:bg-slate-50 dark:hover:bg-ink-800 text-primary-c px-3 py-2 text-xs font-medium transition-all btn-tactile"
-              title="Send email"
+              className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 px-3.5 py-2 text-xs font-semibold transition-all hover:scale-105 btn-tactile shadow-sm"
+              title="Send email directly via connected Gmail"
             >
-              <Mail className="h-3.5 w-3.5 text-secondary-500" /> Email
+              <Mail className="h-3.5 w-3.5 text-red-500" /> Send Gmail
             </button>
           )}
           {onBook && (

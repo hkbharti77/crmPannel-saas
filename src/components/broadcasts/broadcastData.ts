@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export type BroadcastStatus = 'sent' | 'scheduled' | 'draft' | 'failed';
+export type BroadcastStatus = 'sent' | 'scheduled' | 'draft' | 'failed' | 'completed' | 'running' | 'RUNNING' | 'SENT' | 'COMPLETED';
 
 export type Broadcast = {
   id: string;

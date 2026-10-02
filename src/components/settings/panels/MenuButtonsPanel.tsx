@@ -19,6 +19,9 @@ interface WhatsAppMenuConfig {
   sosNote?: string;
   interactiveMenuJson?: string;
   menuType?: string;
+  leadButtonLabel?: string;
+  appointmentButtonLabel?: string;
+  bookingButtonLabel?: string;
 }
 
 import { fetchWhatsAppFlows, WhatsAppFlowItem } from '@/lib/whatsappFlowsApi';

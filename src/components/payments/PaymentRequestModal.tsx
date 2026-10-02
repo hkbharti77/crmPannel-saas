@@ -169,9 +169,12 @@ export function PaymentRequestModal({
     definitionKey: syncedMatch?.name || selectedTemplateKey,
     name: syncedMatch?.name || selectedTemplateKey,
     version: 1,
+    languages: [syncedMatch?.language || 'en_US'],
     expectedCategory: (syncedMatch?.category as any) || 'UTILITY',
     description: `Custom Template from WhatsApp Account (${syncedMatch?.language || 'en_US'})`,
     requiredVariables: ['1', '2', '3'],
+    variableLabels: { '1': 'Variable 1', '2': 'Variable 2', '3': 'Variable 3' },
+    buttonType: 'URL',
     sampleBody: syncedMatch?.bodyText || 'Payment notification for {{1}} regarding {{2}} of amount {{3}}.',
     samplePreview: {
       customer_name: targetName || 'Customer',

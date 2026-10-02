@@ -95,10 +95,31 @@ export function SaveBar({ onSave, saving = false }: { onSave: () => void; saving
   );
 }
 
-export function SectionCard({ children, title }: { children: ReactNode; title?: string }) {
+export function SectionCard({
+  children,
+  title,
+  desc,
+  description,
+  action,
+}: {
+  children: ReactNode;
+  title?: string;
+  desc?: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  const subText = desc || description;
   return (
     <GlassCard className="p-5 lg:p-6">
-      {title && <h4 className="text-sm font-bold text-primary-c mb-4">{title}</h4>}
+      {(title || action) && (
+        <div className="flex items-center justify-between gap-4 mb-4">
+          <div>
+            {title && <h4 className="text-sm font-bold text-primary-c">{title}</h4>}
+            {subText && <p className="text-xs text-secondary-c mt-0.5">{subText}</p>}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
+        </div>
+      )}
       {children}
     </GlassCard>
   );

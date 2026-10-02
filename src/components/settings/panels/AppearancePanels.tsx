@@ -972,7 +972,7 @@ export function LeadEmailSettingsPanel() {
       }),
     });
     if (res.error) {
-      setErrMsg(res.error.message || 'Failed to save.');
+      setErrMsg(res.error || 'Failed to save.');
     } else {
       setSavedCustSubject(custSubject); setSavedCustBody(custBody);
       setSavedOwnSubject(ownSubject);   setSavedOwnBody(ownBody);

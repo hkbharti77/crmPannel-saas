@@ -17,12 +17,19 @@ export function GoogleCalendarPanel() {
   useEffect(() => {
     // Check URL parameters for OAuth redirect notifications
     const params = new URLSearchParams(window.location.search);
-    if (params.get('googleConnected') === 'true') {
-      setMessage('Google Workspace account connected successfully! Automatic Google Meet link generation is now active.');
-      // Clean query params from URL without reload
+    const connectedFeature = params.get('connected');
+    const statusParam = params.get('status');
+    const errorParam = params.get('error') || params.get('googleError');
+
+    if (connectedFeature === 'calendar' || params.get('googleConnected') === 'true') {
+      if (statusParam === 'partial') {
+        setMessage('Calendar connected with partial permissions. Calendar event management is active.');
+      } else {
+        setMessage('Google Calendar & Meet connected successfully! Instant Google Meet links and appointment sync are now active.');
+      }
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (params.get('googleError')) {
-      setError(`Google authorization failed: ${params.get('googleError')}`);
+    } else if (errorParam) {
+      setError(`Google authorization failed: ${decodeURIComponent(errorParam)}`);
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -35,14 +42,15 @@ export function GoogleCalendarPanel() {
     const res = await fetchGoogleIntegrationStatus();
     setLoading(false);
     if (res.data) {
-      setConnected(res.data.connected);
+      const isCalendarConnected = res.data.CALENDAR === 'CONNECTED' || res.data.CALENDAR === 'PARTIAL';
+      setConnected(isCalendarConnected);
     }
   };
 
   const handleConnect = async () => {
     setConnecting(true);
     setError(null);
-    const res = await fetchGoogleAuthUrl();
+    const res = await fetchGoogleAuthUrl('CALENDAR');
     setConnecting(false);
 
     if (res.error) {
@@ -68,7 +76,7 @@ export function GoogleCalendarPanel() {
       setError(`Failed to disconnect: ${res.error}`);
     } else {
       setConnected(false);
-      setMessage('Google account disconnected successfully.');
+      setMessage('Google Calendar disconnected successfully.');
       setTimeout(() => setMessage(null), 4000);
     }
   };

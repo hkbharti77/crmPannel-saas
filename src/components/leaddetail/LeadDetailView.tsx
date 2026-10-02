@@ -47,6 +47,8 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+import { SendGmailModal } from '@/components/gmail/SendGmailModal';
+
 type TabId = 'timeline' | 'notes' | 'files';
 
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -72,6 +74,7 @@ export function LeadDetailView() {
   // Modals
   const [showBookModal, setShowBookModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showGmailModal, setShowGmailModal] = useState(false);
 
   const activeLeadId = lead?.id || leadId;
 
@@ -205,11 +208,7 @@ export function LeadDetailView() {
   };
 
   const handleEmail = () => {
-    if (email && email !== 'Not provided' && email !== 'N/A') {
-      window.location.href = `mailto:${email}`;
-    } else {
-      alert('No email address registered for this lead.');
-    }
+    setShowGmailModal(true);
   };
 
   const [rescoring, setRescoring] = useState(false);
@@ -309,6 +308,7 @@ export function LeadDetailView() {
             {tab === 'files' && (
               <FilesPanel
                 files={attachments}
+                leadId={activeLeadId}
                 onUploadFile={handleUploadFile}
                 onDeleteFile={handleDeleteFile}
                 loading={attachmentsLoading}
@@ -444,6 +444,22 @@ export function LeadDetailView() {
           }}
         />
       )}
+
+      {/* Direct Send via Gmail Modal */}
+      <SendGmailModal
+        isOpen={showGmailModal}
+        onClose={() => setShowGmailModal(false)}
+        defaultTo={email && email !== 'Not provided' && email !== 'N/A' ? email : ''}
+        defaultSubject={`Regarding your inquiry - ${lead?.dealLabel || lead?.contact?.name || 'CRM Lead'}`}
+        leadId={activeLeadId || undefined}
+        onSent={() => {
+          if (activeLeadId) {
+            fetchLeadActivities(activeLeadId).then((aRes) => {
+              if (aRes.data?.content) setActivities(aRes.data.content);
+            });
+          }
+        }}
+      />
     </div>
   );
 }

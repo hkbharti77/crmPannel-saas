@@ -1,18 +1,24 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams, Navigate } from 'react-router-dom';
+import { useNavigate, useParams, Navigate, useSearchParams } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import {
   User, Shield, Globe, CreditCard,
-  Paintbrush, Bell,
+  Paintbrush, Bell, BellRing,
   Plug, LayoutList, FormInput, ListTree,
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, SlidersHorizontal, Smartphone, ChevronRight,
-  Mail, FileText,
+  Mail, FileText, Users, CheckSquare, HardDrive, FileSpreadsheet,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
 import { SecurityPanel } from './panels/AccountPanels';
 import { GoogleCalendarPanel } from './panels/AccountPanels';
+import { GmailIntegrationPanel } from './panels/AccountPanels';
+import { GoogleContactsPanel } from './panels/AccountPanels';
+import { GoogleTasksPanel } from './panels/AccountPanels';
+import { GoogleDrivePanel } from './panels/AccountPanels';
+import { GoogleSheetsPanel } from './panels/AccountPanels';
+import { PushNotificationPanel } from './panels/AccountPanels';
 import { BillingPanel } from './panels/AccountPanels';
 import { CustomBrandingPanel } from './panels/AppearancePanels';
 import { NotificationsPanel } from './panels/AppearancePanels';
@@ -34,9 +40,9 @@ import { NotFoundView } from '@/components/notfound/NotFoundView';
 import { SmsProvidersPanel } from './panels/SmsProvidersPanel';
 
 export type SettingsSub =
-  | 'account-profile' | 'security' | 'google-calendar' | 'billing' | 'payment-gateways'
+  | 'account-profile' | 'security' | 'google-calendar' | 'google-gmail' | 'google-contacts' | 'google-tasks' | 'google-drive' | 'google-sheets' | 'integrations' | 'billing' | 'payment-gateways'
   | 'branding' | 'dark-mode'
-  | 'notifications'
+  | 'push-notifications' | 'notifications'
   | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
   | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'sms-providers' | 'email-branding'
   | 'quick-responses' | 'flow-cta' | 'broadcast-filter-config'
@@ -66,6 +72,11 @@ const NAV: NavGroup[] = [
       { id: 'account-profile', label: 'Account Profile', desc: 'Manage profile details', icon: User },
       { id: 'security', label: 'Security & Privacy', desc: 'Password & authentication', icon: Shield },
       { id: 'google-calendar', label: 'Google Meet Sync', desc: 'Link Google Meetings', icon: Globe },
+      { id: 'google-gmail', label: 'Gmail Workspace', desc: 'Direct lead emailing via Gmail', icon: Mail },
+      { id: 'google-contacts', label: 'Google Contacts', desc: 'Sync phone contacts & leads', icon: Users },
+      { id: 'google-tasks', label: 'Google Tasks', desc: 'Reminders & follow-ups', icon: CheckSquare },
+      { id: 'google-drive', label: 'Google Drive Docs', desc: 'Agreements & files storage', icon: HardDrive },
+      { id: 'google-sheets', label: 'Google Sheets Sync', desc: 'Import & export leads', icon: FileSpreadsheet },
       { id: 'billing', label: 'Subscription & Billing', desc: 'Limits & plan pricing', icon: CreditCard },
       { id: 'payment-gateways', label: 'Payment Gateways', desc: 'Meta Pay & Razorpay/PayU', icon: CreditCard },
     ],
@@ -79,7 +90,8 @@ const NAV: NavGroup[] = [
   {
     section: 'Notifications',
     items: [
-      { id: 'notifications', label: 'Enable Notifications', desc: 'Alerts & updates', icon: Bell },
+      { id: 'push-notifications', label: 'Push Notifications (FCM)', desc: 'Web & mobile push alerts', icon: BellRing },
+      { id: 'notifications', label: 'Notification Preferences', desc: 'Alert channels & triggers', icon: Bell },
     ],
   },
   {
@@ -116,14 +128,28 @@ const NAV: NavGroup[] = [
   },
 ];
 
+const IntegrationsRedirect = () => {
+  const [params] = useSearchParams();
+  const connected = params.get('connected');
+  const targetTab = connected ? `google-${connected}` : 'google-calendar';
+  return <Navigate to={`/settings/${targetTab}${window.location.search}`} replace />;
+};
+
 const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'account-profile': AccountProfilePanel,
   'security': SecurityPanel,
   'google-calendar': GoogleCalendarPanel,
+  'google-gmail': GmailIntegrationPanel,
+  'google-contacts': GoogleContactsPanel,
+  'google-tasks': GoogleTasksPanel,
+  'google-drive': GoogleDrivePanel,
+  'google-sheets': GoogleSheetsPanel,
+  'integrations': IntegrationsRedirect,
   'billing': BillingPanel,
   'payment-gateways': PaymentGatewaySettingsPanel,
   'branding': () => <CustomBrandingPanel defaultTab="global" />,
   'dark-mode': () => <Navigate to="/settings/branding" replace />,
+  'push-notifications': PushNotificationPanel,
   'notifications': NotificationsPanel,
   'menu-buttons': MenuButtonsPanel,
   'whatsapp-flows': WhatsAppFlowsPanel,

@@ -174,6 +174,7 @@ export const metaGatewayApi = {
       verifyToken: string;
       coexistenceEnabled: boolean;
       sessionInfoVersion: string;
+      sessionId?: string;
     }>('/api/v1/integrations/meta/gateway/session'),
 
   getLaunchUrl: (token?: string, sessionId?: string, theme?: string) => {

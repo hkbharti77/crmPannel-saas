@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getStoredUser, categoryApi, onboardingApi, metaGatewayApi } from '@/lib/api';
 import { cx } from '@/lib/types';
+import { GoogleSignInButton } from './GoogleSignInButton';
 import {
   Mail, KeyRound, User, ArrowRight, Sun, Moon,
   Building2, MessageSquare, TrendingUp, Calendar, Shield, RefreshCw, Edit2,
@@ -680,6 +681,23 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
                   </>
                 )}
               </button>
+
+              {/* OR Divider */}
+              <div className="relative my-4 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-base-c" />
+                </div>
+                <span className="relative bg-card-c px-3 text-[11px] font-medium uppercase tracking-wider text-muted-c">
+                  Or continue with
+                </span>
+              </div>
+
+              {/* Google Sign-In Button */}
+              <GoogleSignInButton
+                text={mode === 'signup' ? 'signup_with' : 'signin_with'}
+                theme={theme === 'dark' ? 'filled_black' : 'outline'}
+                onError={(err) => setError(err)}
+              />
             </form>
           )}
 

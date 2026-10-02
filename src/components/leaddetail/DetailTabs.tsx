@@ -16,7 +16,11 @@ import {
   Loader2,
   AlertTriangle,
   UserCheck,
+  HardDrive,
+  ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
+import { uploadDriveFile } from '@/lib/integrationsApi';
 
 export function ActivityTimeline({
   enquiries = [],
@@ -209,15 +213,20 @@ export function FilesPanel({
   onUploadFile,
   onDeleteFile,
   loading = false,
+  leadId,
 }: {
   files?: LeadAttachmentDTO[];
   onUploadFile: (file: File) => Promise<void>;
   onDeleteFile?: (fileId: string) => Promise<void>;
   loading?: boolean;
+  leadId?: string;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const driveInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDrive, setUploadingDrive] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [driveSuccess, setDriveSuccess] = useState<{ fileName: string; webViewLink: string } | null>(null);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -239,6 +248,28 @@ export function FilesPanel({
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDriveFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    setErrorMsg(null);
+    setDriveSuccess(null);
+    setUploadingDrive(true);
+
+    const res = await uploadDriveFile(selectedFile, 'Lead Documents', leadId);
+    setUploadingDrive(false);
+
+    if (res.error) {
+      setErrorMsg(`Google Drive upload failed: ${res.error}`);
+    } else if (res.data?.success) {
+      setDriveSuccess({
+        fileName: res.data.fileName,
+        webViewLink: res.data.webViewLink,
+      });
+      if (driveInputRef.current) driveInputRef.current.value = '';
     }
   };
 
@@ -277,19 +308,59 @@ export function FilesPanel({
         className="hidden"
         onChange={handleFileChange}
       />
+      <input
+        ref={driveInputRef}
+        type="file"
+        accept=".pdf,.png,.jpg,.jpeg,.docx,.doc,.xlsx,.xls"
+        className="hidden"
+        onChange={handleDriveFileChange}
+      />
 
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-        className="flex w-full items-center justify-center gap-2 rounded-xl2 border-2 border-dashed border-base-c py-4 text-xs font-medium text-muted-c transition-colors hover:border-primary-500/40 hover:text-primary-c"
-      >
-        {uploading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
-        ) : (
-          <Download className="h-4 w-4 rotate-180" />
-        )}
-        {uploading ? 'Uploading attachment...' : 'Upload file (PDF, PNG, JPG, DOCX - Max 10MB)'}
-      </button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || uploadingDrive}
+          className="flex items-center justify-center gap-2 rounded-xl2 border-2 border-dashed border-base-c py-3 px-3 text-xs font-medium text-muted-c transition-colors hover:border-primary-500/40 hover:text-primary-c"
+        >
+          {uploading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-primary-500" />
+          ) : (
+            <Download className="h-4 w-4 rotate-180" />
+          )}
+          {uploading ? 'Uploading attachment...' : 'Upload Local File'}
+        </button>
+
+        <button
+          onClick={() => driveInputRef.current?.click()}
+          disabled={uploading || uploadingDrive}
+          className="flex items-center justify-center gap-2 rounded-xl2 border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 py-3 px-3 text-xs font-semibold text-blue-500 dark:text-blue-400 transition-colors shadow-sm"
+          title="Upload agreement or document directly to Google Drive"
+        >
+          {uploadingDrive ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <HardDrive className="h-4 w-4" />
+          )}
+          {uploadingDrive ? 'Saving to Drive...' : 'Save to Google Drive'}
+        </button>
+      </div>
+
+      {driveSuccess && (
+        <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400">
+          <div className="flex items-center gap-2 min-w-0">
+            <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+            <span className="truncate">Saved in Drive: <strong>{driveSuccess.fileName}</strong></span>
+          </div>
+          <a
+            href={driveSuccess.webViewLink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded font-medium shrink-0 ml-2"
+          >
+            Open in Drive <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="flex items-center gap-2 rounded-xl border border-danger-500/20 bg-danger-500/10 p-3 text-xs text-danger-600 dark:text-danger-400">

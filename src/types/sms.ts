@@ -52,7 +52,9 @@ export interface SmsCampaign {
 
 export interface SmsSendRequest {
   phoneNumber: string;
-  messageContent: string;
+  messageContent?: string;
+  message?: string;
+  providerId?: string;
   senderId?: string;
   dltEntityId?: string;
   dltTemplateId?: string;

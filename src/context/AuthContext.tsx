@@ -45,6 +45,7 @@ type AuthContextValue = {
   signUp: (email: string, passwordOrOtp?: string, name?: string, businessName?: string) => Promise<{ error: string | null; message?: string | null; code?: string | null }>;
   signOut: () => Promise<void>;
   setOnboardingCompleted: (completed: boolean) => void;
+  setSessionFromAuthResponse: (data: VerifyAuthResponse) => void;
 };
 
 type VerifyAuthResponse = {
@@ -242,15 +243,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = res.data;
+    setSessionFromAuthResponse(data);
+    return { error: null, code: null };
+  };
+
+  const setSessionFromAuthResponse = (data: VerifyAuthResponse) => {
     const role = data.role || 'OWNER';
-    const isSuper = checkIsSuper(role, data.email || email);
+    const isSuper = checkIsSuper(role, data.email);
     const resolvedTenantId = data.tenantId || data.userId;
 
     const newUser: AuthUser = {
       id: data.userId || 'user-' + Date.now(),
-      email: data.email || email,
+      email: data.email || '',
       tenantId: resolvedTenantId,
-      businessName: data.businessName || businessName || 'My Business',
+      businessName: data.businessName || 'My Business',
       role: isSuper ? 'SUPER_ADMIN' : role,
       isSuperAdmin: isSuper,
       onboardingCompleted: data.onboardingCompleted ?? false,
@@ -258,7 +264,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       permissions: data.permissions,
       permissionVersion: data.permissionVersion,
       user_metadata: {
-        name: data.displayName || displayName || data.businessName || email.split('@')[0],
+        name: data.displayName || data.businessName || (data.email ? data.email.split('@')[0] : ''),
       },
     };
 
@@ -272,8 +278,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(data.token);
     setTenantId(resolvedTenantId || null);
     setUser(newUser);
-
-    return { error: null, code: null };
   };
 
   const signIn: AuthContextValue['signIn'] = async (email, otpOrPassword) => {
@@ -328,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUp,
         signOut,
         setOnboardingCompleted,
+        setSessionFromAuthResponse,
       }}
     >
       {children}

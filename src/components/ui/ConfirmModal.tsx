@@ -4,25 +4,31 @@ import { AlertTriangle, Trash2, X } from 'lucide-react';
 import { cx } from '@/lib/types';
 
 interface ConfirmModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
+  open?: boolean;
   title?: string;
   message: string;
   confirmText?: string;
+  confirmLabel?: string;
   cancelText?: string;
+  cancelLabel?: string;
   variant?: 'danger' | 'warning' | 'primary';
   confirmVariant?: 'danger' | 'warning' | 'primary';
   loading?: boolean;
   isLoading?: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }
 
 export function ConfirmModal({
   isOpen,
+  open,
   title = 'Confirm Action',
   message,
-  confirmText = 'Delete',
-  cancelText = 'Cancel',
+  confirmText,
+  confirmLabel,
+  cancelText,
+  cancelLabel,
   variant,
   confirmVariant,
   loading,
@@ -30,10 +36,13 @@ export function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const activeOpen = isOpen ?? open ?? false;
+  const activeConfirmText = confirmText || confirmLabel || 'Delete';
+  const activeCancelText = cancelText || cancelLabel || 'Cancel';
   const activeVariant = confirmVariant || variant || 'danger';
   const isBusy = isLoading ?? loading ?? false;
   return (
-    <Modal isOpen={isOpen} onClose={onCancel}>
+    <Modal isOpen={activeOpen} onClose={onCancel}>
       <div
         className="w-full max-w-md rounded-2xl border border-base-c bg-card-c p-6 shadow-2xl animate-scale-up space-y-4"
         onClick={(e) => e.stopPropagation()}
@@ -68,7 +77,7 @@ export function ConfirmModal({
             disabled={isBusy}
             className="rounded-xl border border-base-c px-4 py-2 text-xs font-bold text-muted-c hover:bg-slate-500/10 hover:text-primary-c transition-all"
           >
-            {cancelText}
+            {activeCancelText}
           </button>
           <button
             type="button"
@@ -82,7 +91,7 @@ export function ConfirmModal({
             )}
           >
             {isBusy && <span className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin" />}
-            <span>{confirmText}</span>
+            <span>{activeConfirmText}</span>
           </button>
         </div>
       </div>

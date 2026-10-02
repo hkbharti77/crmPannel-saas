@@ -11,6 +11,11 @@ export interface PaymentTemplateDefinition {
   variableLabels: Record<string, string>;
   buttonType: 'URL' | 'QUICK_REPLY';
   ctaButtonText?: string;
+  ctaButton?: {
+    type: string;
+    text: string;
+    dynamicUrlPath?: string;
+  };
   samplePreview: {
     customer_name: string;
     [key: string]: string;
