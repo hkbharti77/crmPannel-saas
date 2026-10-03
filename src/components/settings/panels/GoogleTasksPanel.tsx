@@ -16,7 +16,7 @@ import {
 } from '@/lib/integrationsApi';
 
 /* ─── Google Tasks & Reminders Panel ─── */
-export function GoogleTasksPanel() {
+export function GoogleTasksPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -163,11 +163,13 @@ export function GoogleTasksPanel() {
   return (
     <div className="space-y-5">
       <SectionCard>
-        <PanelHeader
-          title="Google Tasks & Reminders Sync"
-          desc="Sync lead follow-ups, CRM reminders, and inspection action items directly to your Google Tasks app"
-          icon={<CheckSquare className="h-5 w-5 text-amber-500" />}
-        />
+        {!embedded && (
+          <PanelHeader
+            title="Google Tasks & Reminders Sync"
+            desc="Sync lead follow-ups, CRM reminders, and inspection action items directly to your Google Tasks app"
+            icon={<CheckSquare className="h-5 w-5 text-amber-500" />}
+          />
+        )}
 
         {message && (
           <div className="flex items-center gap-2 rounded-xl border border-success-500/20 bg-success-500/10 p-3 text-xs text-success-600 dark:text-success-400 mb-4 animate-slide-down">

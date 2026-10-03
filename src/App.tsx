@@ -422,6 +422,14 @@ function AppContent() {
             }
           />
           <Route
+            path="integrations/google-workspace"
+            element={<Navigate to="/settings/google-workspace" replace />}
+          />
+          <Route
+            path="integrations"
+            element={<Navigate to="/settings/google-workspace" replace />}
+          />
+          <Route
             path="settings/:tab?"
             element={
               <TenantRouteGuard pageKey="SETTINGS_PROFILE" userPerm="MODULE_SETTINGS">

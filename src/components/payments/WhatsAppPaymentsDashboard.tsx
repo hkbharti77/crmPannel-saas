@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import {
   CreditCard,
@@ -52,7 +53,20 @@ import { PaymentGatewaySettingsPanel } from '@/components/settings/panels/Paymen
 import { OrderDashboard } from '@/components/orders/OrderDashboard';
 
 export function WhatsAppPaymentsDashboard() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'commerce' | 'transactions' | 'refunds' | 'templates' | 'settings'>('orders');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab') as any;
+  const initialTab = ['orders', 'commerce', 'transactions', 'refunds', 'templates', 'settings'].includes(tabFromUrl)
+    ? tabFromUrl
+    : 'orders';
+  const [activeTab, setActiveTab] = useState<'orders' | 'commerce' | 'transactions' | 'refunds' | 'templates' | 'settings'>(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab') as any;
+    if (tabParam && ['orders', 'commerce', 'transactions', 'refunds', 'templates', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
   const [orders, setOrders] = useState<WhatsAppOrderResponseDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -269,7 +283,14 @@ export function WhatsAppPaymentsDashboard() {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => {
+              setActiveTab(tab.id as any);
+              setSearchParams((prev) => {
+                const n = new URLSearchParams(prev);
+                n.set('tab', tab.id);
+                return n;
+              });
+            }}
             className={cx(
               'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap',
               activeTab === tab.id

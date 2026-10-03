@@ -109,7 +109,7 @@ export function DashboardView() {
       </div>
 
       {/* KPI Grid */}
-      <KpiGrid data={data} />
+      <KpiGrid data={data} isLoading={loading} />
 
       {/* Unified Balanced Layout Grid (items-start prevents empty gap stretching) */}
       <div className="grid gap-6 xl:grid-cols-3 items-start">

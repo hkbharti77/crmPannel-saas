@@ -24,7 +24,11 @@ export function SalesChart({ revenueReport }: { revenueReport?: RevenueReportDTO
         Math.round(totalRev * 0.91),
         totalRev,
       ]
-    : [12000, 24000, 18000, 32000, 28000, 45000, 52000];
+    : [0, 0, 0, 0, 0, 0, 0];
+
+  const totalDeals = revenueReport?.totalDeals || 0;
+  const paidDeals = revenueReport?.paidDeals || 0;
+  const closedRate = totalDeals > 0 ? Math.round((paidDeals / totalDeals) * 100) : 0;
 
   return (
     <GlassCard className="p-5 space-y-4">
@@ -38,9 +42,15 @@ export function SalesChart({ revenueReport }: { revenueReport?: RevenueReportDTO
             <span className="text-2xl font-bold tracking-tight text-primary-c tabular-nums">
               {formattedTotal}
             </span>
-            <Badge variant="success" className="text-[10px] font-bold px-2 py-0.5">
-              <TrendingUp className="h-3 w-3 mr-0.5" /> +14.2% Growth
-            </Badge>
+            {totalRev > 0 ? (
+              <Badge variant="success" className="text-[10px] font-bold px-2 py-0.5">
+                <TrendingUp className="h-3 w-3 mr-0.5" /> {closedRate > 0 ? `${closedRate}% Closed` : 'Active'}
+              </Badge>
+            ) : (
+              <Badge variant="neutral" className="text-[10px] font-bold px-2 py-0.5">
+                0%
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -64,7 +74,7 @@ export function SalesChart({ revenueReport }: { revenueReport?: RevenueReportDTO
         </div>
       </div>
 
-      <AreaChart data={values} height={210} showDots className="w-full" color="#2563EB" />
+      <AreaChart data={values} height={210} showDots={totalRev > 0} className="w-full" color="#2563EB" />
     </GlassCard>
   );
 }

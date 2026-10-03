@@ -29,7 +29,7 @@ const FIELD_MAPPINGS = [
   { field: 'Source / Campaign', aliases: ['source', 'lead_source', 'channel'], required: false, example: 'Website Form' },
 ];
 
-export function GoogleSheetsPanel() {
+export function GoogleSheetsPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<'export' | 'import' | 'mapping'>('export');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -176,11 +176,13 @@ export function GoogleSheetsPanel() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── Header ── */}
-      <PanelHeader
-        title="Google Sheets Pipeline"
-        description="Enterprise bidirectional sync between CRMLite leads and Google Spreadsheets with encrypted OAuth tokens and schema validation."
-        icon={<FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
-      />
+      {!embedded && (
+        <PanelHeader
+          title="Google Sheets Pipeline"
+          description="Enterprise bidirectional sync between CRMLite leads and Google Spreadsheets with encrypted OAuth tokens and schema validation."
+          icon={<FileSpreadsheet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+        />
+      )}
 
       {/* ── Security & Architecture Pills ── */}
       <div className="flex flex-wrap items-center gap-2 pt-1">

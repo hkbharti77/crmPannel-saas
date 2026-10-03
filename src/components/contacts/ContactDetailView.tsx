@@ -24,9 +24,11 @@ import {
   MessageSquare,
   Smartphone,
   Activity,
-  ChevronRight
+  ChevronRight,
+  X,
 } from 'lucide-react';
-import { fetchContactById, toggleContactBot, updateContactConsent, type ContactDTO } from '@/lib/contactsApi';
+import { fetchContactById, toggleContactBot, updateContactConsent, updateContactTags, type ContactDTO } from '@/lib/contactsApi';
+import { apiFetch } from '@/lib/api';
 import { fetchLeadsByContactId, type LeadDTO } from '@/lib/leadsApi';
 import { fetchBookingsByContactId, type BookingDto } from '@/lib/bookingsApi';
 import { fetchAppointmentsByContactId, type AppointmentDto } from '@/lib/appointmentsApi';
@@ -46,6 +48,64 @@ export function ContactDetailView() {
   const [appointments, setAppointments] = useState<AppointmentDto[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagInput, setNewTagInput] = useState('');
+  const [savingTag, setSavingTag] = useState(false);
+  const [tagError, setTagError] = useState<string | null>(null);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+
+  useEffect(() => {
+    apiFetch<string[]>('/api/v1/contacts/tags/all').then((res) => {
+      if (res.data && Array.isArray(res.data)) {
+        setAvailableTags(res.data);
+      }
+    });
+  }, []);
+
+  const handleAddTag = async (tagToAdd?: string) => {
+    const tag = (tagToAdd || newTagInput).trim();
+    if (!tag || !contact) return;
+
+    const currentTags = contact.tags || [];
+    if (currentTags.some((t) => t.toLowerCase() === tag.toLowerCase())) {
+      setTagError('Tag already assigned to this contact');
+      return;
+    }
+
+    setSavingTag(true);
+    setTagError(null);
+    const updatedTags = [...currentTags, tag];
+    const res = await updateContactTags(contact.id, updatedTags);
+    setSavingTag(false);
+
+    if (res.error) {
+      setTagError(res.error);
+    } else {
+      setContact((prev) => (prev ? { ...prev, tags: updatedTags } : null));
+      setNewTagInput('');
+      setIsAddingTag(false);
+      if (!availableTags.includes(tag)) {
+        setAvailableTags((prev) => [...prev, tag]);
+      }
+    }
+  };
+
+  const handleRemoveTag = async (tagToRemove: string) => {
+    if (!contact) return;
+    const currentTags = contact.tags || [];
+    const updatedTags = currentTags.filter((t) => t !== tagToRemove);
+
+    setSavingTag(true);
+    setTagError(null);
+    const res = await updateContactTags(contact.id, updatedTags);
+    setSavingTag(false);
+
+    if (res.error) {
+      setTagError(res.error);
+    } else {
+      setContact((prev) => (prev ? { ...prev, tags: updatedTags } : null));
+    }
+  };
 
   const handleCopy = (text: string, fieldName: string) => {
     navigator.clipboard.writeText(text);
@@ -469,23 +529,116 @@ export function ContactDetailView() {
               <h3 className="text-xs font-bold text-primary-c uppercase tracking-wider flex items-center gap-1.5">
                 <TagIcon className="h-3.5 w-3.5 text-indigo-500" /> Segment Tags
               </h3>
-              <button className="flex items-center gap-1 text-[11px] font-bold text-primary-500 hover:underline cursor-pointer">
-                <Plus className="h-3 w-3" /> Add Tag
-              </button>
+              {!isAddingTag && (
+                <button
+                  onClick={() => {
+                    setIsAddingTag(true);
+                    setTagError(null);
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700 dark:text-blue-400 hover:underline cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" /> Add Tag
+                </button>
+              )}
             </div>
+
+            {/* Inline Add Tag Input Box */}
+            {isAddingTag && (
+              <div className="mb-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-2.5 space-y-2 animate-in fade-in">
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => {
+                      setNewTagInput(e.target.value);
+                      setTagError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTag();
+                      } else if (e.key === 'Escape') {
+                        setIsAddingTag(false);
+                        setNewTagInput('');
+                      }
+                    }}
+                    placeholder="Enter tag name (e.g. VIP, Hot Lead)..."
+                    autoFocus
+                    className="flex-1 rounded-lg border border-base-c bg-card-c px-2.5 py-1.5 text-xs text-primary-c placeholder:text-muted-c focus:border-blue-500 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => handleAddTag()}
+                    disabled={savingTag || !newTagInput.trim()}
+                    className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-blue-700 disabled:opacity-50 transition-colors cursor-pointer"
+                  >
+                    {savingTag ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsAddingTag(false);
+                      setNewTagInput('');
+                      setTagError(null);
+                    }}
+                    className="rounded-lg p-1.5 text-muted-c hover:bg-subtle-c hover:text-primary-c transition-colors cursor-pointer"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {tagError && (
+                  <p className="text-[11px] text-rose-500 font-medium">{tagError}</p>
+                )}
+
+                {/* Suggestions from existing tags */}
+                {availableTags.filter((t) => !(contact.tags || []).includes(t)).length > 0 && (
+                  <div className="pt-1">
+                    <p className="text-[10px] uppercase font-bold text-muted-c mb-1">Suggestions:</p>
+                    <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                      {availableTags
+                        .filter(
+                          (t) =>
+                            !(contact.tags || []).includes(t) &&
+                            (!newTagInput || t.toLowerCase().includes(newTagInput.toLowerCase()))
+                        )
+                        .slice(0, 6)
+                        .map((sugg) => (
+                          <button
+                            key={sugg}
+                            onClick={() => handleAddTag(sugg)}
+                            className="inline-flex items-center gap-1 rounded-md border border-base-c bg-card-c px-1.5 py-0.5 text-[10px] font-medium text-secondary-c hover:border-blue-500 hover:text-blue-600 transition-colors cursor-pointer"
+                          >
+                            <Plus className="h-2.5 w-2.5" /> {sugg}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             
             <div className="flex flex-wrap gap-2">
               {contact.tags && contact.tags.length > 0 ? (
-                contact.tags.map(tag => (
+                contact.tags.map((tag) => (
                   <span 
                     key={tag} 
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-base-c bg-subtle-c px-2.5 py-1 text-xs font-semibold text-secondary-c shadow-xs"
+                    className="group inline-flex items-center gap-1.5 rounded-lg border border-base-c bg-subtle-c px-2.5 py-1 text-xs font-semibold text-secondary-c shadow-xs hover:border-base-c/80 transition-all"
                   >
-                    <TagIcon className="h-3 w-3 text-muted-c" /> {tag}
+                    <TagIcon className="h-3 w-3 text-muted-c" />
+                    <span>{tag}</span>
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      disabled={savingTag}
+                      title={`Remove tag "${tag}"`}
+                      className="ml-0.5 rounded p-0.5 text-muted-c hover:bg-rose-500/10 hover:text-rose-500 transition-colors cursor-pointer"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
                   </span>
                 ))
               ) : (
-                <p className="text-xs text-muted-c italic">No tags assigned to contact.</p>
+                !isAddingTag && (
+                  <p className="text-xs text-muted-c italic">No tags assigned to contact.</p>
+                )
               )}
             </div>
           </GlassCard>

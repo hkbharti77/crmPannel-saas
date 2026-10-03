@@ -54,45 +54,54 @@ export function KpiGrid({ data, isLoading }: { data?: DashboardAggregateDTO | nu
   const tickets = data?.openTickets ?? 0;
   const closed = data?.closedLeads ?? 0;
 
+  // Real calculations; defaults to 0 without fake numbers
+  const revPct = data?.revenueReport?.totalPipelineValue && data.revenueReport.totalPipelineValue > 0
+    ? Math.round((rev / data.revenueReport.totalPipelineValue) * 100)
+    : 0;
+
+  const closedPct = leads > 0
+    ? Math.round((closed / leads) * 100)
+    : 0;
+
   const kpis: KPI[] = [
     {
       id: 'revenue',
       label: 'Revenue (MTD)',
       value: `₹${Number(rev).toLocaleString('en-IN')}`,
-      change: 14.8,
+      change: revPct,
       icon: IndianRupee,
       color: '#2563EB',
-      spark: generateTrendPoints(rev, 14.8),
+      spark: generateTrendPoints(rev, revPct),
       badgeText: 'Received Payments',
     },
     {
       id: 'leads',
       label: 'Total Active Leads',
       value: Number(leads).toLocaleString('en-IN'),
-      change: 8.2,
+      change: 0,
       icon: Users,
       color: '#7C3AED',
-      spark: generateTrendPoints(leads, 8.2),
+      spark: generateTrendPoints(leads, 0),
       badgeText: 'Pipeline Contacts',
     },
     {
       id: 'tickets',
       label: 'Open Support Tickets',
       value: Number(tickets).toLocaleString('en-IN'),
-      change: -4.5,
+      change: 0,
       icon: LifeBuoy,
       color: '#10B981',
-      spark: generateTrendPoints(tickets, -4.5),
+      spark: generateTrendPoints(tickets, 0),
       badgeText: 'Helpdesk Queue',
     },
     {
       id: 'closed',
       label: 'Closed / Deals Won',
       value: Number(closed).toLocaleString('en-IN'),
-      change: 12.4,
+      change: closedPct,
       icon: Trophy,
       color: '#F59E0B',
-      spark: generateTrendPoints(closed, 12.4),
+      spark: generateTrendPoints(closed, closedPct),
       badgeText: 'Won Conversions',
     },
   ];
@@ -101,7 +110,8 @@ export function KpiGrid({ data, isLoading }: { data?: DashboardAggregateDTO | nu
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       {kpis.map((k) => {
         const Icon = k.icon;
-        const up = k.change >= 0;
+        const up = k.change > 0;
+        const isZero = k.change === 0;
         return (
           <GlassCard key={k.id} className="p-5 relative overflow-hidden transition-all duration-200 hover:shadow-md group">
             <div className="flex items-start justify-between">
@@ -111,13 +121,19 @@ export function KpiGrid({ data, isLoading }: { data?: DashboardAggregateDTO | nu
               >
                 <Icon className="h-5.5 w-5.5" style={{ color: k.color }} />
               </div>
-              <Badge variant={up ? 'success' : 'neutral'} className="px-2.5 py-0.5 text-[10px] font-bold">
-                {up ? (
-                  <TrendingUp className="h-3 w-3 mr-0.5" />
+              <Badge variant={isZero ? 'neutral' : up ? 'success' : 'neutral'} className="px-2.5 py-0.5 text-[10px] font-bold">
+                {isZero ? (
+                  '0%'
                 ) : (
-                  <TrendingDown className="h-3 w-3 mr-0.5" />
+                  <>
+                    {up ? (
+                      <TrendingUp className="h-3 w-3 mr-0.5" />
+                    ) : (
+                      <TrendingDown className="h-3 w-3 mr-0.5" />
+                    )}
+                    {k.change}%
+                  </>
                 )}
-                {Math.abs(k.change)}%
               </Badge>
             </div>
             <div className="mt-4">

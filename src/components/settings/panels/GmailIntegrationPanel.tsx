@@ -14,7 +14,7 @@ import {
 } from '@/lib/integrationsApi';
 
 /* ─── Gmail Workspace Integration Panel ─── */
-export function GmailIntegrationPanel() {
+export function GmailIntegrationPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [connected, setConnected] = useState(false);
   const [senderEmail, setSenderEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -140,11 +140,13 @@ export function GmailIntegrationPanel() {
   return (
     <div className="space-y-5">
       <SectionCard>
-        <PanelHeader
-          title="Gmail Integration"
-          desc="Send emails to leads, prospects, and clients directly from your connected Google Workspace or personal Gmail account"
-          icon={<Mail className="h-5 w-5 text-red-500" />}
-        />
+        {!embedded && (
+          <PanelHeader
+            title="Gmail Integration"
+            desc="Send emails to leads, prospects, and clients directly from your connected Google Workspace or personal Gmail account"
+            icon={<Mail className="h-5 w-5 text-red-500" />}
+          />
+        )}
 
         {message && (
           <div className="flex items-center gap-2 rounded-xl border border-success-500/20 bg-success-500/10 p-3 text-xs text-success-600 dark:text-success-400 mb-4 animate-slide-down">

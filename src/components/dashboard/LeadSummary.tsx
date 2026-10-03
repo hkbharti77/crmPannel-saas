@@ -10,17 +10,17 @@ export function LeadSummary({
   pipeline?: PipelineStageCountDTO[];
   onOpenPipeline: () => void;
 }) {
-  const stages = pipeline.length > 0
-    ? pipeline
-    : [
-        { stageName: 'New Leads', count: 8, color: '#2563EB' },
-        { stageName: 'Interested', count: 5, color: '#0EA5E9' },
-        { stageName: 'Follow Up Needed', count: 4, color: '#F59E0B' },
-        { stageName: 'Closed Won', count: 6, color: '#10B981' },
-      ];
+  const defaultStages: PipelineStageCountDTO[] = [
+    { stageName: 'New', count: 0, color: '#94A3B8' },
+    { stageName: 'Interested', count: 0, color: '#0EA5E9' },
+    { stageName: 'Follow Up', count: 0, color: '#F59E0B' },
+    { stageName: 'Won', count: 0, color: '#10B981' },
+  ];
 
-  const total = stages.reduce((s, x) => s + x.count, 0);
-  const max = Math.max(...stages.map((s) => s.count), 1);
+  const stages = pipeline && pipeline.length > 0 ? pipeline : defaultStages;
+
+  const total = stages.reduce((s, x) => s + (x.count || 0), 0);
+  const max = Math.max(...stages.map((s) => s.count || 0), 1);
 
   return (
     <GlassCard className="p-5 space-y-4">
@@ -40,19 +40,23 @@ export function LeadSummary({
 
       {/* Segmented Progress Bar */}
       <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-ink-800 shadow-inner">
-        {total > 0 &&
+        {total > 0 ? (
           stages.map((s) => (
             <div
               key={s.stageName}
-              style={{ width: `${(s.count / total) * 100}%`, backgroundColor: s.color || '#3b82f6' }}
-              title={`${s.stageName}: ${s.count}`}
+              style={{ width: `${((s.count || 0) / total) * 100}%`, backgroundColor: s.color || '#3b82f6' }}
+              title={`${s.stageName}: ${s.count || 0}`}
             />
-          ))}
+          ))
+        ) : (
+          <div className="w-full bg-slate-200/50 dark:bg-ink-700/40" />
+        )}
       </div>
 
       <div className="space-y-3 pt-1">
         {stages.map((s) => {
-          const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+          const count = s.count || 0;
+          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
           return (
             <div key={s.stageName} className="space-y-1">
               <div className="flex items-center gap-2">
@@ -62,15 +66,15 @@ export function LeadSummary({
                 />
                 <span className="text-xs font-bold text-primary-c flex-1">{s.stageName}</span>
                 <Badge variant="neutral" className="text-[10px] font-bold">
-                  {pct}% ({s.count})
+                  {pct}% ({count})
                 </Badge>
               </div>
               <BarRow
                 label=""
-                value={s.count}
+                value={count}
                 max={max}
                 color={s.color || '#3b82f6'}
-                rightLabel={`${s.count} leads`}
+                rightLabel={`${count} leads`}
               />
             </div>
           );

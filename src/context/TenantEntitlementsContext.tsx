@@ -54,6 +54,7 @@ const ROUTE_PAGE_MAP: Record<string, string> = {
 const SETTINGS_TAB_MAP: Record<string, string> = {
   'account-profile': 'SETTINGS_PROFILE',
   security: 'SETTINGS_SECURITY',
+  'google-workspace': 'SETTINGS_PROFILE',
   'google-calendar': 'SETTINGS_CALENDAR',
   'google-gmail': 'SETTINGS_PROFILE',
   'google-contacts': 'SETTINGS_PROFILE',

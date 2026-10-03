@@ -21,21 +21,31 @@ export function AreaChart({
   const padY = 16;
   const gid = useMemo(() => `g${Math.random().toString(36).slice(2, 9)}`, []);
 
-  const { path, area, points } = useMemo(() => {
+  const { path, area, points, isZero } = useMemo(() => {
+    if (!data || data.length === 0) {
+      const baseY = height - padY;
+      const pts: (readonly [number, number])[] = [
+        [padX, baseY],
+        [width - padX, baseY],
+      ];
+      return { path: `M ${padX} ${baseY} L ${width - padX} ${baseY}`, area: '', points: pts, max: 0, min: 0, isZero: true };
+    }
+
     const max = Math.max(...data);
     const min = Math.min(...data);
+    const allZero = max === 0 && min === 0;
     const range = max - min || 1;
-    const step = (width - padX * 2) / (data.length - 1);
+    const step = data.length > 1 ? (width - padX * 2) / (data.length - 1) : 0;
     const pts = data.map((v, i) => {
       const x = padX + i * step;
-      const y = padY + (1 - (v - min) / range) * (height - padY * 2);
+      const y = allZero ? height - padY : padY + (1 - (v - min) / range) * (height - padY * 2);
       return [x, y] as const;
     });
     const path = pts
       .map(([x, y], i) => (i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`))
       .join(' ');
-    const area = `${path} L ${pts[pts.length - 1][0]} ${height} L ${pts[0][0]} ${height} Z`;
-    return { path, area, points: pts, max, min };
+    const area = allZero ? '' : `${path} L ${pts[pts.length - 1][0]} ${height} L ${pts[0][0]} ${height} Z`;
+    return { path, area, points: pts, max, min, isZero: allZero };
   }, [data, height]);
 
   const gridLines = [0.25, 0.5, 0.75];
@@ -67,7 +77,7 @@ export function AreaChart({
           />
         ))}
 
-      <path d={area} fill={`url(#${gid})`} />
+      {area && <path d={area} fill={`url(#${gid})`} />}
       <path
         d={path}
         fill="none"
@@ -75,8 +85,10 @@ export function AreaChart({
         strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        strokeDasharray={isZero ? '4 4' : undefined}
+        strokeOpacity={isZero ? 0.35 : 1}
       />
-      {showDots &&
+      {showDots && !isZero &&
         points.map(([x, y], i) => (
           <circle key={i} cx={x} cy={y} r="3" fill={color} />
         ))}

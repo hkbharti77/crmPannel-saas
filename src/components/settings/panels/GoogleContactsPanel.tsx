@@ -14,7 +14,7 @@ import {
 } from '@/lib/integrationsApi';
 
 /* ─── Google Contacts Sync & Import Panel ─── */
-export function GoogleContactsPanel() {
+export function GoogleContactsPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -121,11 +121,13 @@ export function GoogleContactsPanel() {
   return (
     <div className="space-y-5">
       <SectionCard>
-        <PanelHeader
-          title="Google Contacts Import & Sync"
-          desc="Seamlessly import client contacts and phone numbers from Google People API with automatic deduplication"
-          icon={<Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
-        />
+        {!embedded && (
+          <PanelHeader
+            title="Google Contacts Import & Sync"
+            desc="Seamlessly import client contacts and phone numbers from Google People API with automatic deduplication"
+            icon={<Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />}
+          />
+        )}
 
         {message && (
           <div className="flex items-center gap-2 rounded-xl border border-success-500/20 bg-success-500/10 p-3 text-xs text-success-600 dark:text-success-400 mb-4 animate-slide-down">

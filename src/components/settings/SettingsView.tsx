@@ -18,6 +18,7 @@ import { GoogleContactsPanel } from './panels/AccountPanels';
 import { GoogleTasksPanel } from './panels/AccountPanels';
 import { GoogleDrivePanel } from './panels/AccountPanels';
 import { GoogleSheetsPanel } from './panels/AccountPanels';
+import { GoogleWorkspacePanel } from './panels/AccountPanels';
 import { PushNotificationPanel } from './panels/AccountPanels';
 import { BillingPanel } from './panels/AccountPanels';
 import { CustomBrandingPanel } from './panels/AppearancePanels';
@@ -34,13 +35,12 @@ import { SupportCategoriesPanel } from './panels/AiSystemPanels';
 import { SystemHealthPanel } from './panels/AiSystemPanels';
 import { NeedHelpPanel } from './panels/AiSystemPanels';
 import { BroadcastFilterConfigPanel } from './panels/BroadcastFilterConfigPanel';
-import { PaymentGatewaySettingsPanel } from './panels/PaymentGatewaySettingsPanel';
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 import { SmsProvidersPanel } from './panels/SmsProvidersPanel';
 
 export type SettingsSub =
-  | 'account-profile' | 'security' | 'google-calendar' | 'google-gmail' | 'google-contacts' | 'google-tasks' | 'google-drive' | 'google-sheets' | 'integrations' | 'billing' | 'payment-gateways'
+  | 'account-profile' | 'security' | 'google-workspace' | 'google-calendar' | 'google-gmail' | 'google-contacts' | 'google-tasks' | 'google-drive' | 'google-sheets' | 'integrations' | 'billing' | 'payment-gateways'
   | 'branding' | 'dark-mode'
   | 'push-notifications' | 'notifications'
   | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
@@ -71,14 +71,13 @@ const NAV: NavGroup[] = [
     items: [
       { id: 'account-profile', label: 'Account Profile', desc: 'Manage profile details', icon: User },
       { id: 'security', label: 'Security & Privacy', desc: 'Password & authentication', icon: Shield },
-      { id: 'google-calendar', label: 'Google Meet Sync', desc: 'Link Google Meetings', icon: Globe },
-      { id: 'google-gmail', label: 'Gmail Workspace', desc: 'Direct lead emailing via Gmail', icon: Mail },
-      { id: 'google-contacts', label: 'Google Contacts', desc: 'Sync phone contacts & leads', icon: Users },
-      { id: 'google-tasks', label: 'Google Tasks', desc: 'Reminders & follow-ups', icon: CheckSquare },
-      { id: 'google-drive', label: 'Google Drive Docs', desc: 'Agreements & files storage', icon: HardDrive },
-      { id: 'google-sheets', label: 'Google Sheets Sync', desc: 'Import & export leads', icon: FileSpreadsheet },
       { id: 'billing', label: 'Subscription & Billing', desc: 'Limits & plan pricing', icon: CreditCard },
-      { id: 'payment-gateways', label: 'Payment Gateways', desc: 'Meta Pay & Razorpay/PayU', icon: CreditCard },
+    ],
+  },
+  {
+    section: 'Integrations',
+    items: [
+      { id: 'google-workspace', label: 'Google Workspace', desc: 'Unified Google suite integration', icon: Globe },
     ],
   },
   {
@@ -128,25 +127,29 @@ const NAV: NavGroup[] = [
   },
 ];
 
-const IntegrationsRedirect = () => {
+const LegacyGoogleRedirect = ({ defaultTab }: { defaultTab: string }) => {
   const [params] = useSearchParams();
   const connected = params.get('connected');
-  const targetTab = connected ? `google-${connected}` : 'google-calendar';
-  return <Navigate to={`/settings/${targetTab}${window.location.search}`} replace />;
+  const tab = connected ? (connected === 'calendar' ? 'meet' : connected) : defaultTab;
+  const search = window.location.search;
+  const query = new URLSearchParams(search);
+  query.set('tab', tab);
+  return <Navigate to={`/settings/google-workspace?${query.toString()}`} replace />;
 };
 
 const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'account-profile': AccountProfilePanel,
   'security': SecurityPanel,
-  'google-calendar': GoogleCalendarPanel,
-  'google-gmail': GmailIntegrationPanel,
-  'google-contacts': GoogleContactsPanel,
-  'google-tasks': GoogleTasksPanel,
-  'google-drive': GoogleDrivePanel,
-  'google-sheets': GoogleSheetsPanel,
-  'integrations': IntegrationsRedirect,
+  'google-workspace': GoogleWorkspacePanel,
+  'google-calendar': () => <LegacyGoogleRedirect defaultTab="meet" />,
+  'google-gmail': () => <LegacyGoogleRedirect defaultTab="gmail" />,
+  'google-contacts': () => <LegacyGoogleRedirect defaultTab="contacts" />,
+  'google-tasks': () => <LegacyGoogleRedirect defaultTab="tasks" />,
+  'google-drive': () => <LegacyGoogleRedirect defaultTab="drive" />,
+  'google-sheets': () => <LegacyGoogleRedirect defaultTab="sheets" />,
+  'integrations': () => <LegacyGoogleRedirect defaultTab="overview" />,
   'billing': BillingPanel,
-  'payment-gateways': PaymentGatewaySettingsPanel,
+  'payment-gateways': () => <Navigate to="/payments?tab=settings" replace />,
   'branding': () => <CustomBrandingPanel defaultTab="global" />,
   'dark-mode': () => <Navigate to="/settings/branding" replace />,
   'push-notifications': PushNotificationPanel,

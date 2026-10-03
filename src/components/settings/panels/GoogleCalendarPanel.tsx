@@ -5,7 +5,7 @@ import { PanelHeader, SectionCard } from './_shared';
 import { fetchGoogleIntegrationStatus, fetchGoogleAuthUrl, disconnectGoogleAccount } from '@/lib/integrationsApi';
 
 /* ─── Google Calendar & Meet Integration Panel ─── */
-export function GoogleCalendarPanel() {
+export function GoogleCalendarPanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
@@ -95,11 +95,13 @@ export function GoogleCalendarPanel() {
   return (
     <div className="space-y-5">
       <SectionCard>
-        <PanelHeader
-          title="Google Calendar & Meet"
-          desc="Link Google account for online meeting automation and instant video link generation"
-          icon={<Globe className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
-        />
+        {!embedded && (
+          <PanelHeader
+            title="Google Calendar & Meet"
+            desc="Link Google account for online meeting automation and instant video link generation"
+            icon={<Globe className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
+          />
+        )}
 
         {message && (
           <div className="flex items-center gap-2 rounded-xl border border-success-500/20 bg-success-500/10 p-3 text-xs text-success-600 dark:text-success-400 mb-4">

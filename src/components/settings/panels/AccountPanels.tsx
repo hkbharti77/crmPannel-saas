@@ -9,3 +9,4 @@ export { GoogleDrivePanel } from './GoogleDrivePanel';
 export { GoogleSheetsPanel } from './GoogleSheetsPanel';
 export { PushNotificationPanel } from './PushNotificationPanel';
 export { BillingPanel } from './BillingPanel';
+export { GoogleWorkspacePanel } from './GoogleWorkspacePanel';

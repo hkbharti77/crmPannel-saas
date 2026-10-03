@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Plus, Trash2, Edit2, Shield, CheckCircle2, AlertTriangle, Key, Server, Globe, ExternalLink, Loader2, Star, Eye, EyeOff } from 'lucide-react';
+import {
+  Mail, Plus, Trash2, Edit2, Shield, CheckCircle2, AlertTriangle,
+  Key, Server, Globe, ExternalLink, Loader2, Star, Eye, EyeOff,
+  Send, Database, Lock, RefreshCw, Check, X, AlertCircle
+} from 'lucide-react';
 import { cx } from '@/lib/types';
+import { PanelHeader, SectionCard } from './_shared';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { Badge } from '@/components/ui/primitives';
 import {
   fetchEmailProviders,
   saveEmailProvider,
@@ -10,25 +17,46 @@ import {
   type EmailProviderType,
 } from '@/lib/emailsApi';
 
-const PROVIDER_LOGOS: Record<EmailProviderType, { label: string; color: string; icon: React.ReactNode }> = {
+interface ProviderMeta {
+  label: string;
+  tagline: string;
+  color: string;
+  bgClass: string;
+  borderClass: string;
+  icon: React.ReactNode;
+}
+
+const PROVIDER_LOGOS: Record<EmailProviderType, ProviderMeta> = {
   AWS_SES: {
     label: 'AWS SES',
-    color: 'text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400 border-amber-200 dark:border-amber-500/20',
+    tagline: 'Amazon Simple Email Service',
+    color: 'text-amber-500 dark:text-amber-400',
+    bgClass: 'bg-amber-500/10',
+    borderClass: 'border-amber-500/20',
     icon: <Server className="h-5 w-5" />,
   },
   BREVO: {
     label: 'Brevo',
-    color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20',
+    tagline: 'Formerly Sendinblue API v3',
+    color: 'text-emerald-500 dark:text-emerald-400',
+    bgClass: 'bg-emerald-500/10',
+    borderClass: 'border-emerald-500/20',
     icon: <Mail className="h-5 w-5" />,
   },
   ZOHO: {
     label: 'Zoho Mail',
-    color: 'text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400 border-blue-200 dark:border-blue-500/20',
+    tagline: 'Zoho Workspace SMTP',
+    color: 'text-blue-500 dark:text-blue-400',
+    bgClass: 'bg-blue-500/10',
+    borderClass: 'border-blue-500/20',
     icon: <Globe className="h-5 w-5" />,
   },
   SMTP: {
     label: 'Custom SMTP',
-    color: 'text-slate-600 bg-slate-50 dark:bg-slate-500/10 dark:text-slate-400 border-slate-200 dark:border-slate-500/20',
+    tagline: 'Standard SMTP / Relay Server',
+    color: 'text-indigo-500 dark:text-indigo-400',
+    bgClass: 'bg-indigo-500/10',
+    borderClass: 'border-indigo-500/20',
     icon: <Shield className="h-5 w-5" />,
   },
 };
@@ -61,6 +89,18 @@ export function EmailProvidersPanel() {
   const [showSecretAccessKey, setShowSecretAccessKey] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Test Modal State
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testRecipientEmail, setTestRecipientEmail] = useState('');
+  const [testingProvider, setTestingProvider] = useState<EmailProviderDTO | null>(null);
+  const [testModalError, setTestModalError] = useState<string | null>(null);
+  const [testModalSuccess, setTestModalSuccess] = useState<string | null>(null);
+
+  // Delete Modal State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingProvider, setDeletingProvider] = useState<EmailProviderDTO | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadProviders();
@@ -104,31 +144,32 @@ export function EmailProvidersPanel() {
   const handleEdit = (p: EmailProviderDTO) => {
     resetForm();
     setEditingId(p.id || null);
-    setSelectedType(p.providerType || 'AWS_SES');
-    setName(p.name || '');
-    setFromEmail(p.fromEmail || '');
-    setIsDefault(!!p.isDefault);
+    setSelectedType(p.providerType);
+    setName(p.name);
+    setFromEmail(p.fromEmail);
+    setIsDefault(p.isDefault || false);
 
     try {
-      const creds = JSON.parse(p.credentialsPayload || '{}');
-      if (p.providerType === 'AWS_SES') {
-        setAwsRegion(creds.region || 'us-east-1');
-        setAccessKeyId(creds.accessKeyId || '');
-        setSecretAccessKey(creds.secretAccessKey || '');
-      } else if (p.providerType === 'BREVO') {
-        setApiKey(creds.apiKey || '');
-      } else {
-        setHost(creds.host || (p.providerType === 'ZOHO' ? 'smtp.zoho.com' : ''));
-        setPort(creds.port || (p.providerType === 'ZOHO' ? '465' : '587'));
-        setEncryption(creds.encryption || 'TLS');
-        setUsername(creds.username || '');
-        setPassword(creds.password || '');
+      if (p.credentialsPayload) {
+        const creds = JSON.parse(p.credentialsPayload);
+        if (p.providerType === 'AWS_SES') {
+          setAwsRegion(creds.region || 'us-east-1');
+          setAccessKeyId(creds.accessKeyId || '');
+        } else if (p.providerType === 'BREVO') {
+          setApiKey('');
+        } else {
+          setHost(creds.host || '');
+          setPort(creds.port || '587');
+          setEncryption(creds.encryption || 'TLS');
+          setUsername(creds.username || '');
+        }
       }
     } catch {
-      // Ignored
+      // payload wasn't JSON or empty
     }
 
     setIsAdding(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const buildPayload = (): string => {
@@ -198,52 +239,61 @@ export function EmailProvidersPanel() {
     }
   };
 
-  const handleDelete = async (id: string, pName: string) => {
-    if (!window.confirm(`Are you sure you want to remove provider "${pName}"?`)) {
-      return;
-    }
+  const handleDeleteConfirm = async () => {
+    if (!deletingProvider?.id) return;
+    setDeleting(true);
     setError(null);
     setSuccess(null);
 
-    const res = await deleteEmailProvider(id);
+    const res = await deleteEmailProvider(deletingProvider.id);
+    setDeleting(false);
+    setDeleteModalOpen(false);
+
     if (res.error) {
       setError(res.error);
     } else {
-      setSuccess(`Provider "${pName}" removed.`);
+      setSuccess(`Provider "${deletingProvider.name}" removed successfully.`);
+      setDeletingProvider(null);
       loadProviders();
     }
   };
 
-  const handleTestConnection = async () => {
-    setError(null);
-    setSuccess(null);
+  const handleOpenTestModal = (provider?: EmailProviderDTO) => {
+    const target = provider || {
+      id: editingId || undefined,
+      providerType: selectedType,
+      name: name.trim() || 'Active Form Provider',
+      fromEmail: fromEmail.trim(),
+      credentialsPayload: buildPayload(),
+    };
+    setTestingProvider(target);
+    setTestRecipientEmail(target.fromEmail || fromEmail.trim() || '');
+    setTestModalError(null);
+    setTestModalSuccess(null);
+    setTestModalOpen(true);
+  };
 
-    if (!fromEmail.trim() || !fromEmail.includes('@')) {
-      setError('Please enter a valid From Email address to run the test.');
-      return;
-    }
-
-    const testRecipient = window.prompt('Enter test recipient email address:', fromEmail.trim()) || fromEmail.trim();
-    if (!testRecipient || !testRecipient.includes('@')) {
+  const handleExecuteTest = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!testingProvider) return;
+    if (!testRecipientEmail.trim() || !testRecipientEmail.includes('@')) {
+      setTestModalError('Please enter a valid recipient email address.');
       return;
     }
 
     setTesting(true);
-    const providerData: EmailProviderDTO = {
-      id: editingId || undefined,
-      providerType: selectedType,
-      name: name.trim() || 'Test Connection',
-      fromEmail: fromEmail.trim(),
-      credentialsPayload: buildPayload(),
-    };
+    setTestModalError(null);
+    setTestModalSuccess(null);
 
-    const res = await testEmailProvider(providerData, testRecipient);
+    const res = await testEmailProvider(testingProvider, testRecipientEmail.trim());
     setTesting(false);
 
     if (res.error || !res.success) {
-      setError(res.error || 'Failed to send test email. Please verify credentials and SMTP settings.');
+      setTestModalError(res.error || 'Failed to send test email. Please verify credentials and SMTP settings.');
     } else {
-      setSuccess(`Test email sent successfully to ${testRecipient}! Connection verified.`);
+      setTestModalSuccess(`Test email sent successfully to ${testRecipientEmail}! Connection verified.`);
+      // Refresh provider status in list
+      loadProviders();
     }
   };
 
@@ -255,122 +305,197 @@ export function EmailProvidersPanel() {
     if (res.error) {
       setError(res.error);
     } else {
-      setSuccess(`"${p.name}" set as default provider.`);
+      setSuccess(`"${p.name}" set as default sending provider.`);
       loadProviders();
     }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div>
-        <h3 className="text-lg font-bold text-primary-c">Email Providers (BYOP)</h3>
-        <p className="text-sm text-secondary-c mt-1">
-          Connect your own email delivery services (AWS SES, Brevo, Zoho, Custom SMTP) for sending marketing campaigns and transactional emails.
-        </p>
+    <div className="space-y-6 max-w-5xl animate-fade-in">
+      {/* ── Top Header ── */}
+      <PanelHeader
+        title="Email Providers (BYOP)"
+        desc="Connect and manage your own email delivery services (AWS SES, Brevo, Zoho Mail, Custom SMTP) for high-deliverability marketing and transactional emails."
+        icon={<Mail className="h-5 w-5 text-indigo-500" />}
+      />
+
+      {/* ── Architecture Pills ── */}
+      <div className="flex flex-wrap items-center gap-2 -mt-3">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+          <Server className="w-3.5 h-3.5" /> Multi-Provider Delivery
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-ink-800 text-secondary-c border border-base-c">
+          <Shield className="w-3.5 h-3.5 text-blue-500" /> AES-256 Encrypted
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-ink-800 text-secondary-c border border-base-c">
+          <Lock className="w-3.5 h-3.5 text-emerald-500" /> Tenant Isolated
+        </span>
       </div>
 
-      {/* Global Alerts */}
+      {/* ── Global Alerts ── */}
       {error && (
-        <div className="rounded-xl border border-danger-500/30 bg-danger-500/10 p-4 text-xs font-medium text-danger-600 dark:text-danger-400 animate-slide-down">
-          {error}
+        <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs font-medium animate-slide-down">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
+            <span>{error}</span>
+          </div>
+          <button
+            onClick={() => setError(null)}
+            className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-200 text-xs font-semibold uppercase px-2 py-0.5"
+          >
+            Dismiss
+          </button>
         </div>
       )}
       {success && (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs font-medium text-emerald-600 dark:text-emerald-400 animate-slide-down">
-          {success}
+        <div className="flex items-center justify-between gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-medium animate-slide-down">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+            <span>{success}</span>
+          </div>
+          <button
+            onClick={() => setSuccess(null)}
+            className="text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-200 text-xs font-semibold uppercase px-2 py-0.5"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
+      {/* ── Main View: List or Add Form ── */}
       {!isAdding ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-primary-c">Connected Accounts</h4>
-            <button
-              onClick={handleOpenCreate}
-              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-primary-700 shadow-sm"
-            >
-              <Plus className="h-4 w-4" /> Add Provider
-            </button>
+            <div>
+              <h4 className="text-sm font-bold text-primary-c">Connected Accounts</h4>
+              <p className="text-xs text-secondary-c mt-0.5">
+                {providers.length} {providers.length === 1 ? 'provider' : 'providers'} configured
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={loadProviders}
+                className="btn-secondary text-xs h-9 px-3 flex items-center gap-1.5"
+                title="Refresh list"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+              <button
+                onClick={handleOpenCreate}
+                className="btn-primary text-xs h-9 px-4 flex items-center gap-2 shadow-sm"
+              >
+                <Plus className="h-4 w-4" /> Add Provider
+              </button>
+            </div>
           </div>
 
           {loading ? (
-            <div className="flex justify-center p-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
-            </div>
-          ) : providers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-base-c bg-card-c p-12 text-center">
-              <div className="grid h-12 w-12 place-items-center rounded-full bg-slate-100 dark:bg-ink-800 mb-4">
-                <Mail className="h-6 w-6 text-muted-c" />
+            <SectionCard>
+              <div className="flex flex-col items-center justify-center py-12">
+                <Loader2 className="h-7 w-7 animate-spin text-primary-500" />
+                <p className="mt-3 text-xs text-secondary-c">Loading configured email providers…</p>
               </div>
-              <h5 className="text-sm font-bold text-primary-c">No providers connected</h5>
-              <p className="text-xs text-secondary-c mt-1 mb-4 max-w-sm">
-                Add an email provider like AWS SES, Brevo, Zoho, or standard SMTP to start sending email campaigns.
+            </SectionCard>
+          ) : providers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-base-c bg-card-c p-12 text-center shadow-xs">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 mb-3.5">
+                <Mail className="h-6 w-6" />
+              </div>
+              <h5 className="text-sm font-bold text-primary-c">No Email Providers Connected</h5>
+              <p className="text-xs text-secondary-c mt-1 mb-5 max-w-sm leading-relaxed">
+                Connect AWS SES, Brevo, Zoho Mail, or custom SMTP to start delivering high-converting email campaigns and real-time lead alerts.
               </p>
               <button
                 onClick={handleOpenCreate}
-                className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary-700 transition-colors"
+                className="btn-primary text-xs h-9 px-4 flex items-center gap-2"
               >
                 <Plus className="h-3.5 w-3.5" /> Add Provider Now
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-3.5">
               {providers.map((p) => {
                 const conf = PROVIDER_LOGOS[p.providerType] || PROVIDER_LOGOS.SMTP;
+                const isConnected = p.status === 'CONNECTED';
+
                 return (
-                  <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-xl border border-base-c bg-card-c p-4 transition-all hover:shadow-sm">
-                    <div className="flex items-center gap-4">
-                      <div className={cx('grid h-12 w-12 place-items-center rounded-lg border shrink-0', conf.color)}>
+                  <div
+                    key={p.id}
+                    className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-base-c bg-card-c p-5 transition-all hover:shadow-md group"
+                  >
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className={cx('grid h-12 w-12 place-items-center rounded-xl border shrink-0', conf.bgClass, conf.borderClass, conf.color)}>
                         {conf.icon}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h5 className="font-bold text-sm text-primary-c truncate">{p.name}</h5>
                           {p.isDefault && (
-                            <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-300">
+                              <Star className="w-2.5 h-2.5 fill-indigo-500 text-indigo-500" />
                               DEFAULT
                             </span>
                           )}
                         </div>
-                        <p className="text-xs font-medium text-muted-c mt-0.5 truncate">
-                          From: {p.fromEmail} • Type: {conf.label}
+                        <p className="text-xs text-secondary-c mt-1 truncate">
+                          From: <span className="font-medium text-primary-c">{p.fromEmail}</span> • Type: <span className="font-medium">{conf.label}</span>
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                      {p.status === 'CONNECTED' ? (
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                          <CheckCircle2 className="h-4 w-4" /> Connected
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                          <AlertTriangle className="h-4 w-4" /> Unverified
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap pt-2 md:pt-0 border-t md:border-t-0 border-base-c">
+                      <div className="flex items-center gap-1.5 mr-2">
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                          }`}
+                        />
+                        <span
+                          className={`text-xs font-semibold ${
+                            isConnected ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {isConnected ? 'Connected' : 'Unverified'}
+                        </span>
+                      </div>
+
+                      <button
+                        onClick={() => handleOpenTestModal(p)}
+                        className="btn-secondary text-xs h-8 px-2.5 flex items-center gap-1.5"
+                        title="Send a test email to verify credentials"
+                      >
+                        <Send className="w-3 h-3 text-indigo-500" />
+                        <span>Test</span>
+                      </button>
 
                       {!p.isDefault && (
                         <button
                           onClick={() => handleSetDefault(p)}
-                          className="flex items-center gap-1 rounded-md border border-base-c px-2 py-1 text-[11px] font-semibold text-secondary-c hover:text-amber-500 hover:border-amber-500/30 transition-all"
-                          title="Make Default Provider"
+                          className="btn-secondary text-xs h-8 px-2.5 flex items-center gap-1.5 hover:text-amber-600 hover:border-amber-500/40"
+                          title="Set as Default Sending Provider"
                         >
-                          <Star className="h-3 w-3" /> Make Default
+                          <Star className="w-3 h-3" />
+                          <span>Make Default</span>
                         </button>
                       )}
 
-                      <div className="h-8 w-px bg-base-c mx-1"></div>
+                      <div className="h-6 w-px bg-base-c hidden sm:block mx-1"></div>
 
                       <button
                         onClick={() => handleEdit(p)}
-                        className="p-1.5 rounded-lg text-muted-c hover:text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
+                        className="p-1.5 rounded-lg text-secondary-c hover:text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
                         title="Edit Provider"
                       >
                         <Edit2 className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => p.id && handleDelete(p.id, p.name)}
-                        className="p-1.5 rounded-lg text-muted-c hover:text-danger-500 hover:bg-danger-500/10 transition-colors"
+                        onClick={() => {
+                          setDeletingProvider(p);
+                          setDeleteModalOpen(true);
+                        }}
+                        className="p-1.5 rounded-lg text-secondary-c hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                         title="Remove Provider"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -383,98 +508,118 @@ export function EmailProvidersPanel() {
           )}
         </div>
       ) : (
-        <form onSubmit={handleSave} className="rounded-xl border border-base-c bg-card-c p-6 animate-fade-in shadow-sm">
+        /* ── Add / Edit Form ── */
+        <form onSubmit={handleSave} className="rounded-2xl border border-base-c bg-card-c p-6 animate-fade-in shadow-xs">
           <div className="flex items-center justify-between border-b border-base-c pb-4 mb-6">
-            <h4 className="text-base font-bold text-primary-c">
-              {editingId ? 'Edit Email Provider' : 'Add New Email Provider'}
-            </h4>
+            <div>
+              <h4 className="text-base font-bold text-primary-c">
+                {editingId ? 'Edit Email Provider' : 'Add New Email Provider'}
+              </h4>
+              <p className="text-xs text-secondary-c mt-0.5">
+                Configure API keys or SMTP credentials for your delivery service
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => {
                 setIsAdding(false);
                 resetForm();
               }}
-              className="text-sm font-semibold text-secondary-c hover:text-primary-c"
+              className="p-2 rounded-lg text-secondary-c hover:text-primary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
+              title="Close form"
             >
-              Cancel
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <div className="space-y-6">
             {/* Provider Type Selection */}
             <div>
-              <label className="mb-3 block text-sm font-semibold text-primary-c">Select Service Type</label>
+              <label className="mb-2.5 block text-xs font-bold uppercase tracking-wider text-secondary-c">
+                1. Select Service Type
+              </label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(Object.keys(PROVIDER_LOGOS) as EmailProviderType[]).map((type) => (
-                  <button
-                    key={type}
-                    type="button"
-                    onClick={() => {
-                      setSelectedType(type);
-                      if (type === 'ZOHO') {
-                        setHost('smtp.zoho.com');
-                        setPort('465');
-                        setEncryption('SSL');
-                      }
-                    }}
-                    className={cx(
-                      'flex flex-col items-center justify-center gap-2 rounded-xl border p-4 transition-all',
-                      selectedType === type
-                        ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-500/10 shadow-sm'
-                        : 'border-base-c hover:border-primary-300 hover:bg-slate-50 dark:hover:bg-ink-850',
-                    )}
-                  >
-                    <div className={cx('grid h-10 w-10 place-items-center rounded-lg border', PROVIDER_LOGOS[type].color)}>
-                      {PROVIDER_LOGOS[type].icon}
-                    </div>
-                    <span className={cx('text-xs font-bold', selectedType === type ? 'text-primary-600 dark:text-primary-400' : 'text-secondary-c')}>
-                      {PROVIDER_LOGOS[type].label}
-                    </span>
-                  </button>
-                ))}
+                {(Object.keys(PROVIDER_LOGOS) as EmailProviderType[]).map((type) => {
+                  const meta = PROVIDER_LOGOS[type];
+                  const isSelected = selectedType === type;
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        setSelectedType(type);
+                        if (type === 'ZOHO') {
+                          setHost('smtp.zoho.com');
+                          setPort('465');
+                          setEncryption('SSL');
+                        }
+                      }}
+                      className={cx(
+                        'flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all',
+                        isSelected
+                          ? 'border-primary-500 bg-primary-500/10 ring-2 ring-primary-500/20 shadow-sm'
+                          : 'border-base-c bg-card-c hover:border-primary-500/40 hover:bg-slate-50 dark:hover:bg-ink-850'
+                      )}
+                    >
+                      <div className={cx('grid h-11 w-11 place-items-center rounded-xl border mb-2', meta.bgClass, meta.borderClass, meta.color)}>
+                        {meta.icon}
+                      </div>
+                      <span className={cx('text-xs font-bold', isSelected ? 'text-primary-600 dark:text-primary-400' : 'text-primary-c')}>
+                        {meta.label}
+                      </span>
+                      <span className="text-[11px] text-muted-c mt-0.5 line-clamp-1">
+                        {meta.tagline}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Provider Configuration Form */}
-            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-ink-700 dark:bg-ink-850 p-5 space-y-4">
+            {/* Provider Configuration Fields */}
+            <div className="rounded-2xl border border-base-c bg-slate-50/50 dark:bg-ink-850/50 p-5 space-y-4">
+              <label className="block text-xs font-bold uppercase tracking-wider text-secondary-c">
+                2. Provider Credentials & Parameters
+              </label>
+
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Connection Name</label>
+                <label className="mb-1.5 block text-xs font-semibold text-primary-c">Connection Name *</label>
                 <input
                   type="text"
                   required
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. AWS Production Mail"
-                  className="form-input text-sm bg-white dark:bg-ink-900"
+                  placeholder="e.g. AWS Production Mailer"
+                  className="form-input text-sm bg-card-c"
                 />
               </div>
 
               {selectedType === 'AWS_SES' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">AWS Region</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">AWS Region *</label>
                     <input
                       type="text"
                       required
                       value={awsRegion}
                       onChange={(e) => setAwsRegion(e.target.value)}
                       placeholder="e.g. us-east-1"
-                      className="form-input text-sm bg-white dark:bg-ink-900"
+                      className="form-input text-sm bg-card-c"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Access Key ID</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">Access Key ID *</label>
                     <input
                       type="text"
                       required
                       value={accessKeyId}
                       onChange={(e) => setAccessKeyId(e.target.value)}
                       placeholder="AKIA..."
-                      className="form-input text-sm bg-white dark:bg-ink-900"
+                      className="form-input text-sm bg-card-c"
                     />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Secret Access Key</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">Secret Access Key *</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-c" />
                       <input
@@ -483,7 +628,7 @@ export function EmailProvidersPanel() {
                         value={secretAccessKey}
                         onChange={(e) => setSecretAccessKey(e.target.value)}
                         placeholder={editingId ? '•••••••••••••••••••• (leave blank to keep current)' : '••••••••••••••••••••••••'}
-                        className="form-input pl-9 pr-10 text-sm bg-white dark:bg-ink-900"
+                        className="form-input pl-9 pr-10 text-sm bg-card-c"
                       />
                       <button
                         type="button"
@@ -500,7 +645,7 @@ export function EmailProvidersPanel() {
               {selectedType === 'BREVO' && (
                 <div className="space-y-4 animate-fade-in">
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">API Key (v3)</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">Brevo API Key (v3) *</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-c" />
                       <input
@@ -509,7 +654,7 @@ export function EmailProvidersPanel() {
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
                         placeholder={editingId ? '•••••••• (leave blank to keep current)' : 'xkeysib-...'}
-                        className="form-input pl-9 pr-10 text-sm bg-white dark:bg-ink-900"
+                        className="form-input pl-9 pr-10 text-sm bg-card-c"
                       />
                       <button
                         type="button"
@@ -520,8 +665,9 @@ export function EmailProvidersPanel() {
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-c flex items-center gap-1">
-                    <ExternalLink className="h-3 w-3" /> Get your API key from the Brevo SMTP & API dashboard.
+                  <p className="text-xs text-secondary-c flex items-center gap-1.5">
+                    <ExternalLink className="h-3.5 w-3.5 text-primary-500" />
+                    Obtain your API key from the Brevo SMTP & API console.
                   </p>
                 </div>
               )}
@@ -529,33 +675,33 @@ export function EmailProvidersPanel() {
               {(selectedType === 'SMTP' || selectedType === 'ZOHO') && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
                   <div className="md:col-span-2">
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">SMTP Host</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">SMTP Host *</label>
                     <input
                       type="text"
                       required
                       value={host}
                       onChange={(e) => setHost(e.target.value)}
                       placeholder={selectedType === 'ZOHO' ? 'smtp.zoho.com' : 'smtp.example.com'}
-                      className="form-input text-sm bg-white dark:bg-ink-900"
+                      className="form-input text-sm bg-card-c"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">SMTP Port</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">SMTP Port *</label>
                     <input
                       type="text"
                       required
                       value={port}
                       onChange={(e) => setPort(e.target.value)}
                       placeholder={selectedType === 'ZOHO' ? '465' : '587'}
-                      className="form-input text-sm bg-white dark:bg-ink-900"
+                      className="form-input text-sm bg-card-c"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Encryption</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">Encryption *</label>
                     <select
                       value={encryption}
                       onChange={(e) => setEncryption(e.target.value)}
-                      className="form-input text-sm bg-white dark:bg-ink-900"
+                      className="form-input text-sm bg-card-c"
                     >
                       <option value="TLS">TLS</option>
                       <option value="SSL">SSL</option>
@@ -563,18 +709,18 @@ export function EmailProvidersPanel() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Username</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">Username *</label>
                     <input
                       type="text"
                       required
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="you@domain.com"
-                      className="form-input text-sm bg-white dark:bg-ink-900"
+                      className="form-input text-sm bg-card-c"
                     />
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Password</label>
+                    <label className="mb-1.5 block text-xs font-semibold text-primary-c">Password *</label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
@@ -582,7 +728,7 @@ export function EmailProvidersPanel() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder={editingId ? '•••••••• (leave blank to keep current)' : '••••••••'}
-                        className="form-input pr-10 text-sm bg-white dark:bg-ink-900"
+                        className="form-input pr-10 text-sm bg-card-c"
                       />
                       <button
                         type="button"
@@ -596,60 +742,63 @@ export function EmailProvidersPanel() {
                 </div>
               )}
 
-              <div className="pt-4 border-t border-slate-200 dark:border-ink-700 space-y-3">
+              <div className="pt-4 border-t border-base-c space-y-3">
                 <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-secondary-c">From Email Address</label>
+                  <label className="mb-1.5 block text-xs font-semibold text-primary-c">From Email Address *</label>
                   <input
                     type="email"
                     required
                     value={fromEmail}
                     onChange={(e) => setFromEmail(e.target.value)}
-                    placeholder="marketing@yourcompany.com"
-                    className="form-input text-sm bg-white dark:bg-ink-900"
+                    placeholder="notifications@yourcompany.com"
+                    className="form-input text-sm bg-card-c"
                   />
-                  <p className="text-[11px] text-muted-c mt-1">This email must be verified with your provider.</p>
+                  <p className="text-[11px] text-muted-c mt-1">
+                    This sender email must be verified on your provider domain to ensure SPF/DKIM delivery.
+                  </p>
                 </div>
 
-                <label className="flex items-center gap-2 cursor-pointer pt-1">
+                <label className="flex items-center gap-2.5 cursor-pointer pt-1">
                   <input
                     type="checkbox"
                     checked={isDefault}
                     onChange={(e) => setIsDefault(e.target.checked)}
-                    className="rounded text-primary-600 focus:ring-primary-500"
+                    className="rounded text-primary-600 focus:ring-primary-500 h-4 w-4"
                   />
-                  <span className="text-xs font-medium text-primary-c">Set as Default Sending Provider</span>
+                  <span className="text-xs font-medium text-primary-c">Set as Default Sending Provider for campaigns</span>
                 </label>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-base-c">
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-base-c">
               <button
                 type="button"
-                onClick={handleTestConnection}
+                onClick={() => handleOpenTestModal()}
                 disabled={testing}
-                className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 disabled:opacity-50"
+                className="btn-secondary text-xs h-9 px-3.5 flex items-center gap-2 self-start"
               >
-                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                Test Connection
+                <Send className="h-3.5 w-3.5 text-indigo-500" />
+                <span>Test Connection</span>
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2.5 self-end">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAdding(false);
                     resetForm();
                   }}
-                  className="rounded-lg px-4 py-2.5 text-sm font-semibold text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800 transition-colors"
+                  className="btn-secondary text-xs h-9 px-4"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-lg bg-primary-600 px-6 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-primary-700 transition-colors disabled:opacity-50"
+                  className="btn-primary text-xs h-9 px-5 flex items-center gap-2"
                 >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  {editingId ? 'Update Provider' : 'Save Provider'}
+                  {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                  <span>{editingId ? 'Update Provider' : 'Save Provider'}</span>
                 </button>
               </div>
             </div>
@@ -657,18 +806,117 @@ export function EmailProvidersPanel() {
         </form>
       )}
 
-      {/* Security Note */}
-      <div className="flex items-start gap-3 rounded-xl bg-blue-50/50 border border-blue-500/20 p-4 mt-6">
-        <Shield className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
-        <div>
-          <h5 className="text-sm font-bold text-blue-900 dark:text-blue-300">Enterprise Security</h5>
-          <p className="text-xs font-medium text-blue-700/80 dark:text-blue-400/80 mt-1 leading-relaxed">
-            All provider credentials (API Keys, Passwords) are encrypted at rest using AES-256 before being stored in our database. 
-            They are never logged or exposed in raw format.
-          </p>
+      {/* ── Polished Enterprise Security Card ── */}
+      <div className="rounded-2xl border border-base-c bg-card-c p-5 shadow-xs transition-all">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <h5 className="text-sm font-bold text-primary-c">Enterprise Security & Encryption</h5>
+              <p className="text-xs text-secondary-c mt-1 max-w-2xl leading-relaxed">
+                All provider credentials (AWS IAM secret keys, Brevo API tokens, and SMTP passwords) are encrypted at rest using AES-256 before persistence. Credentials are never written to audit logs or exposed in raw format.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <Check className="w-3.5 h-3.5" /> AES-256 Encrypted
+            </span>
+          </div>
         </div>
       </div>
+
+      {/* ── Test Connection Modal ── */}
+      {testModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-base-c bg-card-c p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-base-c pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <Send className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-primary-c">Test Connection</h4>
+                  <p className="text-[11px] text-secondary-c">Send verification email via {testingProvider?.name || 'Provider'}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTestModalOpen(false)}
+                className="text-muted-c hover:text-primary-c p-1 rounded-lg"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {testModalError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300 font-medium">
+                {testModalError}
+              </div>
+            )}
+
+            {testModalSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-700 dark:text-emerald-300 font-medium">
+                {testModalSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleExecuteTest} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-primary-c mb-1.5">
+                  Recipient Email Address
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={testRecipientEmail}
+                  onChange={(e) => setTestRecipientEmail(e.target.value)}
+                  placeholder="test@yourcompany.com"
+                  className="form-input text-sm bg-card-c"
+                />
+                <p className="text-[11px] text-muted-c mt-1">
+                  A verification email will be dispatched to this inbox to validate authentication.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setTestModalOpen(false)}
+                  className="btn-secondary text-xs h-9 px-4"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={testing}
+                  className="btn-primary text-xs h-9 px-4 flex items-center gap-2"
+                >
+                  {testing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  <span>{testing ? 'Sending…' : 'Send Test'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Remove Provider Confirm Modal ── */}
+      <ConfirmModal
+        open={deleteModalOpen}
+        title="Remove Email Provider"
+        message={`Are you sure you want to remove provider "${deletingProvider?.name}"? Campaigns assigned to this provider will need to be reassigned.`}
+        confirmLabel="Remove Provider"
+        cancelLabel="Cancel"
+        variant="danger"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setDeletingProvider(null);
+        }}
+      />
     </div>
   );
 }
-

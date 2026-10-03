@@ -26,7 +26,7 @@ const FOLDER_PRESETS = [
   'Invoices & Receipts',
 ];
 
-export function GoogleDrivePanel() {
+export function GoogleDrivePanel({ embedded = false }: { embedded?: boolean } = {}) {
   const [activeTab, setActiveTab] = useState<'upload' | 'explorer' | 'security'>('upload');
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -213,11 +213,13 @@ export function GoogleDrivePanel() {
   return (
     <div className="space-y-6 max-w-5xl">
       {/* ── Header ── */}
-      <PanelHeader
-        title="Google Drive Storage Pipeline"
-        description="Enterprise cloud document storage with per-tenant isolation, sandboxed OAuth permissions, and direct document linking."
-        icon={<HardDrive className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
-      />
+      {!embedded && (
+        <PanelHeader
+          title="Google Drive Storage Pipeline"
+          description="Enterprise cloud document storage with per-tenant isolation, sandboxed OAuth permissions, and direct document linking."
+          icon={<HardDrive className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
+        />
+      )}
 
       {/* ── Security Architecture Pills ── */}
       <div className="flex flex-wrap items-center gap-2 pt-1">
