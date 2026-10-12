@@ -31,6 +31,7 @@ const TenantEntitlementsContext = createContext<TenantEntitlementsContextType>({
 const ROUTE_PAGE_MAP: Record<string, string> = {
   dashboard: 'PAGE_DASHBOARD',
   inbox: 'PAGE_INBOX',
+  calls: 'PAGE_INBOX',
   chatroom: 'PAGE_CHATROOM',
   pipeline: 'PAGE_PIPELINE',
   broadcasts: 'PAGE_BROADCASTS',

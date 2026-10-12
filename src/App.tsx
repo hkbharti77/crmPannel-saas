@@ -9,6 +9,7 @@ import { SessionManager } from '@/components/auth/SessionManager';
 import { AppShell } from '@/components/layout/AppShell';
 import { DashboardView } from '@/components/dashboard/DashboardView';
 import { InboxView } from '@/components/inbox/InboxView';
+import { CallsView } from '@/components/calling/CallsView';
 import { ChatRoomView } from '@/components/chatroom/ChatRoomView';
 import { PipelineView } from '@/components/pipeline/PipelineView';
 import { BroadcastsView } from '@/components/broadcasts/BroadcastsView';
@@ -68,7 +69,7 @@ function ProtectedRoute({
   allowPendingOnboarding?: boolean;
 }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
@@ -77,7 +78,7 @@ function ProtectedRoute({
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -139,10 +140,10 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
-        
+
         {/* Admin Routes */}
-        <Route 
-          path="/admin" 
+        <Route
+          path="/admin"
           element={
             <ProtectedRoute adminOnly>
               <AdminShell />
@@ -167,8 +168,8 @@ function AppContent() {
         </Route>
 
         {/* CRM Routes with Tenant Entitlement & User Permission Guards */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             <ProtectedRoute>
               <AppShell />
@@ -198,6 +199,14 @@ function AppContent() {
             element={
               <TenantRouteGuard pageKey="PAGE_INBOX" userPerm="MODULE_INBOX">
                 <InboxView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path="calls"
+            element={
+              <TenantRouteGuard pageKey="PAGE_INBOX" userPerm="MODULE_INBOX">
+                <CallsView />
               </TenantRouteGuard>
             }
           />
@@ -438,7 +447,7 @@ function AppContent() {
             }
           />
         </Route>
-        
+
         {/* Catch all */}
         <Route path="*" element={<NotFoundView />} />
       </Routes>

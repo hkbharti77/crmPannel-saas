@@ -26,14 +26,18 @@ import {
   Activity,
   ChevronRight,
   X,
+  PhoneCall,
 } from 'lucide-react';
 import { fetchContactById, toggleContactBot, updateContactConsent, updateContactTags, type ContactDTO } from '@/lib/contactsApi';
 import { apiFetch } from '@/lib/api';
 import { fetchLeadsByContactId, type LeadDTO } from '@/lib/leadsApi';
 import { fetchBookingsByContactId, type BookingDto } from '@/lib/bookingsApi';
 import { fetchAppointmentsByContactId, type AppointmentDto } from '@/lib/appointmentsApi';
+import { WhatsAppCallModal } from '@/components/calling/WhatsAppCallModal';
+import { CallsView } from '@/components/calling/CallsView';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
-type TabType = 'overview' | 'leads' | 'bookings' | 'appointments';
+type TabType = 'overview' | 'leads' | 'bookings' | 'appointments' | 'calls';
 
 export function ContactDetailView() {
   const { contactId } = useParams();
@@ -48,6 +52,7 @@ export function ContactDetailView() {
   const [appointments, setAppointments] = useState<AppointmentDto[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [savingTag, setSavingTag] = useState(false);
@@ -207,11 +212,12 @@ export function ContactDetailView() {
   const activeLeadsCount = leads.filter(l => l.status !== 'LOST' && l.status !== 'CLOSED').length;
   const upcomingAppointmentsCount = appointments.filter(a => a.status === 'BOOKED').length;
 
-  const tabs: { id: TabType; label: string; icon: typeof UserSquare; count?: number }[] = [
+  const tabs: { id: TabType; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
     { id: 'overview', label: 'Overview', icon: Activity },
     { id: 'leads', label: 'Leads Pipeline', icon: Target, count: leads.length },
     { id: 'bookings', label: 'Bookings', icon: ClipboardList, count: bookings.length },
     { id: 'appointments', label: 'Appointments', icon: Calendar, count: appointments.length },
+    { id: 'calls', label: 'AI Voice Calls', icon: WhatsAppIcon },
   ];
 
   const initials = contact.name 
@@ -340,7 +346,14 @@ export function ContactDetailView() {
               {contact.botPaused ? 'Resume AI Bot' : 'Pause AI Bot'}
             </button>
 
-            <button className="flex items-center gap-2 rounded-xl bg-gradient-accent px-5 py-2.5 text-xs font-bold text-white shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
+            <button
+              onClick={() => setIsCallModalOpen(true)}
+              className="flex items-center gap-2 rounded-xl bg-gradient-accent px-4 py-2.5 text-xs font-bold text-white shadow-soft transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+            >
+              <WhatsAppIcon className="h-4 w-4" /> Start AI Call
+            </button>
+
+            <button className="flex items-center gap-2 rounded-xl border border-base-c bg-card-c hover:bg-subtle-c px-4 py-2.5 text-xs font-bold text-primary-c shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
               <MessageSquare className="h-4 w-4" /> Open Live Chat
             </button>
           </div>
@@ -950,11 +963,27 @@ export function ContactDetailView() {
               </GlassCard>
             )}
 
+            {/* AI Calls Tab */}
+            {activeTab === 'calls' && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <CallsView contactId={contact.id} hideAnalyticsTab />
+              </div>
+            )}
+
           </div>
 
         </div>
 
       </div>
+
+      {/* WhatsApp Call Modal */}
+      <WhatsAppCallModal
+        isOpen={isCallModalOpen}
+        onClose={() => setIsCallModalOpen(false)}
+        contactId={contact.id}
+        contactName={contact.name || undefined}
+        phoneNumber={contact.phone || contact.waId || undefined}
+      />
 
     </div>
   );

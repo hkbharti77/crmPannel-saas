@@ -19,13 +19,16 @@ import {
   Store,
   Workflow,
   Bot,
+  PhoneCall,
   type LucideIcon,
 } from 'lucide-react';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
 export type ViewId =
   | 'dashboard'
   | 'demo'
   | 'inbox'
+  | 'calls'
   | 'chatroom'
   | 'pipeline'
   | 'broadcasts'
@@ -50,7 +53,7 @@ export type ViewId =
 export type NavItem = {
   id: ViewId;
   label: string;
-  icon: LucideIcon;
+  icon: LucideIcon | React.ComponentType<{ className?: string }>;
   badge?: number;
 };
 
@@ -58,6 +61,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'demo', label: 'Widget', icon: Bot },
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: 3 },
+  { id: 'calls', label: 'Calls', icon: WhatsAppIcon },
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone },
   { id: 'journeys', label: 'Automations', icon: Workflow },

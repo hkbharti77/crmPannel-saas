@@ -476,8 +476,8 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
               {step === 1
                 ? mode === 'login' ? 'Welcome back' : 'Create your account'
                 : step === 2
-                ? 'Enter verification code'
-                : 'Complete Business Setup'}
+                  ? 'Enter verification code'
+                  : 'Complete Business Setup'}
             </h2>
             <p className="mt-1.5 text-sm text-secondary-c">
               {step === 1
@@ -485,8 +485,8 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
                   ? 'Sign in to access your CRM dashboard'
                   : 'Get started with GyanVaniAi Connect CRM'
                 : step === 2
-                ? `We sent a 6-digit code to ${email}`
-                : 'Select your business niche & connect WhatsApp to start messaging leads.'}
+                  ? `We sent a 6-digit code to ${email}`
+                  : 'Select your business niche & connect WhatsApp to start messaging leads.'}
             </p>
           </div>
 

@@ -3,6 +3,7 @@ import { GlassCard, Badge } from '@/components/ui/primitives';
 import { Sparkline } from '@/components/ui/charts';
 import { cx } from '@/lib/types';
 import { fetchDashboardAggregate, type DashboardAggregateDTO } from '@/lib/dashboardApi';
+import { CallingAnalyticsPanel } from '@/components/calling/CallingAnalyticsPanel';
 import {
   TrendingUp,
   TrendingDown,
@@ -214,6 +215,11 @@ export function ReportsView() {
             </div>
           )}
         </GlassCard>
+      </div>
+
+      {/* WhatsApp AI Voice Agent Analytics Section */}
+      <div className="pt-4 border-t border-base-c/60">
+        <CallingAnalyticsPanel />
       </div>
     </div>
   );

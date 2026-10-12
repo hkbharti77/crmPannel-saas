@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 
 import { SendGmailModal } from '@/components/gmail/SendGmailModal';
+import { WhatsAppCallModal } from '@/components/calling/WhatsAppCallModal';
 
 type TabId = 'timeline' | 'notes' | 'files';
 
@@ -75,6 +76,7 @@ export function LeadDetailView() {
   const [showBookModal, setShowBookModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showGmailModal, setShowGmailModal] = useState(false);
+  const [showCallModal, setShowCallModal] = useState(false);
 
   const activeLeadId = lead?.id || leadId;
 
@@ -189,9 +191,7 @@ export function LeadDetailView() {
         if (aRes.data?.content) setActivities(aRes.data.content);
       });
     });
-    if (phone && phone !== 'N/A') {
-      window.location.href = `tel:${phone.replace(/\s+/g, '')}`;
-    }
+    setShowCallModal(true);
   };
 
   const handleChat = () => {
@@ -459,6 +459,16 @@ export function LeadDetailView() {
             });
           }
         }}
+      />
+
+      {/* WhatsApp Voice Agent Call Modal */}
+      <WhatsAppCallModal
+        isOpen={showCallModal}
+        onClose={() => setShowCallModal(false)}
+        contactId={lead?.contact?.id}
+        contactName={lead?.contact?.name || lead?.contact?.waId || lead?.leadNumber || 'Lead'}
+        phoneNumber={phone !== 'N/A' ? phone : undefined}
+        onCallCompleted={() => loadData()}
       />
     </div>
   );
