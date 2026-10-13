@@ -182,4 +182,129 @@ describe('CallDetailDrawer', () => {
       expect(screen.getByText('No conversation turns recorded')).toBeInTheDocument();
     });
   });
+
+  it('calls onClose when backdrop or close button is clicked', async () => {
+    const handleClose = vi.fn();
+    render(
+      <CallDetailDrawer
+        isOpen={true}
+        onClose={handleClose}
+        callId="wa_call_test_001"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Call Session Details')).toBeInTheDocument();
+    });
+
+    const backdrop = screen.getByTestId('call-detail-backdrop');
+    backdrop.click();
+    expect(handleClose).toHaveBeenCalledTimes(1);
+
+    const closeButton = screen.getByRole('button', { name: /close call details drawer/i });
+    closeButton.click();
+    expect(handleClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('calls onClose when Escape key is pressed', async () => {
+    const handleClose = vi.fn();
+    render(
+      <CallDetailDrawer
+        isOpen={true}
+        onClose={handleClose}
+        callId="wa_call_test_001"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Call Session Details')).toBeInTheDocument();
+    });
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(handleClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('locks body scroll when open and restores it when unmounted', async () => {
+    expect(document.body.style.overflow).toBe('');
+
+    const { unmount } = render(
+      <CallDetailDrawer
+        isOpen={true}
+        onClose={vi.fn()}
+        callId="wa_call_test_001"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Call Session Details')).toBeInTheDocument();
+    });
+
+    expect(document.body.style.overflow).toBe('hidden');
+
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
+  it('renders long call ID and copies it to clipboard on copy button click', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: writeTextMock,
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const longCallId = 'wa_call_prod_cluster_20261013_very_long_identifier_uuid_9948291048572019';
+
+    render(
+      <CallDetailDrawer
+        isOpen={true}
+        onClose={vi.fn()}
+        callId={longCallId}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTitle(longCallId)).toBeInTheDocument();
+    });
+
+    const copyBtn = screen.getByRole('button', { name: /copy call id/i });
+    copyBtn.click();
+
+    expect(writeTextMock).toHaveBeenCalledWith(longCallId);
+    await waitFor(() => {
+      expect(screen.getByText('Copied')).toBeInTheDocument();
+    });
+  });
+
+  it('renders active call badge with active state indicator', async () => {
+    (callingApi.fetchWhatsAppCallDetail as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
+      data: {
+        id: 'call-active-1',
+        callId: 'wa_call_active_001',
+        direction: 'USER_INITIATED',
+        fromWaId: '919876543210',
+        toWaId: '15551234567',
+        state: 'ACTIVE',
+        durationSeconds: 45,
+        codec: 'OPUS',
+        startedAt: '2026-10-10T10:00:00Z',
+      },
+    });
+
+    render(
+      <CallDetailDrawer
+        isOpen={true}
+        onClose={vi.fn()}
+        callId="wa_call_active_001"
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Active Call')).toBeInTheDocument();
+      expect(screen.getByText('Inbound User')).toBeInTheDocument();
+    });
+  });
 });
+
