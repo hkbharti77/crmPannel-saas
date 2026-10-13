@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-export type BroadcastStatus = 'sent' | 'scheduled' | 'draft' | 'failed' | 'completed' | 'running' | 'RUNNING' | 'SENT' | 'COMPLETED';
+export type BroadcastStatus = 'sent' | 'scheduled' | 'draft' | 'failed' | 'completed' | 'running' | 'RUNNING' | 'SENT' | 'COMPLETED' | 'cancelled' | 'CANCELLED';
 
 export type Broadcast = {
   id: string;
@@ -18,6 +18,7 @@ export type Broadcast = {
   recipients: number;
   status: BroadcastStatus;
   sentAt: string;
+  scheduledAt?: string;
   delivered: number;
   read: number;
   responded: number;
@@ -124,6 +125,18 @@ export const STATUS_META: Record<
     color: 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300',
     dot: 'bg-purple-500',
     icon: Clock,
+  },
+  cancelled: {
+    label: 'Cancelled',
+    color: 'bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400',
+    dot: 'bg-slate-400',
+    icon: AlertCircle,
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    color: 'bg-slate-100 text-slate-500 dark:bg-ink-800 dark:text-slate-400',
+    dot: 'bg-slate-400',
+    icon: AlertCircle,
   },
 };
 

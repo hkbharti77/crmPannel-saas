@@ -110,7 +110,7 @@ export async function fetchSmsCampaigns(businessId: string = 'default'): Promise
 
 export async function createSmsCampaign(campaign: { name: string; templateId?: string; providerId?: string; phoneNumbers: string[] }, businessId: string = 'default'): Promise<SmsCampaign> {
   const effectiveId = resolveActiveTenantId(businessId);
-  const res = await apiFetch<SmsCampaign>(`/api/v1/sms/campaigns?businessId=${encodeURIComponent(businessId)}`, {
+  const res = await apiFetch<SmsCampaign>(`/api/v1/sms/campaigns?businessId=${encodeURIComponent(effectiveId)}`, {
     method: 'POST',
     body: JSON.stringify(campaign),
   });
@@ -129,3 +129,27 @@ export async function triggerSmsCampaign(campaignId: string, businessId: string 
     throw new Error(res.error);
   }
 }
+
+export async function scheduleSmsCampaign(campaignId: string, scheduledAt: string, businessId: string = 'default'): Promise<SmsCampaign> {
+  const effectiveId = resolveActiveTenantId(businessId);
+  const res = await apiFetch<SmsCampaign>(`/api/v1/sms/campaigns/${campaignId}/schedule?businessId=${encodeURIComponent(effectiveId)}`, {
+    method: 'POST',
+    body: JSON.stringify({ scheduledAt }),
+  });
+  if (res.error || !res.data) {
+    throw new Error(res.error || 'Failed to schedule SMS campaign');
+  }
+  return res.data;
+}
+
+export async function cancelSmsCampaign(campaignId: string, businessId: string = 'default'): Promise<SmsCampaign> {
+  const effectiveId = resolveActiveTenantId(businessId);
+  const res = await apiFetch<SmsCampaign>(`/api/v1/sms/campaigns/${campaignId}/cancel?businessId=${encodeURIComponent(effectiveId)}`, {
+    method: 'POST',
+  });
+  if (res.error || !res.data) {
+    throw new Error(res.error || 'Failed to cancel SMS campaign');
+  }
+  return res.data;
+}
+

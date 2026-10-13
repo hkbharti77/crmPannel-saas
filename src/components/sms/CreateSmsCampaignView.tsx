@@ -30,6 +30,7 @@ import {
   fetchSmsTemplates,
   createSmsCampaign,
   triggerSmsCampaign,
+  scheduleSmsCampaign,
   sendSmsMessage,
 } from '@/lib/smsApi';
 import { fetchContacts } from '@/lib/contactsApi';
@@ -73,6 +74,11 @@ export function CreateSmsCampaignView() {
   // Execution state
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [dispatchMode, setDispatchMode] = useState<'IMMEDIATE' | 'SCHEDULED'>('IMMEDIATE');
+  const [scheduledDateTime, setScheduledDateTime] = useState<string>(() => {
+    const d = new Date(Date.now() + 60 * 60 * 1000);
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  });
 
   useEffect(() => {
     loadData();
@@ -175,6 +181,17 @@ export function CreateSmsCampaignView() {
       setCurrentStep(2);
       return;
     }
+    if (triggerNow && dispatchMode === 'SCHEDULED') {
+      if (!scheduledDateTime) {
+        setErrorMessage('Please select a scheduled date and time');
+        return;
+      }
+      const schedTime = new Date(scheduledDateTime).getTime();
+      if (schedTime <= Date.now() + 60000) {
+        setErrorMessage('Scheduled time must be at least 1 minute in the future');
+        return;
+      }
+    }
 
     setSubmitting(true);
     setErrorMessage(null);
@@ -188,12 +205,16 @@ export function CreateSmsCampaignView() {
       });
 
       if (triggerNow && campaign && campaign.id) {
-        await triggerSmsCampaign(campaign.id);
+        if (dispatchMode === 'SCHEDULED' && scheduledDateTime) {
+          await scheduleSmsCampaign(campaign.id, new Date(scheduledDateTime).toISOString());
+        } else {
+          await triggerSmsCampaign(campaign.id);
+        }
       }
 
       navigate('/sms');
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to create and launch SMS campaign');
+      setErrorMessage(err.message || 'Failed to create and dispatch SMS campaign');
     } finally {
       setSubmitting(false);
     }
@@ -702,6 +723,63 @@ export function CreateSmsCampaignView() {
               )}
             </div>
 
+            {/* Dispatch Timing & Scheduling Options */}
+            <div className="p-4 rounded-xl bg-subtle-c/60 border border-base-c space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-bold text-primary-c flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-indigo-500" /> Dispatch Timing & Scheduling
+                  </h4>
+                  <p className="text-[11px] text-muted-c mt-0.5">
+                    Choose whether to dispatch immediately or schedule via high-availability Quartz background triggers.
+                  </p>
+                </div>
+                <div className="inline-flex p-1 rounded-xl bg-card-c border border-base-c text-xs shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setDispatchMode('IMMEDIATE')}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                      dispatchMode === 'IMMEDIATE'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-secondary-c hover:text-primary-c'
+                    }`}
+                  >
+                    Send Immediately
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDispatchMode('SCHEDULED')}
+                    className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                      dispatchMode === 'SCHEDULED'
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-secondary-c hover:text-primary-c'
+                    }`}
+                  >
+                    Schedule for Later
+                  </button>
+                </div>
+              </div>
+
+              {dispatchMode === 'SCHEDULED' && (
+                <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 block">
+                      Target Execution Time (Quartz Clustered Trigger)
+                    </span>
+                    <span className="text-[11px] text-muted-c">
+                      Campaign will be held in SCHEDULED status until the specified timestamp.
+                    </span>
+                  </div>
+                  <input
+                    type="datetime-local"
+                    value={scheduledDateTime}
+                    onChange={(e) => setScheduledDateTime(e.target.value)}
+                    className="form-input text-xs font-mono max-w-xs bg-card-c text-primary-c border border-base-c rounded-xl px-3 py-2"
+                  />
+                </div>
+              )}
+            </div>
+
             {/* Launch Action Footer */}
             <div className="flex items-center justify-between pt-4 border-t border-base-c">
               <button
@@ -725,8 +803,16 @@ export function CreateSmsCampaignView() {
                   disabled={submitting}
                   className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 hover:scale-105 transition-all active:scale-95 disabled:opacity-50"
                 >
-                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  <span>Confirm & Launch SMS Broadcast</span>
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : dispatchMode === 'SCHEDULED' ? (
+                    <Clock className="w-4 h-4" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  <span>
+                    {dispatchMode === 'SCHEDULED' ? 'Schedule SMS Broadcast' : 'Confirm & Launch SMS Broadcast'}
+                  </span>
                 </button>
               </div>
             </div>

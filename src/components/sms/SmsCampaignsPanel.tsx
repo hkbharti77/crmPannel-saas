@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Send, Plus, Loader2, Play } from 'lucide-react';
+import { Send, Plus, Loader2, Play, Clock, XCircle, Calendar } from 'lucide-react';
 import { GlassCard } from '@/components/ui/primitives';
 import { SmsCampaign, SmsTemplate, MaskedSmsProvider } from '@/types/sms';
-import { fetchSmsCampaigns, createSmsCampaign, triggerSmsCampaign, fetchSmsTemplates, fetchSmsProviders } from '@/lib/smsApi';
+import {
+  fetchSmsCampaigns,
+  createSmsCampaign,
+  triggerSmsCampaign,
+  cancelSmsCampaign,
+  fetchSmsTemplates,
+  fetchSmsProviders,
+} from '@/lib/smsApi';
 
 export function SmsCampaignsPanel() {
   const navigate = useNavigate();
@@ -17,6 +24,7 @@ export function SmsCampaignsPanel() {
   const [modalOpen, setModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [triggeringId, setTriggeringId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -86,6 +94,21 @@ export function SmsCampaignsPanel() {
     }
   };
 
+  const handleCancelCampaign = async (id: string) => {
+    if (!confirm('Are you sure you want to cancel this scheduled SMS campaign? The Quartz background trigger will be unscheduled.')) {
+      return;
+    }
+    setCancellingId(id);
+    try {
+      await cancelSmsCampaign(id);
+      loadData();
+    } catch (err: unknown) {
+      alert((err as Error)?.message || 'Failed to cancel campaign');
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Action Sub-header */}
@@ -141,14 +164,19 @@ export function SmsCampaignsPanel() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <span
-                    className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase border ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-bold tracking-wider uppercase border ${
                       c.status === 'COMPLETED'
                         ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                         : c.status === 'PROCESSING'
                         ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 animate-pulse'
+                        : c.status === 'SCHEDULED'
+                        ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                        : c.status === 'CANCELLED'
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                         : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
                     }`}
                   >
+                    {c.status === 'SCHEDULED' && <Clock className="w-3 h-3 text-purple-500 shrink-0" />}
                     {c.status}
                   </span>
                   <span className="text-[11px] text-muted-c">
@@ -157,6 +185,13 @@ export function SmsCampaignsPanel() {
                 </div>
 
                 <h4 className="text-base font-bold text-primary-c mb-2">{c.name}</h4>
+
+                {c.status === 'SCHEDULED' && c.scheduledAt && (
+                  <div className="mb-3 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center gap-2 text-[11px] text-purple-700 dark:text-purple-300">
+                    <Clock className="w-3.5 h-3.5 shrink-0" />
+                    <span>Execution: {new Date(c.scheduledAt).toLocaleString()}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 gap-2 bg-base-c/40 border border-base-c p-3 rounded-xl text-center text-xs mb-4">
                   <div>
@@ -187,6 +222,27 @@ export function SmsCampaignsPanel() {
                   )}
                   Launch Campaign
                 </button>
+              )}
+
+              {c.status === 'SCHEDULED' && c.id && (
+                <button
+                  onClick={() => handleCancelCampaign(c.id!)}
+                  disabled={cancellingId === c.id}
+                  className="w-full py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                >
+                  {cancellingId === c.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4" />
+                  )}
+                  Cancel Scheduled Job
+                </button>
+              )}
+
+              {c.status === 'CANCELLED' && (
+                <div className="text-center py-1.5 text-[11px] font-medium text-rose-500/80">
+                  Cancelled {c.cancelledAt ? new Date(c.cancelledAt).toLocaleTimeString() : ''}
+                </div>
               )}
             </GlassCard>
           ))}

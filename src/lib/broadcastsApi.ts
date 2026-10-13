@@ -137,6 +137,27 @@ export async function scheduleCampaign(
   return { data: res.data || null, error: null };
 }
 
+export type UpdateCampaignPayload = {
+  name?: string;
+  templateId?: string;
+  variableMappingJson?: string;
+  scheduledAt?: string;
+};
+
+export async function updateCampaign(
+  campaignId: string,
+  payload: UpdateCampaignPayload
+): Promise<{ data: WhatsAppCampaignDto | null; error: string | null }> {
+  const res = await apiFetch<WhatsAppCampaignDto>(`/api/v1/whatsapp/campaigns/${campaignId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
 export async function pauseCampaign(
   campaignId: string
 ): Promise<{ data: WhatsAppCampaignDto | null; error: string | null }> {

@@ -42,11 +42,14 @@ export interface SmsCampaign {
   name: string;
   templateId?: string;
   providerId?: string;
-  status?: 'DRAFT' | 'SCHEDULED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  status?: 'DRAFT' | 'SCHEDULED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   totalRecipients?: number;
   deliveredCount?: number;
   failedCount?: number;
   scheduledAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  cancelledAt?: string;
   createdAt?: string;
 }
 

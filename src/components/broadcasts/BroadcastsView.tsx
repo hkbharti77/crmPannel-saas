@@ -48,12 +48,14 @@ import {
   Edit3,
   TrendingUp,
   Sparkles,
-  BarChart3,
   X,
   ShieldCheck,
   Zap,
+  Clock,
+  Calendar,
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
+import { EditBroadcastModal } from './EditBroadcastModal';
 
 type FilterStatus = BroadcastStatus | 'ALL';
 type MainTab = 'broadcasts' | 'templates';
@@ -142,6 +144,7 @@ export function BroadcastsView() {
           channel: 'whatsapp',
           status: (c.status?.toLowerCase() as Broadcast['status']) || 'sent',
           sentAt: c.createdAt ? new Date(c.createdAt).toLocaleString() : 'Recently',
+          scheduledAt: c.scheduleTime,
           delivered: c.deliveredCount || 0,
           read: c.readCount || 0,
           responded: c.failedCount || 0,
@@ -226,6 +229,33 @@ export function BroadcastsView() {
       title: 'ALL broadcast campaigns',
       isAll: true,
     });
+  };
+
+  const [cancelCampaignConfirm, setCancelCampaignConfirm] = useState<{
+    isOpen: boolean;
+    id: string;
+    title: string;
+  }>({ isOpen: false, id: '', title: '' });
+
+  const [editingBroadcast, setEditingBroadcast] = useState<Broadcast | null>(null);
+
+  const handleCancelSchedule = (id: string) => {
+    const camp = broadcasts.find((b) => b.id === id);
+    setCancelCampaignConfirm({
+      isOpen: true,
+      id,
+      title: camp ? camp.title : 'this campaign',
+    });
+  };
+
+  const confirmCancelCampaign = async () => {
+    const { id } = cancelCampaignConfirm;
+    setCancelCampaignConfirm({ isOpen: false, id: '', title: '' });
+    if (!id) return;
+    const res = await cancelCampaign(id);
+    if (!res.error) {
+      loadData();
+    }
   };
 
   const confirmDeleteCampaign = async () => {
@@ -447,6 +477,8 @@ export function BroadcastsView() {
                 <BroadcastDetail
                   broadcast={selected}
                   onDelete={() => handleDelete(selected.id)}
+                  onEdit={() => setEditingBroadcast(selected)}
+                  onCancelSchedule={() => handleCancelSchedule(selected.id)}
                 />
               ) : (
                 <GlassCard className="flex flex-col items-center justify-center py-24 text-center min-h-[450px]">
@@ -492,6 +524,26 @@ export function BroadcastsView() {
         variant="danger"
         onConfirm={confirmDeleteTemplate}
         onCancel={() => setDeleteConfirmState({ isOpen: false, templateName: '' })}
+      />
+
+      {/* Cancel Scheduled Campaign Confirmation Modal */}
+      <ConfirmModal
+        isOpen={cancelCampaignConfirm.isOpen}
+        title="Cancel Scheduled Broadcast"
+        message={`Are you sure you want to cancel "${cancelCampaignConfirm.title}"? This will unschedule the Quartz distributed job trigger immediately and prevent messages from being dispatched.`}
+        confirmText="Cancel Broadcast"
+        variant="danger"
+        onConfirm={confirmCancelCampaign}
+        onCancel={() => setCancelCampaignConfirm({ isOpen: false, id: '', title: '' })}
+      />
+
+      {/* Edit / Reschedule Broadcast Modal */}
+      <EditBroadcastModal
+        isOpen={!!editingBroadcast}
+        broadcast={editingBroadcast}
+        templates={templates}
+        onClose={() => setEditingBroadcast(null)}
+        onUpdated={loadData}
       />
     </div>
   );
@@ -921,7 +973,13 @@ function BroadcastListItem({
 
       <div className="mt-2.5 flex items-center justify-between border-t border-base-c pt-2 text-[10px] text-muted-c">
         <span>{broadcast.recipients} Recipients</span>
-        <span>{broadcast.sentAt}</span>
+        {broadcast.status === 'scheduled' && broadcast.scheduledAt ? (
+          <span className="flex items-center gap-1 font-semibold text-primary-600 dark:text-primary-400">
+            <Clock className="h-3 w-3" /> {new Date(broadcast.scheduledAt).toLocaleString()}
+          </span>
+        ) : (
+          <span>{broadcast.sentAt}</span>
+        )}
       </div>
     </div>
   );
@@ -930,15 +988,23 @@ function BroadcastListItem({
 function BroadcastDetail({
   broadcast,
   onDelete,
+  onEdit,
+  onCancelSchedule,
 }: {
   broadcast: Broadcast;
   onDelete: () => void;
+  onEdit?: () => void;
+  onCancelSchedule?: () => void;
 }) {
   const statusMeta = (broadcast?.status && STATUS_META[broadcast.status])
     || (broadcast?.status && STATUS_META[broadcast.status.toLowerCase()])
     || DEFAULT_STATUS_META;
   const colorClass = statusMeta?.color || 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300';
   const labelText = statusMeta?.label || broadcast?.status || 'Broadcast';
+
+  const isScheduled = broadcast.status?.toLowerCase() === 'scheduled';
+  const isDraft = broadcast.status?.toLowerCase() === 'draft';
+  const isEditable = isScheduled || isDraft;
 
   const deliveryRate = broadcast.recipients ? Math.round((broadcast.delivered / broadcast.recipients) * 100) : 0;
   const readRate = broadcast.delivered ? Math.round((broadcast.read / broadcast.delivered) * 100) : 0;
@@ -957,13 +1023,45 @@ function BroadcastDetail({
           <h3 className="mt-1.5 text-lg font-bold text-primary-c">{broadcast.title}</h3>
           <p className="mt-0.5 text-xs text-secondary-c">Target Segment: <strong className="font-semibold text-primary-c">{broadcast.audience}</strong></p>
         </div>
-        <button
-          onClick={onDelete}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete Campaign
-        </button>
+        <div className="flex items-center gap-2">
+          {isEditable && onEdit && (
+            <button
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3 py-1.5 text-xs font-bold text-primary-600 dark:text-primary-400 hover:bg-primary-500/20 transition-all cursor-pointer"
+            >
+              <Edit3 className="h-3.5 w-3.5" /> {isScheduled ? 'Reschedule' : 'Edit'}
+            </button>
+          )}
+          {isScheduled && onCancelSchedule && (
+            <button
+              onClick={onCancelSchedule}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer"
+            >
+              <X className="h-3.5 w-3.5" /> Cancel Schedule
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-all cursor-pointer"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+        </div>
       </div>
+
+      {/* Scheduled Execution Banner */}
+      {isScheduled && broadcast.scheduledAt && (
+        <div className="flex items-center gap-3 rounded-2xl border border-primary-500/30 bg-primary-500/10 p-3.5 text-xs text-primary-700 dark:text-primary-300">
+          <Clock className="h-5 w-5 shrink-0 text-primary-500 animate-pulse" />
+          <div className="flex-1">
+            <span className="font-bold">Scheduled Execution Time: </span>
+            <span className="font-semibold">{new Date(broadcast.scheduledAt).toLocaleString()}</span>
+            <p className="text-[11px] text-secondary-c mt-0.5">
+              Managed by Quartz distributed scheduler cluster. Message queue dispatches automatically at this time.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Delivery & Read Rates Metrics Card */}
       <div className="grid grid-cols-3 gap-3">

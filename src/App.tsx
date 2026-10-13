@@ -10,6 +10,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { DashboardView } from '@/components/dashboard/DashboardView';
 import { InboxView } from '@/components/inbox/InboxView';
 import { CallsView } from '@/components/calling/CallsView';
+import { VoiceDashboardView } from '@/components/voice/VoiceDashboardView';
 import { ChatRoomView } from '@/components/chatroom/ChatRoomView';
 import { PipelineView } from '@/components/pipeline/PipelineView';
 import { BroadcastsView } from '@/components/broadcasts/BroadcastsView';
@@ -207,6 +208,22 @@ function AppContent() {
             element={
               <TenantRouteGuard pageKey="PAGE_INBOX" userPerm="MODULE_INBOX">
                 <CallsView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path="voice"
+            element={
+              <TenantRouteGuard pageKey="PAGE_INBOX" userPerm="MODULE_INBOX">
+                <VoiceDashboardView />
+              </TenantRouteGuard>
+            }
+          />
+          <Route
+            path="voice/calls/:callId"
+            element={
+              <TenantRouteGuard pageKey="PAGE_INBOX" userPerm="MODULE_INBOX">
+                <VoiceDashboardView />
               </TenantRouteGuard>
             }
           />

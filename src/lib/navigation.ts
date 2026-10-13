@@ -61,7 +61,7 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'demo', label: 'Widget', icon: Bot },
   { id: 'inbox', label: 'Inbox', icon: MessageSquare, badge: 3 },
-  { id: 'calls', label: 'Calls', icon: WhatsAppIcon },
+  { id: 'calls', label: 'Voice AI', icon: PhoneCall },
   { id: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
   { id: 'broadcasts', label: 'Broadcasts', icon: Megaphone },
   { id: 'journeys', label: 'Automations', icon: Workflow },
