@@ -520,8 +520,8 @@ export function OnboardingScreen() {
                     isCurrent
                       ? 'border-primary-500 bg-primary-50/50 dark:bg-primary-950/30'
                       : isCompleted
-                      ? 'border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-80'
-                      : 'border-base-c bg-card-c opacity-50'
+                        ? 'border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/10 opacity-80'
+                        : 'border-base-c bg-card-c opacity-50'
                   )}
                 >
                   <div
@@ -530,8 +530,8 @@ export function OnboardingScreen() {
                       isCurrent
                         ? 'bg-primary-600 text-white'
                         : isCompleted
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-slate-200 dark:bg-ink-800 text-secondary-c'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-200 dark:bg-ink-800 text-secondary-c'
                     )}
                   >
                     {isCompleted ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5" />}
@@ -936,7 +936,7 @@ export function OnboardingScreen() {
                   <input
                     type="checkbox"
                     checked={consentMessages}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     className="mt-0.5 rounded border-base-c text-primary-600 focus:ring-primary-500 h-4 w-4"
                   />
                   <div>
@@ -962,7 +962,7 @@ export function OnboardingScreen() {
                   <input
                     type="checkbox"
                     checked={consentData}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     className="mt-0.5 rounded border-base-c text-primary-600 focus:ring-primary-500 h-4 w-4"
                   />
                   <div>

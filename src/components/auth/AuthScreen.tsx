@@ -9,7 +9,7 @@ import {
   Mail, KeyRound, User, ArrowRight, Sun, Moon,
   Building2, MessageSquare, TrendingUp, Calendar, Shield, RefreshCw, Edit2,
   Phone, Tag, CheckCircle2, Check, Sparkles,
-  AlertCircle, UserPlus, LogIn
+  AlertCircle, UserPlus, LogIn, Star, Zap, Bot, ArrowUpRight
 } from 'lucide-react';
 
 type Mode = 'login' | 'signup';
@@ -46,7 +46,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   const { theme, toggleTheme } = useTheme();
 
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [step, setStep] = useState<1 | 2 | 3>(1); // 1 = Input Info, 2 = Verify OTP, 3 = Business & WhatsApp Setup (Same Card)
+  const [step, setStep] = useState<1 | 2 | 3>(1); // 1 = Input Info, 2 = Verify OTP, 3 = Business & WhatsApp Setup
 
   // Step 1 Inputs
   const [email, setEmail] = useState('');
@@ -249,7 +249,6 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
       if (isSuper) {
         navigate('/admin', { replace: true });
       } else if (storedUser?.onboardingCompleted === false) {
-        // Smooth in-place transition to Step 3 on the SAME screen card!
         setStep(3);
         setInfoMessage('Account verified! Let’s complete your business & WhatsApp setup.');
       } else {
@@ -339,635 +338,800 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-base-c">
-      {/* Left panel — branding / showcase */}
-      <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-primary-600 via-primary-700 to-secondary-700 p-12 lg:flex">
-        {/* Decorative glow */}
-        <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-32 -left-20 h-96 w-96 rounded-full bg-secondary-400/20 blur-3xl" />
+    <div className="relative flex h-screen max-h-screen w-screen overflow-hidden bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 antialiased selection:bg-blue-600/30 selection:text-white">
+      {/* Background ambient lighting */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-blue-600/15 via-indigo-600/10 to-transparent blur-3xl dark:from-blue-600/20 dark:via-indigo-500/10" />
+        <div className="absolute top-1/2 -right-32 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-purple-600/15 via-pink-600/10 to-transparent blur-3xl dark:from-purple-600/20 dark:via-pink-500/10" />
+      </div>
 
-        {/* Logo */}
-        <div className="relative flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center">
-            <img src="https://www.gyanvaniai.online/logo.webp" alt="Logo" className="h-full w-full object-contain" />
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* Left panel — Modern Brand Showcase with UK Representative Photo */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="relative hidden w-1/2 h-full max-h-screen flex-col justify-between overflow-hidden border-r border-slate-200/60 dark:border-slate-800/60 bg-gradient-to-br from-slate-900 via-[#0d162b] to-[#121c38] p-6 xl:p-8 text-white lg:flex">
+        {/* Subtle grid pattern overlay */}
+        <div 
+          className="pointer-events-none absolute inset-0 opacity-[0.03] dark:opacity-[0.06]"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
+            backgroundSize: '20px 20px',
+          }}
+        />
+
+        {/* Ambient glow spots */}
+        <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-8 right-0 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+
+        {/* Top bar: Brand identity & live status */}
+        <div className="relative z-10 flex shrink-0 items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 p-1.5 backdrop-blur-md border border-white/15 shadow-inner">
+              <img
+                src="https://www.gyanvaniai.online/logo.webp"
+                alt="GyanVani AI Logo"
+                className="h-full w-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <Bot className="h-5 w-5 text-blue-400" />
+            </div>
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="text-lg font-black tracking-tight text-white leading-tight">GyanVani AI</span>
+                <span className="rounded-full bg-blue-500/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-300 border border-blue-400/30 leading-none">
+                  Connect CRM
+                </span>
+              </div>
+              <span className="text-[10px] font-medium tracking-wide text-slate-400 leading-tight">
+                WhatsApp Coexistence & AI Voice Engine
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col justify-center">
-            <h2 className="text-xl font-extrabold tracking-tight text-white leading-tight">
-              GyanVani AI
-            </h2>
-            <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-white/70 leading-none mt-1">
-              Connect
-            </span>
+
+          <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300 backdrop-blur-md">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+            <span>AI Voice & WhatsApp Live</span>
           </div>
         </div>
 
-        {/* Hero text */}
-        <div className="relative max-w-md">
-          <h1 className="text-4xl font-bold leading-tight text-white">
-            Close more deals.<br />Convert more leads.
-          </h1>
-          <p className="mt-4 text-base text-white/80">
-            The all-in-one real estate CRM with WhatsApp Coexistence, automated AI lead capture, and appointment booking — built for Indian realty.
-          </p>
+        {/* Central showcase card: High-Fashion UK Female Representative */}
+        <div className="relative z-10 my-auto py-2">
+          <div className="relative mx-auto max-w-sm xl:max-w-md">
+            {/* Ambient halo around card */}
+            <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 opacity-25 blur-lg animate-pulse-slow" />
 
-          {/* Feature pills */}
-          <div className="mt-8 grid grid-cols-2 gap-3 text-sm text-white/90">
-            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md px-3.5 py-2.5">
-              <MessageSquare className="h-4 w-4 text-emerald-300" />
-              <span>WhatsApp Coexistence</span>
+            <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-slate-900/70 p-2.5 shadow-2xl backdrop-blur-xl">
+              {/* Representative Image Container (Compact 16:9 / 200px) */}
+              <div className="relative h-40 xl:h-48 w-full overflow-hidden rounded-xl bg-slate-800">
+                <img
+                  src="/assets/auth/uk_rep.jpg"
+                  alt="Charlotte Davies - Client Growth Representative"
+                  className="h-full w-full object-cover object-top transition-transform duration-700 hover:scale-105"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/representative.jpg';
+                  }}
+                />
+
+                {/* Subtle gradient overlay on bottom of image for readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
+
+                {/* Floating Top-Left Status Pill */}
+                <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-lg bg-slate-900/80 px-2.5 py-1 text-[10px] font-semibold text-white shadow-md backdrop-blur-md border border-white/15">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span>Verified Representative</span>
+                  <span className="text-[9px] text-blue-300 font-bold bg-blue-500/20 px-1 py-0.2 rounded">UK 24/7</span>
+                </div>
+
+                {/* Floating Top-Right conversion chip */}
+                <div className="absolute top-2.5 right-2.5 flex items-center gap-1 rounded-lg bg-emerald-500/90 px-2.5 py-1 text-[10px] font-bold text-white shadow-md backdrop-blur-md">
+                  <TrendingUp className="h-3 w-3" />
+                  <span>+340% Conversions</span>
+                </div>
+
+                {/* Bottom Overlay Info on the Image */}
+                <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img
+                      src="/assets/auth/uk_avatar.jpg"
+                      alt="Charlotte Davies"
+                      className="h-8 w-8 rounded-full border border-white/80 object-cover shadow-sm"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                    <div>
+                      <h4 className="text-xs font-bold text-white leading-tight">Charlotte Davies</h4>
+                      <p className="text-[10px] text-slate-300 leading-none mt-0.5">Senior Growth & Client Engagement · London</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 rounded-md bg-white/15 px-2 py-0.5 text-[10px] font-bold text-amber-300 backdrop-blur-md border border-white/20">
+                    <Star className="h-3 w-3 fill-amber-300 text-amber-300" />
+                    <span>4.9 / 5.0</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Compact Quote Box */}
+              <div className="mt-2 rounded-lg bg-white/5 px-3 py-2 border border-white/10 backdrop-blur-sm">
+                <p className="text-[11px] italic leading-snug text-slate-200">
+                  "GyanVani AI transformed client engagement. WhatsApp Coexistence & AI Voice handle inquiries around the clock with zero lead leakage."
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md px-3.5 py-2.5">
-              <Sparkles className="h-4 w-4 text-amber-300" />
-              <span>AI Lead Qualification</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md px-3.5 py-2.5">
-              <TrendingUp className="h-4 w-4 text-blue-300" />
-              <span>Pipeline & Deals</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-xl bg-white/10 backdrop-blur-md px-3.5 py-2.5">
-              <Calendar className="h-4 w-4 text-purple-300" />
-              <span>Site Visits & Booking</span>
+
+            {/* Feature Pills under image (Compact 2x2 grid) */}
+            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 backdrop-blur-md">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate text-[11px]">WhatsApp Coexistence</p>
+                  <p className="text-[9px] text-slate-400 truncate">Keeps mobile app active</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 backdrop-blur-md">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-500/20 text-blue-400">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate text-[11px]">AI Voice Calling</p>
+                  <p className="text-[9px] text-slate-400 truncate">Instant voice follow-ups</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 backdrop-blur-md">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-purple-500/20 text-purple-400">
+                  <Zap className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate text-[11px]">Instant Lead Capture</p>
+                  <p className="text-[9px] text-slate-400 truncate">Automated CRM sync</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 backdrop-blur-md">
+                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-400">
+                  <Calendar className="h-3.5 w-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-white truncate text-[11px]">Smart Site Visits</p>
+                  <p className="text-[9px] text-slate-400 truncate">Direct appointments</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Testimonial */}
-        <div className="relative rounded-2xl bg-white/10 p-5 backdrop-blur-md border border-white/10">
-          <p className="text-sm italic text-white/90">
-            "With WhatsApp Coexistence, our team handles real estate leads on mobile and CRM seamlessly without account conflicts!"
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-xs font-bold text-white">
-              AK
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-white">Arjun Kapoor</p>
-              <p className="text-[11px] text-white/70">Principal Broker, Luxe Estates</p>
-            </div>
+        {/* Bottom trust footer */}
+        <div className="relative z-10 flex shrink-0 items-center justify-between border-t border-white/10 pt-3 text-[10px] text-slate-400">
+          <div className="flex items-center gap-1.5">
+            <Shield className="h-3 w-3 text-blue-400" />
+            <span>Meta Official Tech Provider · 256-Bit SSL Secured</span>
           </div>
+          <span>v2.4 Enterprise</span>
         </div>
       </div>
 
-      {/* Right panel — Unified Auth & Same-Screen Setup Card */}
-      <div className="flex w-full flex-col justify-center px-6 py-12 lg:w-1/2 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-md">
-          {/* Mobile logo & theme switch */}
-          <div className="mb-8 flex items-center justify-between lg:justify-end">
-            <div className="flex items-center gap-2 lg:hidden">
-              <div className="flex h-9 w-9 items-center justify-center">
-                <img src="https://www.gyanvaniai.online/logo.webp" alt="Logo" className="h-full w-full object-contain" />
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* Right panel — Unified Auth Form Card (Strict 100vh Fit) */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="relative flex w-full h-full max-h-screen flex-col justify-center items-center overflow-y-auto px-4 py-4 sm:px-6 md:px-8 lg:w-1/2 lg:px-8 xl:px-14 scrollbar-none">
+        <div className="my-auto w-full max-w-[420px] py-2">
+          {/* Top Bar on Mobile & Desktop: Brand and Theme Toggle */}
+          <div className="mb-3 flex items-center justify-between">
+            {/* Mobile Brand Header */}
+            <div className="flex items-center gap-2.5 lg:hidden">
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-600 p-1 text-white shadow-sm">
+                <img
+                  src="https://www.gyanvaniai.online/logo.webp"
+                  alt="GyanVani AI Logo"
+                  className="h-full w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+                <Bot className="h-4 w-4" />
               </div>
-              <div className="flex flex-col">
-                <span className="text-base font-bold text-primary-c">GyanVaniAi</span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400">
-                  Connect
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                  GyanVani AI
+                </h3>
+                <span className="text-[9px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  Connect CRM
                 </span>
               </div>
             </div>
+
+            {/* Desktop spacer if hidden */}
+            <div className="hidden lg:block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              Enterprise Portal
+            </div>
+
+            {/* Theme Toggle Button */}
             <button
               onClick={toggleTheme}
-              className="grid h-9 w-9 place-items-center rounded-lg text-secondary-c transition-colors hover:bg-slate-100 hover:text-primary-c dark:hover:bg-ink-800 dark:hover:text-white"
+              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 shadow-xs transition-all hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 cursor-pointer"
               aria-label="Toggle theme"
             >
-              {theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
+              {theme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
             </button>
           </div>
 
-          {/* Session expired banner */}
-          {sessionExpiredBanner && (
-            <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/30 dark:bg-amber-500/10">
-              <Shield className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-              <div>
-                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Session expired</p>
-                <p className="text-xs text-amber-600 dark:text-amber-500">Your session has expired. Please sign in again to continue.</p>
+          {/* Mobile Representative Preview Banner (Compact) */}
+          <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-blue-500/20 bg-blue-50/70 p-2 dark:border-blue-500/30 dark:bg-blue-950/30 backdrop-blur-md lg:hidden">
+            <img
+              src="/assets/auth/uk_avatar.jpg"
+              alt="Charlotte Davies"
+              className="h-8 w-8 shrink-0 rounded-full border border-blue-500/40 object-cover"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] font-bold text-slate-900 dark:text-white">Charlotte Davies</span>
+                <span className="rounded bg-blue-600 px-1 py-0.2 text-[8px] font-bold text-white uppercase">UK Rep</span>
               </div>
+              <p className="text-[10px] text-slate-600 dark:text-slate-300 truncate">
+                AI Voice & WhatsApp Coexistence CRM
+              </p>
             </div>
-          )}
-
-          {/* Step Progress Indicator (Only for Sign Up / Onboarding Flow) */}
-          {(mode === 'signup' || step === 3) && (
-            <div className="mb-6 flex items-center justify-between gap-2 border-b border-base-c pb-4">
-              <div className={cx("flex items-center gap-1.5 text-xs font-bold", step >= 1 ? "text-primary-600 dark:text-primary-400" : "text-muted-c")}>
-                <span className={cx("flex h-5 w-5 items-center justify-center rounded-full text-[10px]", step > 1 ? "bg-emerald-500 text-white" : step === 1 ? "bg-primary-600 text-white" : "bg-slate-200 dark:bg-ink-800")}>
-                  {step > 1 ? <Check className="h-3 w-3" /> : '1'}
-                </span>
-                <span>Profile</span>
-              </div>
-              <div className="h-0.5 flex-1 bg-base-c" />
-              <div className={cx("flex items-center gap-1.5 text-xs font-bold", step >= 2 ? "text-primary-600 dark:text-primary-400" : "text-muted-c")}>
-                <span className={cx("flex h-5 w-5 items-center justify-center rounded-full text-[10px]", step > 2 ? "bg-emerald-500 text-white" : step === 2 ? "bg-primary-600 text-white" : "bg-slate-200 dark:bg-ink-800")}>
-                  {step > 2 ? <Check className="h-3 w-3" /> : '2'}
-                </span>
-                <span>Verify</span>
-              </div>
-              <div className="h-0.5 flex-1 bg-base-c" />
-              <div className={cx("flex items-center gap-1.5 text-xs font-bold", step >= 3 ? "text-primary-600 dark:text-primary-400" : "text-muted-c")}>
-                <span className={cx("flex h-5 w-5 items-center justify-center rounded-full text-[10px]", step === 3 ? "bg-primary-600 text-white" : "bg-slate-200 dark:bg-ink-800")}>
-                  3
-                </span>
-                <span>Setup & WhatsApp</span>
-              </div>
-            </div>
-          )}
-
-          {/* Heading */}
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold tracking-tight text-primary-c">
-              {step === 1
-                ? mode === 'login' ? 'Welcome back' : 'Create your account'
-                : step === 2
-                  ? 'Enter verification code'
-                  : 'Complete Business Setup'}
-            </h2>
-            <p className="mt-1.5 text-sm text-secondary-c">
-              {step === 1
-                ? mode === 'login'
-                  ? 'Sign in to access your CRM dashboard'
-                  : 'Get started with GyanVaniAi Connect CRM'
-                : step === 2
-                  ? `We sent a 6-digit code to ${email}`
-                  : 'Select your business niche & connect WhatsApp to start messaging leads.'}
-            </p>
           </div>
 
-          {/* Mode tabs (only on Step 1) */}
-          {step === 1 && (
-            <div className="mb-6 flex rounded-xl border border-base-c bg-card-c p-1">
-              <button
-                type="button"
-                onClick={() => switchMode('login')}
-                className={cx(
-                  'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
-                  mode === 'login'
-                    ? 'bg-gradient-accent text-white shadow-soft'
-                    : 'text-secondary-c hover:text-primary-c',
-                )}
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={() => switchMode('signup')}
-                className={cx(
-                  'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
-                  mode === 'signup'
-                    ? 'bg-gradient-accent text-white shadow-soft'
-                    : 'text-secondary-c hover:text-primary-c',
-                )}
-              >
-                Sign Up
-              </button>
-            </div>
-          )}
-
-          {/* Status Messages & Interactive Guidance Banners */}
-          {sessionExpiredBanner && (
-            <div className="mb-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 dark:border-amber-400/30 dark:bg-amber-950/30 animate-slide-down shadow-xs">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    Session Expired
-                  </h4>
-                  <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
-                    Your login session has expired for security reasons. Please enter your email to log back in to your CRM workspace.
-                  </p>
+          {/* Main Card Container */}
+          <div className="relative rounded-2xl border border-slate-200/80 bg-white/95 p-5 sm:p-6 shadow-xl backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-900/95 dark:shadow-2xl">
+            {/* Session Expired Banner */}
+            {sessionExpiredBanner && (
+              <div className="mb-3 flex items-start gap-2.5 rounded-xl border border-amber-300/60 bg-amber-50/90 p-2.5 dark:border-amber-500/30 dark:bg-amber-950/40 animate-slide-down">
+                <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-[11px]">
+                  <p className="font-bold text-amber-900 dark:text-amber-300">Session expired</p>
+                  <p className="mt-0.5 text-amber-700 dark:text-amber-400">Please verify your email to log back in to your CRM workspace.</p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {infoMessage && (
-            <div className="mb-4 rounded-xl border border-primary-500/30 bg-primary-500/10 px-3.5 py-2.5 text-xs font-medium text-primary-600 dark:text-primary-400 animate-slide-down">
-              {infoMessage}
-            </div>
-          )}
-
-          {errorCode === 'ACCOUNT_NOT_FOUND' ? (
-            <div className="mb-5 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 dark:border-amber-400/30 dark:bg-amber-950/30 animate-slide-down shadow-xs">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                    No Workspace Found
-                  </h4>
-                  <p className="mt-1 text-xs text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
-                    We couldn't find a CRM workspace associated with this email. Create an account to set up your business workspace and get started.
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        switchMode('signup');
-                        setError(null);
-                        setErrorCode(null);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft transition-all cursor-pointer"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" />
-                      <span>Create Account &rarr;</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : errorCode === 'ACCOUNT_ALREADY_EXISTS' ? (
-            <div className="mb-5 rounded-2xl border border-blue-500/40 bg-blue-500/10 p-4 dark:border-blue-400/30 dark:bg-blue-950/30 animate-slide-down shadow-xs">
-              <div className="flex items-start gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/20 text-blue-600 dark:text-blue-400">
-                  <AlertCircle className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                    Account Already Registered
-                  </h4>
-                  <p className="mt-1 text-xs text-blue-800/90 dark:text-blue-300/90 leading-relaxed">
-                    An active account is already registered with <strong className="font-semibold">{email || 'this email'}</strong>. Please sign in to access your CRM dashboard.
-                  </p>
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        switchMode('login');
-                        setError(null);
-                        setErrorCode(null);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-soft transition-all cursor-pointer"
-                    >
-                      <LogIn className="h-3.5 w-3.5" />
-                      <span>Sign In to Your Account</span>
-                      <ArrowRight className="h-3.5 w-3.5 ml-0.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : error ? (
-            <div className="mb-4 rounded-xl border border-danger-500/30 bg-danger-500/10 px-3.5 py-2.5 text-xs font-medium text-danger-600 dark:text-danger-400 animate-slide-down">
-              {error}
-            </div>
-          ) : null}
-
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* STEP 1 FORM: Email, Name, Business Name, Mobile */}
-          {/* ───────────────────────────────────────────────────────────── */}
-          {step === 1 && (
-            <form onSubmit={handleRequestOtp} className="space-y-4">
-              {mode === 'signup' && (
-                <>
-                  <InputField
-                    icon={User}
-                    label="Full Name"
-                    type="text"
-                    value={name}
-                    onChange={setName}
-                    placeholder="Arjun Kapoor"
-                    autoComplete="name"
-                    required
-                  />
-                  <InputField
-                    icon={Building2}
-                    label="Business / Agency Name (Optional)"
-                    type="text"
-                    value={businessName}
-                    onChange={setBusinessName}
-                    placeholder="Luxe Estates"
-                    autoComplete="organization"
-                  />
-                  <div>
-                    <label className="mb-1.5 block text-xs font-medium text-secondary-c">
-                      Mobile Number (Optional)
-                    </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-c" />
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                        placeholder="9876543210"
-                        className="form-input pl-10"
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <InputField
-                icon={Mail}
-                label="Email Address"
-                type="email"
-                value={email}
-                onChange={setEmail}
-                placeholder="you@example.com"
-                autoComplete="email"
-                required
-              />
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-accent py-3 text-sm font-semibold text-white shadow-soft transition-all hover:shadow-glow-blue disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {loading ? (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                ) : (
-                  <>
-                    {mode === 'signup' ? 'Get Verification Code' : 'Send Login Code'}
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-
-              {/* OR Divider */}
-              <div className="relative my-4 flex items-center justify-center">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-base-c" />
-                </div>
-                <span className="relative bg-card-c px-3 text-[11px] font-medium uppercase tracking-wider text-muted-c">
-                  Or continue with
-                </span>
-              </div>
-
-              {/* Google Sign-In Button */}
-              <GoogleSignInButton
-                text={mode === 'signup' ? 'signup_with' : 'signin_with'}
-                theme={theme === 'dark' ? 'filled_black' : 'outline'}
-                onError={(err) => setError(err)}
-              />
-            </form>
-          )}
-
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* STEP 2 FORM: 6-Digit OTP */}
-          {/* ───────────────────────────────────────────────────────────── */}
-          {step === 2 && (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="flex flex-col gap-1 rounded-xl bg-card-c p-3 border border-base-c text-xs">
-                <div className="flex items-center justify-between text-secondary-c">
-                  <span className="font-semibold text-primary-c">{email}</span>
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    className="flex items-center gap-1 font-medium text-primary-600 hover:underline dark:text-primary-400 cursor-pointer"
-                  >
-                    <Edit2 className="h-3 w-3" /> Edit Email
-                  </button>
-                </div>
-                {mode === 'signup' && name && (
-                  <span className="text-secondary-c font-medium mt-0.5">
-                    Registering as: <strong className="text-primary-c">{name}</strong> {businessName ? `(${businessName})` : ''}
+            {/* Step Progress Indicator (For Signup or Step 3) */}
+            {(mode === 'signup' || step === 3) && (
+              <div className="mb-4 flex items-center justify-between border-b border-slate-100 pb-2.5 dark:border-slate-800">
+                <div className={cx("flex items-center gap-1.5 text-[11px] font-bold transition-colors", step >= 1 ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-600")}>
+                  <span className={cx("flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold transition-all", step > 1 ? "bg-emerald-500 text-white" : step === 1 ? "bg-blue-600 text-white shadow-xs" : "bg-slate-200 dark:bg-slate-800")}>
+                    {step > 1 ? <Check className="h-3 w-3" /> : '1'}
                   </span>
-                )}
-              </div>
+                  <span>Profile</span>
+                </div>
 
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">6-Digit Verification Code</label>
-                <div className="relative">
-                  <KeyRound className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-c" />
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="123456"
-                    className="form-input pl-10 tracking-widest font-mono text-base"
-                    required
-                    autoFocus
-                  />
+                <div className={cx("h-0.5 flex-1 mx-2 transition-colors", step > 1 ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-800")} />
+
+                <div className={cx("flex items-center gap-1.5 text-[11px] font-bold transition-colors", step >= 2 ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-600")}>
+                  <span className={cx("flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold transition-all", step > 2 ? "bg-emerald-500 text-white" : step === 2 ? "bg-blue-600 text-white shadow-xs" : "bg-slate-200 dark:bg-slate-800")}>
+                    {step > 2 ? <Check className="h-3 w-3" /> : '2'}
+                  </span>
+                  <span>Verify</span>
+                </div>
+
+                <div className={cx("h-0.5 flex-1 mx-2 transition-colors", step >= 3 ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-800")} />
+
+                <div className={cx("flex items-center gap-1.5 text-[11px] font-bold transition-colors", step >= 3 ? "text-blue-600 dark:text-blue-400" : "text-slate-400 dark:text-slate-600")}>
+                  <span className={cx("flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-extrabold transition-all", step === 3 ? "bg-blue-600 text-white shadow-xs" : "bg-slate-200 dark:bg-slate-800")}>
+                    3
+                  </span>
+                  <span>Setup</span>
                 </div>
               </div>
+            )}
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-accent py-3 text-sm font-semibold text-white shadow-soft transition-all hover:shadow-glow-blue disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {loading ? (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                ) : (
-                  <>
-                    Verify & Continue
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
+            {/* Header Titles */}
+            <div className="mb-2.5">
+              <h2 className="text-lg font-black tracking-tight text-slate-900 dark:text-white sm:text-xl">
+                {step === 1
+                  ? mode === 'login' ? 'Welcome back' : 'Create your account'
+                  : step === 2
+                    ? 'Verify verification code'
+                    : 'Complete Business Setup'}
+              </h2>
+              <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+                {step === 1
+                  ? mode === 'login'
+                    ? 'Enter your email to sign in to your AI CRM workspace'
+                    : 'Start turning leads into clients with GyanVani AI'
+                  : step === 2
+                    ? `We sent a 6-digit code to ${email}`
+                    : 'Configure your industry category & connect WhatsApp to start automating.'}
+              </p>
+            </div>
 
-              <div className="pt-2 text-center">
+            {/* Segmented Mode Toggle Tabs (Only on Step 1) */}
+            {step === 1 && (
+              <div className="mb-3 flex rounded-xl bg-slate-100 p-0.5 dark:bg-slate-800/80 border border-slate-200/50 dark:border-slate-700/50">
                 <button
                   type="button"
-                  onClick={handleResendOtp}
-                  disabled={loading || resendTimer > 0}
-                  className="inline-flex items-center gap-1.5 text-xs font-medium text-secondary-c hover:text-primary-600 dark:hover:text-primary-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  onClick={() => switchMode('login')}
+                  className={cx(
+                    'flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition-all cursor-pointer',
+                    mode === 'login'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  )}
                 >
-                  <RefreshCw className={cx("h-3.5 w-3.5", loading ? "animate-spin" : "")} />
-                  {resendTimer > 0 ? `Resend Code in ${resendTimer}s` : 'Resend Code'}
+                  <LogIn className="h-3 w-3" />
+                  <span>Sign In</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode('signup')}
+                  className={cx(
+                    'flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition-all cursor-pointer',
+                    mode === 'signup'
+                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  )}
+                >
+                  <UserPlus className="h-3 w-3" />
+                  <span>Sign Up</span>
                 </button>
               </div>
-            </form>
-          )}
+            )}
 
-          {/* ───────────────────────────────────────────────────────────── */}
-          {/* STEP 3 FORM: Business Niche & WhatsApp Setup (Same Screen!) */}
-          {/* ───────────────────────────────────────────────────────────── */}
-          {step === 3 && (
-            <div className="space-y-5 animate-fade-in">
-              {/* Category & SubCategory */}
-              <div className="space-y-3 rounded-2xl border border-base-c bg-card-c p-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-primary-c">
-                  <Tag className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-                  <span>Business Niche & Category</span>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-[11px] font-medium text-secondary-c mb-1">Industry</label>
-                    <select
-                      value={category}
-                      onChange={(e) => {
-                        const newCat = e.target.value;
-                        setCategory(newCat);
-                        if (categories[newCat]?.length > 0) {
-                          setSubCategory(categories[newCat][0]);
-                        }
-                      }}
-                      className="form-input text-xs py-2"
-                    >
-                      {Object.keys(categories).map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-medium text-secondary-c mb-1">Sub-Category / Role</label>
-                    <select
-                      value={subCategory}
-                      onChange={(e) => setSubCategory(e.target.value)}
-                      className="form-input text-xs py-2"
-                    >
-                      {(categories[category] || []).map((sub) => (
-                        <option key={sub} value={sub}>{sub}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+            {/* Status Feedback Banners */}
+            {infoMessage && (
+              <div className="mb-3 flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-50/80 dark:bg-blue-950/40 p-2 text-[11px] font-semibold text-blue-700 dark:text-blue-300 animate-slide-down">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                <span>{infoMessage}</span>
               </div>
+            )}
 
-              {/* WhatsApp Meta Integration */}
-              <div className="space-y-3 rounded-2xl border border-base-c bg-card-c p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold text-primary-c">
-                    <MessageSquare className="h-4 w-4 text-emerald-500" />
-                    <span>WhatsApp Integration</span>
+            {errorCode === 'ACCOUNT_NOT_FOUND' ? (
+              <div className="mb-3 rounded-xl border border-amber-300/60 bg-amber-50/90 p-3 dark:border-amber-500/30 dark:bg-amber-950/40 animate-slide-down">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-4 w-4" />
                   </div>
-                  <div className="flex rounded-lg border border-base-c bg-subtle-c p-0.5 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => setWhatsappMode('embedded')}
-                      className={cx("px-2 py-1 rounded font-semibold", whatsappMode === 'embedded' ? "bg-card-c text-primary-c shadow-xs" : "text-muted-c")}
-                    >
-                      1-Click Meta
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setWhatsappMode('manual')}
-                      className={cx("px-2 py-1 rounded font-semibold", whatsappMode === 'manual' ? "bg-card-c text-primary-c shadow-xs" : "text-muted-c")}
-                    >
-                      Manual Keys
-                    </button>
-                  </div>
-                </div>
-
-                {whatsappMode === 'embedded' ? (
-                  <div className="space-y-3 pt-1">
-                    {metaConnected ? (
-                      <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-50/30 dark:bg-emerald-950/20 flex items-center gap-3">
-                        <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">WhatsApp Connected!</p>
-                          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 truncate">{metaPhoneDisplay || 'Coexistence Mode Active'}</p>
-                        </div>
-                      </div>
-                    ) : (
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[11px] font-bold text-amber-900 dark:text-amber-200">
+                      No Workspace Found
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-amber-800/90 dark:text-amber-300/90 leading-tight">
+                      We couldn't find a CRM workspace associated with <strong className="font-semibold">{email}</strong>.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={handleLaunchGatewayPopup}
-                        disabled={isMetaConnecting}
-                        className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs font-bold shadow-soft transition-all cursor-pointer disabled:opacity-60"
+                        onClick={() => {
+                          switchMode('signup');
+                          setError(null);
+                          setErrorCode(null);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-amber-600 hover:bg-amber-700 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs cursor-pointer"
                       >
-                        {isMetaConnecting ? (
-                          <>
-                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                            <span>Opening Meta Gateway...</span>
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-                              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                            </svg>
-                            <span>Connect with Facebook (Coexistence)</span>
-                          </>
-                        )}
+                        <UserPlus className="h-3 w-3" />
+                        <span>Create Account &rarr;</span>
                       </button>
-                    )}
-                    <p className="text-[10px] text-muted-c text-center">
-                      Keeps mobile WhatsApp active while automating CRM chats.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 pt-1 text-xs">
-                    <div>
-                      <label className="block text-[10px] font-medium text-secondary-c mb-0.5">Phone Number ID</label>
-                      <input
-                        type="text"
-                        value={phoneNumberId}
-                        onChange={(e) => setPhoneNumberId(e.target.value)}
-                        placeholder="e.g. 104829104829104"
-                        className="form-input text-xs py-1.5"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-secondary-c mb-0.5">Access Token</label>
-                      <input
-                        type="password"
-                        value={accessToken}
-                        onChange={(e) => setAccessToken(e.target.value)}
-                        placeholder="EAABw..."
-                        className="form-input text-xs py-1.5"
-                      />
                     </div>
                   </div>
-                )}
+                </div>
               </div>
+            ) : errorCode === 'ACCOUNT_ALREADY_EXISTS' ? (
+              <div className="mb-3 rounded-xl border border-blue-500/40 bg-blue-50/90 p-3 dark:border-blue-400/30 dark:bg-blue-950/40 animate-slide-down">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400">
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-[11px] font-bold text-blue-900 dark:text-blue-200">
+                      Account Already Registered
+                    </h4>
+                    <p className="mt-0.5 text-[11px] text-blue-800/90 dark:text-blue-300/90 leading-tight">
+                      An active account is already registered with <strong className="font-semibold">{email || 'this email'}</strong>.
+                    </p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          switchMode('login');
+                          setError(null);
+                          setErrorCode(null);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-700 px-2.5 py-1 text-[11px] font-bold text-white shadow-xs cursor-pointer"
+                      >
+                        <LogIn className="h-3 w-3" />
+                        <span>Sign In</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-50/80 dark:bg-red-950/40 p-2.5 text-[11px] font-semibold text-red-600 dark:text-red-400 animate-slide-down">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                <span>{error}</span>
+              </div>
+            ) : null}
 
-              {/* Consent check */}
-              <label className="flex items-start gap-2.5 text-xs text-secondary-c cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={consentAccepted}
-                  onChange={(e) => setConsentAccepted(e.target.checked)}
-                  className="mt-0.5 rounded border-base-c text-primary-600 focus:ring-primary-500"
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* STEP 1 FORM: Email, Full Name, Business Name, Phone */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            {step === 1 && (
+              <form onSubmit={handleRequestOtp} className="space-y-2.5">
+                {mode === 'signup' && (
+                  <>
+                    <ModernInputField
+                      icon={User}
+                      label="Full Name"
+                      type="text"
+                      value={name}
+                      onChange={setName}
+                      placeholder="e.g. Arjun Kapoor"
+                      autoComplete="name"
+                      required
+                    />
+
+                    <ModernInputField
+                      icon={Building2}
+                      label="Business / Agency Name"
+                      type="text"
+                      value={businessName}
+                      onChange={setBusinessName}
+                      placeholder="e.g. Luxe Estates UK"
+                      autoComplete="organization"
+                    />
+
+                    <div>
+                      <label className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                        Mobile Number (Optional)
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                          placeholder="9876543210"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-8 pr-3 text-xs font-medium text-slate-900 transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15 dark:border-slate-800 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-900"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <ModernInputField
+                  icon={Mail}
+                  label="Work Email Address"
+                  type="email"
+                  value={email}
+                  onChange={setEmail}
+                  placeholder="name@company.com"
+                  autoComplete="email"
+                  required
                 />
-                <span className="text-[11px] leading-tight">
-                  I agree to WhatsApp Cloud API Messaging terms & GyanVaniAi Connect CRM data policy.
-                </span>
-              </label>
 
-              {/* Submit / Skip Actions */}
-              <div className="flex flex-col gap-2 pt-2">
                 <button
-                  type="button"
-                  onClick={() => handleCompleteSetup(false)}
+                  type="submit"
                   disabled={loading}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-accent py-3 text-sm font-semibold text-white shadow-soft transition-all hover:shadow-glow-blue disabled:opacity-60 cursor-pointer"
+                  className="group relative flex w-full items-center justify-center gap-1.5 overflow-hidden rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {loading ? (
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                   ) : (
                     <>
-                      <span>Complete & Enter Dashboard</span>
-                      <ArrowRight className="h-4 w-4" />
+                      <span>{mode === 'signup' ? 'Get Instant Verification Code' : 'Send Login Code'}</span>
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </>
                   )}
                 </button>
 
+                {/* Google Sign-in Divider */}
+                <div className="relative my-2.5 flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+                  </div>
+                  <span className="relative bg-white dark:bg-slate-900 px-2.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Or continue with
+                  </span>
+                </div>
+
+                {/* Google One-Tap / OAuth Button */}
+                <div className="flex justify-center">
+                  <GoogleSignInButton
+                    text={mode === 'signup' ? 'signup_with' : 'signin_with'}
+                    theme={theme === 'dark' ? 'filled_black' : 'outline'}
+                    onError={(err) => setError(err)}
+                    className="w-full"
+                  />
+                </div>
+              </form>
+            )}
+
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* STEP 2 FORM: 6-Digit OTP */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            {step === 2 && (
+              <form onSubmit={handleVerifyOtp} className="space-y-3">
+                <div className="flex items-center justify-between rounded-xl bg-slate-50 dark:bg-slate-800/60 p-2.5 border border-slate-200/80 dark:border-slate-700/60 text-xs">
+                  <div className="min-w-0 pr-2">
+                    <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{email}</p>
+                    {mode === 'signup' && name && (
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Registering as: <span className="font-semibold text-slate-700 dark:text-slate-300">{name}</span>
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="flex shrink-0 items-center gap-1 font-bold text-blue-600 dark:text-blue-400 hover:underline text-[11px] cursor-pointer"
+                  >
+                    <Edit2 className="h-3 w-3" /> Edit
+                  </button>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    6-Digit Security Code
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="• • • • • •"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-8 pr-3 text-center font-mono text-lg font-bold tracking-[0.4em] text-slate-900 transition-all placeholder:tracking-normal placeholder:font-sans placeholder:text-xs placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15 dark:border-slate-800 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-900"
+                      required
+                      autoFocus
+                    />
+                  </div>
+                </div>
+
                 <button
-                  type="button"
-                  onClick={() => handleCompleteSetup(true)}
+                  type="submit"
                   disabled={loading}
-                  className="w-full text-center text-xs font-semibold text-secondary-c hover:text-primary-c py-1 transition-colors cursor-pointer"
+                  className="group relative flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  Skip WhatsApp for now & continue to Dashboard →
+                  {loading ? (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  ) : (
+                    <>
+                      <span>Verify Code & Continue</span>
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </>
+                  )}
                 </button>
+
+                <div className="pt-1 text-center">
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={loading || resendTimer > 0}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <RefreshCw className={cx("h-3 w-3", loading ? "animate-spin" : "")} />
+                    {resendTimer > 0 ? `Resend Code in ${resendTimer}s` : 'Resend Code'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ───────────────────────────────────────────────────────────── */}
+            {/* STEP 3 FORM: Business Niche & WhatsApp Setup */}
+            {/* ───────────────────────────────────────────────────────────── */}
+            {step === 3 && (
+              <div className="space-y-3 animate-slide-down">
+                {/* Category & SubCategory */}
+                <div className="space-y-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900 dark:text-white">
+                    <Tag className="h-3.5 w-3.5 text-blue-500" />
+                    <span>Business Niche & Industry</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">
+                        Industry
+                      </label>
+                      <select
+                        value={category}
+                        onChange={(e) => {
+                          const newCat = e.target.value;
+                          setCategory(newCat);
+                          if (categories[newCat]?.length > 0) {
+                            setSubCategory(categories[newCat][0]);
+                          }
+                        }}
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-2.5 text-[11px] font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      >
+                        {Object.keys(categories).map((cat) => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">
+                        Role / Specialty
+                      </label>
+                      <select
+                        value={subCategory}
+                        onChange={(e) => setSubCategory(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-2.5 text-[11px] font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+                      >
+                        {(categories[category] || []).map((sub) => (
+                          <option key={sub} value={sub}>{sub}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* WhatsApp Meta Integration */}
+                <div className="space-y-2.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-900 dark:text-white">
+                      <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
+                      <span>WhatsApp Coexistence</span>
+                    </div>
+                    <div className="flex rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-0.5 text-[9px]">
+                      <button
+                        type="button"
+                        onClick={() => setWhatsappMode('embedded')}
+                        className={cx("px-1.5 py-0.5 rounded font-bold transition-all", whatsappMode === 'embedded' ? "bg-blue-600 text-white shadow-xs" : "text-slate-500")}
+                      >
+                        1-Click Meta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setWhatsappMode('manual')}
+                        className={cx("px-1.5 py-0.5 rounded font-bold transition-all", whatsappMode === 'manual' ? "bg-blue-600 text-white shadow-xs" : "text-slate-500")}
+                      >
+                        Manual Keys
+                      </button>
+                    </div>
+                  </div>
+
+                  {whatsappMode === 'embedded' ? (
+                    <div className="space-y-2 pt-0.5">
+                      {metaConnected ? (
+                        <div className="p-2.5 rounded-xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/30 flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">WhatsApp Connected!</p>
+                            <p className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 truncate">{metaPhoneDisplay || 'Coexistence Active'}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleLaunchGatewayPopup}
+                          disabled={isMetaConnecting}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#1877F2] hover:bg-[#166fe5] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer disabled:opacity-60 active:scale-[0.98]"
+                        >
+                          {isMetaConnecting ? (
+                            <>
+                              <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                              <span>Opening Meta Secure Gateway...</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                              </svg>
+                              <span>Connect WhatsApp with Meta</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 text-center">
+                        Keep chatting on mobile while AI auto-qualifies leads.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pt-0.5 text-xs">
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">Phone Number ID</label>
+                        <input
+                          type="text"
+                          value={phoneNumberId}
+                          onChange={(e) => setPhoneNumberId(e.target.value)}
+                          placeholder="e.g. 104829104829104"
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-2.5 text-[11px] font-mono text-slate-900 dark:text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-300 mb-0.5">System User Access Token</label>
+                        <input
+                          type="password"
+                          value={accessToken}
+                          onChange={(e) => setAccessToken(e.target.value)}
+                          placeholder="EAABw..."
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 py-1.5 px-2.5 text-[11px] font-mono text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Consent checkbox */}
+                <label className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer pt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={consentAccepted}
+                    onChange={(e) => setConsentAccepted(e.target.checked)}
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-[10px] leading-tight">
+                    I agree to the WhatsApp Cloud API Terms & Data Protection Policy.
+                  </span>
+                </label>
+
+                {/* Final Submission Buttons */}
+                <div className="flex flex-col gap-1.5 pt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteSetup(false)}
+                    disabled={loading}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 py-2.5 text-xs font-bold text-white shadow-md shadow-blue-500/20 transition-all hover:brightness-105 active:scale-[0.98] disabled:opacity-60 cursor-pointer"
+                  >
+                    {loading ? (
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    ) : (
+                      <>
+                        <span>Complete Setup & Enter Dashboard</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteSetup(true)}
+                    disabled={loading}
+                    className="w-full text-center text-[11px] font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white py-1 transition-colors cursor-pointer"
+                  >
+                    Skip WhatsApp for now & go to Dashboard &rarr;
+                  </button>
+                </div>
               </div>
+            )}
+
+            {/* Switch Mode Prompt (Step 1) */}
+            {step === 1 && (
+              <p className="mt-3 text-center text-[11px] text-slate-500 dark:text-slate-400">
+                {mode === 'login' ? (
+                  <>
+                    Don't have an account yet?{' '}
+                    <button
+                      type="button"
+                      onClick={() => switchMode('signup')}
+                      className="font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
+                    >
+                      Sign up free
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    Already have an account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => switchMode('login')}
+                      className="font-bold text-blue-600 hover:underline dark:text-blue-400 cursor-pointer"
+                    >
+                      Sign in
+                    </button>
+                  </>
+                )}
+              </p>
+            )}
+
+            {/* Security Badge in Card */}
+            <div className="mt-3 flex items-center justify-center gap-1 border-t border-slate-100 pt-2.5 text-[10px] font-medium text-slate-400 dark:border-slate-800 dark:text-slate-500">
+              <Shield className="h-3 w-3 text-emerald-500" />
+              <span>Protected by Enterprise TLS & Token Authentication</span>
             </div>
-          )}
-
-          {/* Footer (only on Step 1) */}
-          {step === 1 && (
-            <p className="mt-6 text-center text-xs text-muted-c">
-              {mode === 'login' ? (
-                <>
-                  Don't have an account?{' '}
-                  <button onClick={() => switchMode('signup')} className="font-semibold text-primary-600 hover:underline dark:text-primary-400 cursor-pointer">Sign up free</button>
-                </>
-              ) : (
-                <>
-                  Already have an account?{' '}
-                  <button onClick={() => switchMode('login')} className="font-semibold text-primary-600 hover:underline dark:text-primary-400 cursor-pointer">Sign in</button>
-                </>
-              )}
-            </p>
-          )}
-
-          {/* Trust badge */}
-          <div className="mt-6 flex items-center justify-center gap-1.5 text-[11px] text-muted-c">
-            <Shield className="h-3.5 w-3.5" />
-            Secured by GyanVaniAi Connect REST Auth & Meta Tech Provider
           </div>
         </div>
       </div>
@@ -975,7 +1139,7 @@ export function AuthScreen({ initialMode = 'login' }: { initialMode?: Mode }) {
   );
 }
 
-function InputField({
+function ModernInputField({
   icon: Icon,
   label,
   type,
@@ -996,17 +1160,19 @@ function InputField({
 }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-secondary-c">{label}</label>
+      <label className="mb-1 block text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+        {label}
+      </label>
       <div className="relative">
-        <Icon className="absolute left-3 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-c" />
+        <Icon className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 transition-colors peer-focus:text-blue-600" />
         <input
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           autoComplete={autoComplete}
-          className="form-input pl-10"
           required={required}
+          className="peer w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2 pl-8 pr-3 text-xs font-medium text-slate-900 transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/15 dark:border-slate-800 dark:bg-slate-800/50 dark:text-white dark:focus:bg-slate-900"
         />
       </div>
     </div>

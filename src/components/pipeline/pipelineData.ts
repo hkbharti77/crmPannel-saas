@@ -20,6 +20,7 @@ export type Lead = {
   nextAction: string;
   nextActionDate: string;
   hasUnread: boolean;
+  createdAt?: string;
 };
 
 export const LEADS: Lead[] = [];

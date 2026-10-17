@@ -114,8 +114,8 @@ export function KnowledgeBaseView() {
   const [personaError, setPersonaError] = useState<string | null>(null);
 
   // ── Voice Assistant Persona State ──
-  const [voiceAssistantName, setVoiceAssistantName] = useState('Priya');
-  const [savedVoiceAssistantName, setSavedVoiceAssistantName] = useState('Priya');
+  const [voiceAssistantName, setVoiceAssistantName] = useState('Simran');
+  const [savedVoiceAssistantName, setSavedVoiceAssistantName] = useState('Simran');
   const [voiceGreetingText, setVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [savedVoiceGreetingText, setSavedVoiceGreetingText] = useState('Hello! How can I help you today?');
   const [voicePersonaPrompt, setVoicePersonaPrompt] = useState('');
@@ -127,6 +127,33 @@ export function KnowledgeBaseView() {
   const [voiceToast, setVoiceToast] = useState<string | null>(null);
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [showVoiceTemplates, setShowVoiceTemplates] = useState(false);
+
+  const handleSelectVoiceModel = (v: (typeof VOICE_MODELS)[number]) => {
+    setTtsVoiceId(v.id as VoiceModelId);
+
+    // Auto-harmonize assistant name and prompt greetings if current name matches a standard voice or default
+    const isStandardName =
+      !voiceAssistantName ||
+      VOICE_MODELS.some((m) => m.name.toLowerCase() === voiceAssistantName.trim().toLowerCase()) ||
+      voiceAssistantName.toLowerCase() === 'assistant' ||
+      voiceAssistantName.toLowerCase() === 'priya';
+
+    if (isStandardName) {
+      setVoiceAssistantName(v.name);
+      if (voicePersonaPrompt) {
+        const harmonized = voicePersonaPrompt
+          .replace(
+            /\b(I['’]m|I\s+am|my\s+name\s+is|myself|this\s+is)\s+(?:Priya|Simran|Riya|Ananya|Aryan|Rahul|Rohan|Amit|Assistant)\b/gi,
+            `$1 ${v.name}`
+          )
+          .replace(
+            /\b(You\s+are|You['’]re)\s+(?:Priya|Simran|Riya|Ananya|Aryan|Rahul|Rohan|Amit|Assistant)\b/gi,
+            `$1 ${v.name}`
+          );
+        setVoicePersonaPrompt(harmonized);
+      }
+    }
+  };
 
   const voiceDirty =
     voiceAssistantName !== savedVoiceAssistantName ||
@@ -168,10 +195,10 @@ export function KnowledgeBaseView() {
     const res = await fetchVoiceConfig();
     setVoiceLoading(false);
     if (res.data) {
-      const name = res.data.assistantName || 'Priya';
+      const voiceId = (res.data.ttsVoiceId as VoiceModelId) || 'simran';
+      const name = res.data.assistantName || (voiceId.charAt(0).toUpperCase() + voiceId.slice(1));
       const greeting = res.data.greetingText || 'Hello! How can I help you today?';
       const prompt = res.data.personaPrompt || '';
-      const voiceId = (res.data.ttsVoiceId as VoiceModelId) || 'simran';
       setVoiceAssistantName(name);
       setSavedVoiceAssistantName(name);
       setVoiceGreetingText(greeting);
@@ -864,7 +891,7 @@ export function KnowledgeBaseView() {
                       <button
                         key={v.id}
                         type="button"
-                        onClick={() => setTtsVoiceId(v.id as VoiceModelId)}
+                        onClick={() => handleSelectVoiceModel(v)}
                         className={cx(
                           'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
                           ttsVoiceId === v.id
@@ -892,7 +919,7 @@ export function KnowledgeBaseView() {
                       <button
                         key={v.id}
                         type="button"
-                        onClick={() => setTtsVoiceId(v.id as VoiceModelId)}
+                        onClick={() => handleSelectVoiceModel(v)}
                         className={cx(
                           'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
                           ttsVoiceId === v.id
