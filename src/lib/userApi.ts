@@ -31,6 +31,7 @@ export interface UserProfileDto {
   tenantId?: string;
   defaultDailyLeadLimit?: number;
   autoAssignmentDelayMinutes?: number;
+  webFlowsRoutingConfigJson?: string;
 }
 
 export async function fetchCurrentUserProfile() {

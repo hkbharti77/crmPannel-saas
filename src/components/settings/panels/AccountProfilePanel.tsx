@@ -5,7 +5,7 @@ import { Avatar } from '@/components/ui/primitives';
 import {
   User, Mail, Phone, MapPin, Check,
   Loader2, AlertCircle, CheckCircle2,
-  Copy, Bot, Settings as SettingsIcon, BookOpen, Eye, Navigation, Briefcase, ChevronDown, X, Code2
+  Copy, Bot, Settings as SettingsIcon, BookOpen, Eye, Navigation, Briefcase, ChevronDown, X, Code2, Shield
 } from 'lucide-react';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard } from './_shared';
 import {
@@ -57,6 +57,9 @@ export function AccountProfilePanel() {
   // Tenant / Business ID for Website Chat Widget
   const [businessId, setBusinessId] = useState('');
   const [widgetBaseUrl, setWidgetBaseUrl] = useState('');
+  const [privacyPolicyUrl, setPrivacyPolicyUrl] = useState('');
+  const [termsUrl, setTermsUrl] = useState('');
+  const [rawRoutingJson, setRawRoutingJson] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,6 +121,15 @@ export function AccountProfilePanel() {
         if (profRes.data.latitude) setLatitude(String(profRes.data.latitude));
         if (profRes.data.longitude) setLongitude(String(profRes.data.longitude));
         if (profRes.data.widgetBaseUrl) setWidgetBaseUrl(profRes.data.widgetBaseUrl);
+
+        if (profRes.data.webFlowsRoutingConfigJson) {
+          setRawRoutingJson(profRes.data.webFlowsRoutingConfigJson);
+          try {
+            const parsed = JSON.parse(profRes.data.webFlowsRoutingConfigJson);
+            if (parsed.privacyPolicyUrl) setPrivacyPolicyUrl(parsed.privacyPolicyUrl);
+            if (parsed.termsUrl) setTermsUrl(parsed.termsUrl);
+          } catch (e) {}
+        }
 
         setBusinessId(profRes.data.id || user?.id || '840c4a19-6805-4995-84f3-53c7baff658f');
       } else {
@@ -187,6 +199,15 @@ export function AccountProfilePanel() {
     const latNum = parseFloat(latitude);
     const lngNum = parseFloat(longitude);
 
+    let routingObj: any = {};
+    if (rawRoutingJson) {
+      try {
+        routingObj = JSON.parse(rawRoutingJson);
+      } catch (e) {}
+    }
+    routingObj.privacyPolicyUrl = privacyPolicyUrl.trim() || undefined;
+    routingObj.termsUrl = termsUrl.trim() || undefined;
+
     const res = await updateCurrentUserProfile({
       displayName: name.trim(),
       phone: phone.trim(),
@@ -202,6 +223,7 @@ export function AccountProfilePanel() {
       forceShowAppointment,
       forceShowBooking,
       widgetBaseUrl: widgetBaseUrl.trim() || undefined,
+      webFlowsRoutingConfigJson: JSON.stringify(routingObj),
       latitude: isNaN(latNum) ? undefined : latNum,
       longitude: isNaN(lngNum) ? undefined : lngNum,
     });
@@ -586,6 +608,41 @@ export function AccountProfilePanel() {
             <p className="mt-1 text-[11px] text-muted-c">
               Leave empty to use the default environment URL. This URL is used in the snippet below.
             </p>
+          </div>
+
+          {/* DPDP Legal & Privacy URLs */}
+          <div className="pt-3 border-t border-base-c/60">
+            <div className="mb-2">
+              <label className="flex items-center gap-1.5 text-xs font-bold text-primary-c">
+                <Shield className="h-3.5 w-3.5 text-emerald-500" />
+                Website Privacy Policy & Terms Links (DPDP Compliance)
+              </label>
+              <p className="text-[11px] text-muted-c mt-0.5">
+                Add your website's Privacy Policy and Terms & Conditions URLs. When provided, these links will appear in your chatbot form's consent checkbox. If left empty, no link will be displayed.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Privacy Policy URL</label>
+                <input
+                  type="url"
+                  className="w-full rounded-lg border border-base-c bg-white dark:bg-ink-900 px-3 py-2 text-sm text-primary-c shadow-sm placeholder:text-muted-c focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  placeholder="e.g. https://yourdomain.com/privacy"
+                  value={privacyPolicyUrl}
+                  onChange={(e) => setPrivacyPolicyUrl(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-semibold text-secondary-c">Terms & Conditions URL</label>
+                <input
+                  type="url"
+                  className="w-full rounded-lg border border-base-c bg-white dark:bg-ink-900 px-3 py-2 text-sm text-primary-c shadow-sm placeholder:text-muted-c focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  placeholder="e.g. https://yourdomain.com/terms"
+                  value={termsUrl}
+                  onChange={(e) => setTermsUrl(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
