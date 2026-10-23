@@ -55,8 +55,8 @@ declare global {
   }
 }
 
-const META_APP_ID = import.meta.env.VITE_META_APP_ID || '1573307991099476';
-const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '1052344107323702';
+const META_APP_ID = import.meta.env.VITE_META_APP_ID || '';
+const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '';
 
 export function MetaConfigView() {
   const [activeTab, setActiveTab] = useState<'embedded' | 'legacy'>('embedded');
@@ -1177,6 +1177,17 @@ export function MetaConfigView() {
               <div className="space-y-1.5">
                 <h4 className="font-bold text-primary-c text-xs uppercase tracking-wider">3. WhatsApp Coexistence Agreement</h4>
                 <p className="text-muted-c">In Coexistence mode, your mobile WhatsApp Business App and GyanVaniAi Connect share API message events seamlessly without disrupting existing customer histories.</p>
+              </div>
+
+              <div className="rounded-xl bg-blue-500/10 border border-blue-500/25 p-3 text-xs text-blue-900 dark:text-blue-200 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                  <span>💡</span> Crucial Instruction for Final Meta Screen:
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  When Meta displays <strong>&quot;Assets successfully created&quot;</strong>, click the <strong>blue &quot;Finish&quot; button</strong> to complete connecting.
+                  <br />
+                  <span className="text-amber-600 dark:text-amber-400 font-medium">⚠️ Do NOT click &quot;Add payment method&quot; in the popup</span> — doing so redirects away to Facebook's billing site before saving your connection. You can add payment methods anytime later directly in Meta Business Suite!
+                </p>
               </div>
 
               {/* Checkbox Agreement */}

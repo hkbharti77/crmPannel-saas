@@ -38,6 +38,10 @@ interface PlatformPlanItem {
   whatsappCampaignLimit?: number;
   hasCustomWidget?: boolean;
   hasRagLlm?: boolean;
+  includedAiCredits?: number;
+  hasVoiceBot?: boolean;
+  hasCallingAgent?: boolean;
+  hasWhatsappCoexistence?: boolean;
   isContactUs?: boolean;
   contactUs?: boolean;
 }
@@ -45,9 +49,10 @@ interface PlatformPlanItem {
 function mapPlan(planStr?: string): PlanTier {
   const p = (planStr ?? 'FREE').toLowerCase();
   if (p === 'enterprise') return 'enterprise';
-  if (p === 'scale' || p === 'pro') return 'scale';
-  if (p === 'growth') return 'growth';
-  return 'starter';
+  if (p === 'scale') return 'scale';
+  if (p === 'growth' || p === 'pro') return 'growth';
+  if (p === 'starter') return 'starter';
+  return 'free';
 }
 
 export function AdminSubscriptions() {
@@ -106,6 +111,10 @@ export function AdminSubscriptions() {
     whatsappCampaignLimit: 2500,
     hasCustomWidget: false,
     hasRagLlm: true,
+    includedAiCredits: 500,
+    hasVoiceBot: false,
+    hasCallingAgent: false,
+    hasWhatsappCoexistence: true,
     isContactUs: false,
   });
 
@@ -233,10 +242,10 @@ export function AdminSubscriptions() {
     setPlanForm({
       id: '',
       name: '',
-      priceMonthlyInr: 1499,
-      priceYearlyInr: 14390,
-      priceMonthlyUsd: 19.99,
-      priceYearlyUsd: 189.90,
+      priceMonthlyInr: 1999,
+      priceYearlyInr: 19990,
+      priceMonthlyUsd: 25.00,
+      priceYearlyUsd: 240.00,
       employeeLimit: 5,
       primaryResourceLimit: 10000,
       secondaryResourceLimit: 5000,
@@ -247,6 +256,10 @@ export function AdminSubscriptions() {
       whatsappCampaignLimit: 2500,
       hasCustomWidget: false,
       hasRagLlm: true,
+      includedAiCredits: 500,
+      hasVoiceBot: false,
+      hasCallingAgent: false,
+      hasWhatsappCoexistence: true,
       isContactUs: false,
     });
     setEditingPlan(null);
@@ -270,10 +283,10 @@ export function AdminSubscriptions() {
     setPlanForm({
       id: plan.id,
       name: plan.name || '',
-      priceMonthlyInr: plan.priceMonthlyInr ?? plan.priceMonthly ?? 1499,
-      priceYearlyInr: plan.priceYearlyInr ?? plan.priceYearly ?? 14390,
-      priceMonthlyUsd: plan.priceMonthlyUsd ?? 19.99,
-      priceYearlyUsd: plan.priceYearlyUsd ?? 189.90,
+      priceMonthlyInr: plan.priceMonthlyInr ?? plan.priceMonthly ?? 1999,
+      priceYearlyInr: plan.priceYearlyInr ?? plan.priceYearly ?? 19990,
+      priceMonthlyUsd: plan.priceMonthlyUsd ?? 25.00,
+      priceYearlyUsd: plan.priceYearlyUsd ?? 240.00,
       employeeLimit: plan.employeeLimit ?? 5,
       primaryResourceLimit: plan.primaryResourceLimit ?? 10000,
       secondaryResourceLimit: plan.secondaryResourceLimit ?? 5000,
@@ -284,6 +297,10 @@ export function AdminSubscriptions() {
       whatsappCampaignLimit: plan.whatsappCampaignLimit ?? 2500,
       hasCustomWidget: plan.hasCustomWidget ?? false,
       hasRagLlm: plan.hasRagLlm ?? true,
+      includedAiCredits: plan.includedAiCredits ?? 500,
+      hasVoiceBot: plan.hasVoiceBot ?? false,
+      hasCallingAgent: plan.hasCallingAgent ?? false,
+      hasWhatsappCoexistence: plan.hasWhatsappCoexistence ?? true,
       isContactUs: plan.isContactUs ?? plan.contactUs ?? (plan.id === 'ENTERPRISE'),
     });
   };
@@ -397,7 +414,8 @@ export function AdminSubscriptions() {
                               <>
                                 <option value="free">Free</option>
                                 <option value="starter">Starter</option>
-                                <option value="pro">Pro</option>
+                                <option value="growth">Growth</option>
+                                <option value="scale">Scale</option>
                                 <option value="enterprise">Enterprise</option>
                               </>
                             )}
@@ -812,12 +830,13 @@ export function AdminSubscriptions() {
                   />
                 </div>
                 <div>
-                  <label className="text-muted-c font-medium">WhatsApp Campaign Limit</label>
+                  <label className="text-muted-c font-medium">Included AI Credits</label>
                   <input
                     type="number"
-                    value={planForm.whatsappCampaignLimit}
-                    onChange={(e) => setPlanForm({ ...planForm, whatsappCampaignLimit: Number(e.target.value) })}
+                    value={planForm.includedAiCredits}
+                    onChange={(e) => setPlanForm({ ...planForm, includedAiCredits: Number(e.target.value) })}
                     className="form-input mt-1"
+                    placeholder="e.g. 500, 1500, 5000"
                     required
                   />
                 </div>
@@ -833,6 +852,15 @@ export function AdminSubscriptions() {
                     className="rounded border-base-c"
                   />
                   <span>WhatsApp Business API</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.hasWhatsappCoexistence}
+                    onChange={(e) => setPlanForm({ ...planForm, hasWhatsappCoexistence: e.target.checked })}
+                    className="rounded border-base-c"
+                  />
+                  <span>WhatsApp Coexistence Mode</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -860,6 +888,24 @@ export function AdminSubscriptions() {
                     className="rounded border-base-c"
                   />
                   <span>AI LLM RAG Bot</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.hasVoiceBot}
+                    onChange={(e) => setPlanForm({ ...planForm, hasVoiceBot: e.target.checked })}
+                    className="rounded border-base-c"
+                  />
+                  <span>Voice Bot Add-on (₹499/mo)</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={planForm.hasCallingAgent}
+                    onChange={(e) => setPlanForm({ ...planForm, hasCallingAgent: e.target.checked })}
+                    className="rounded border-base-c"
+                  />
+                  <span>Calling Agent Add-on (₹999/mo)</span>
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-amber-600 dark:text-amber-400">
                   <input

@@ -12,6 +12,10 @@ export interface BillingLimits {
   allowedPriorities?: ('LOW' | 'MEDIUM' | 'HIGH')[];
   hasCustomWidget: boolean;
   hasRagLlm?: boolean;
+  includedAiCredits?: number;
+  hasVoiceBot?: boolean;
+  hasCallingAgent?: boolean;
+  hasWhatsappCoexistence?: boolean;
 }
 
 export interface BillingUsage {
@@ -22,6 +26,11 @@ export interface BillingUsage {
   ticketsCount: number;
   emailsCount: number;
   whatsappCampaignsCount?: number;
+  aiCreditBalance?: number;
+  whatsappIntegrationMode?: string;
+  whatsappFreeRepliesLimit?: number;
+  whatsappRepliesUsed?: number;
+  whatsappReplyRateInr?: number;
 }
 
 export interface SubscriptionData {
@@ -57,6 +66,33 @@ export interface SubscriptionPlanDto {
   hasCustomWidget: boolean;
   hasRagLlm: boolean;
   isContactUs?: boolean;
+  includedAiCredits?: number;
+  hasVoiceBot?: boolean;
+  hasCallingAgent?: boolean;
+  hasWhatsappCoexistence?: boolean;
+}
+
+export interface CreditTopUpProductDto {
+  id: string;
+  name: string;
+  credits?: number;
+  creditAmount?: number;
+  priceInr: number;
+  priceUsd: number;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface CreditBalanceDto {
+  aiCreditBalance: number;
+  history: {
+    id: string;
+    amount: number;
+    balanceAfter: number;
+    category: string;
+    description: string;
+    createdAt: string;
+  }[];
 }
 
 export interface BillingTransaction {
@@ -80,6 +116,10 @@ export interface CheckoutResponse {
   keyId?: string;
   planId?: string;
   planName?: string;
+  freeActivated?: boolean;
+  success?: boolean;
+  message?: string;
+  transactionId?: string;
 }
 
 export interface VerifyRazorpayPayload {
@@ -245,4 +285,21 @@ export async function resendInvoiceEmailApi(transactionId: string) {
   return apiFetch<{ success: boolean; message: string }>(`/api/v1/billing/invoice/${transactionId}/resend`, {
     method: 'POST',
   });
+}
+
+export async function fetchCreditTopUps() {
+  return apiFetch<CreditTopUpProductDto[]>('/api/v1/billing/topups');
+}
+
+export async function fetchCreditBalance() {
+  return apiFetch<CreditBalanceDto>('/api/v1/billing/credits');
+}
+
+export async function purchaseCreditTopUp(productId: string) {
+  return apiFetch<{ success: boolean; creditsGranted: number; newBalance: number; product: string }>(
+    `/api/v1/billing/topups/${productId}/purchase`,
+    {
+      method: 'POST',
+    }
+  );
 }
