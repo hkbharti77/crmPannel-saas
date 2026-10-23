@@ -120,6 +120,9 @@ export function AccountProfilePanel() {
 
         if (profRes.data.latitude) setLatitude(String(profRes.data.latitude));
         if (profRes.data.longitude) setLongitude(String(profRes.data.longitude));
+        if (profRes.data.latitude && profRes.data.longitude) {
+          setMapsLink(`https://www.google.com/maps?q=${profRes.data.latitude},${profRes.data.longitude}`);
+        }
         if (profRes.data.widgetBaseUrl) setWidgetBaseUrl(profRes.data.widgetBaseUrl);
 
         if (profRes.data.webFlowsRoutingConfigJson) {
@@ -710,12 +713,54 @@ export function AccountProfilePanel() {
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Google Maps Link</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold text-secondary-c">Google Maps Link</label>
+              {mapsLink && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const coordPattern = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+                    const match = mapsLink.match(coordPattern);
+                    if (match) {
+                      setLatitude(match[1]);
+                      setLongitude(match[2]);
+                      return;
+                    }
+                    const queryPattern = /[?&](ll|q)=(-?\d+\.\d+),(-?\d+\.\d+)/;
+                    const qMatch = mapsLink.match(queryPattern);
+                    if (qMatch) {
+                      setLatitude(qMatch[2]);
+                      setLongitude(qMatch[3]);
+                    }
+                  }}
+                  className="text-[11px] font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                >
+                  Extract Coordinates
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Navigation className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
               <input
                 value={mapsLink}
-                onChange={(e) => setMapsLink(e.target.value)}
+                onChange={(e) => {
+                  const url = e.target.value;
+                  setMapsLink(url);
+                  if (!url) return;
+                  const coordPattern = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+                  const match = url.match(coordPattern);
+                  if (match) {
+                    setLatitude(match[1]);
+                    setLongitude(match[2]);
+                    return;
+                  }
+                  const queryPattern = /[?&](ll|q)=(-?\d+\.\d+),(-?\d+\.\d+)/;
+                  const qMatch = url.match(queryPattern);
+                  if (qMatch) {
+                    setLatitude(qMatch[2]);
+                    setLongitude(qMatch[3]);
+                  }
+                }}
                 placeholder="https://www.google.com/maps/..."
                 className="w-full rounded-xl2 border border-base-c bg-card-c py-2.5 pl-9 pr-4 text-xs text-primary-c placeholder:text-muted-c"
               />
@@ -727,7 +772,12 @@ export function AccountProfilePanel() {
               <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Latitude</label>
               <input
                 value={latitude}
-                onChange={(e) => setLatitude(e.target.value)}
+                onChange={(e) => {
+                  setLatitude(e.target.value);
+                  if (e.target.value && longitude) {
+                    setMapsLink(`https://www.google.com/maps?q=${e.target.value},${longitude}`);
+                  }
+                }}
                 placeholder="e.g. 25.5941"
                 className="form-input text-xs font-mono"
               />
@@ -736,7 +786,12 @@ export function AccountProfilePanel() {
               <label className="mb-1.5 block text-xs font-semibold text-secondary-c">Longitude</label>
               <input
                 value={longitude}
-                onChange={(e) => setLongitude(e.target.value)}
+                onChange={(e) => {
+                  setLongitude(e.target.value);
+                  if (latitude && e.target.value) {
+                    setMapsLink(`https://www.google.com/maps?q=${latitude},${e.target.value}`);
+                  }
+                }}
                 placeholder="e.g. 85.1376"
                 className="form-input text-xs font-mono"
               />

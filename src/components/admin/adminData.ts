@@ -1,6 +1,6 @@
 /* ─── Types ─── */
 export type TenantStatus = 'active' | 'trial' | 'suspended' | 'churned';
-export type PlanTier = 'starter' | 'growth' | 'scale' | 'enterprise';
+export type PlanTier = 'free' | 'starter' | 'growth' | 'scale' | 'enterprise';
 
 export type Tenant = {
   id: string;
@@ -84,7 +84,8 @@ export type NicheTemplate = {
 
 /* ─── Plan Meta ─── */
 export const PLAN_META: Record<PlanTier, { label: string; color: string; price: number }> = {
-  starter: { label: 'Starter', color: 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300', price: 1999 },
+  free: { label: 'Free', color: 'bg-slate-100 text-slate-600 dark:bg-ink-800 dark:text-slate-300', price: 0 },
+  starter: { label: 'Starter', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300', price: 1999 },
   growth: { label: 'Growth', color: 'bg-primary-100 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300', price: 4999 },
   scale: { label: 'Scale', color: 'bg-secondary-500/15 text-secondary-700 dark:text-secondary-300', price: 9999 },
   enterprise: { label: 'Enterprise', color: 'bg-gradient-accent text-white', price: 24999 },

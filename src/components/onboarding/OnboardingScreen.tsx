@@ -28,8 +28,8 @@ import {
 } from 'lucide-react';
 
 const TOTAL_STEPS = 5;
-const META_APP_ID = import.meta.env.VITE_META_APP_ID || '1573307991099476';
-const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '1052344107323702';
+const META_APP_ID = import.meta.env.VITE_META_APP_ID || '';
+const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '';
 
 const FALLBACK_CATEGORIES: Record<string, string[]> = {
   'Real Estate': [
