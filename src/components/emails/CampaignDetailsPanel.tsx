@@ -2,7 +2,18 @@ import { useState, useEffect } from 'react';
 import { GlassCard } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import { Campaign, CAMPAIGN_STATUS_META } from './emailData';
-import { pauseEmailCampaign, resumeEmailCampaign, cancelEmailCampaign, fetchEmailCampaignById, fetchCampaignInboundReplies, simulateCampaignInboundReply, EmailInboundMessageDTO } from '@/lib/emailsApi';
+import {
+  pauseEmailCampaign,
+  resumeEmailCampaign,
+  cancelEmailCampaign,
+  fetchEmailCampaignById,
+  fetchCampaignInboundReplies,
+  simulateCampaignInboundReply,
+  fetchEmailAbMetrics,
+  promoteEmailWinner,
+  EmailInboundMessageDTO,
+  EmailAbMetricsDto
+} from '@/lib/emailsApi';
 import {
   ArrowLeft,
   Clock,
@@ -20,7 +31,10 @@ import {
   Eye,
   Inbox,
   X,
-  Plus
+  Plus,
+  Trophy,
+  Crown,
+  Split
 } from 'lucide-react';
 
 interface CampaignDetailsPanelProps {
@@ -40,6 +54,26 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A/B Variant Testing Metrics State
+  const [abMetrics, setAbMetrics] = useState<EmailAbMetricsDto | null>(null);
+  const [promotingWinnerId, setPromotingWinnerId] = useState<string | null>(null);
+
+  const handlePromoteWinner = async (variantId?: string) => {
+    if (!confirm('Are you sure you want to declare this variant as the winner? All holdout recipients will be dispatched immediately with this variant.')) {
+      return;
+    }
+    setPromotingWinnerId(variantId || 'auto');
+    try {
+      const res = await promoteEmailWinner(campaignId, variantId);
+      if (res.error) throw new Error(res.error);
+      await loadCampaign();
+    } catch (err: unknown) {
+      alert((err as Error).message || 'Failed to promote winner');
+    } finally {
+      setPromotingWinnerId(null);
+    }
+  };
+
   const loadCampaign = async () => {
     try {
       const res = await fetchEmailCampaignById(campaignId);
@@ -51,6 +85,16 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
       const repliesRes = await fetchCampaignInboundReplies(campaignId);
       if (repliesRes.data) {
         setReplies(repliesRes.data);
+      }
+
+      // Load A/B Testing Telemetry if available
+      try {
+        const abRes = await fetchEmailAbMetrics(campaignId);
+        if (abRes.data && abRes.data.isAbTest) {
+          setAbMetrics(abRes.data);
+        }
+      } catch {
+        // Non-AB campaign
       }
       
       const formatDate = (dStr?: string) => dStr ? new Date(dStr).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }) : undefined;
@@ -290,6 +334,151 @@ export function CampaignDetailsPanel({ campaignId, onBack }: CampaignDetailsPane
                <span className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-success-500" /> {campaign.totalSent || 0} Delivered</span>
                <span className="flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-danger-500" /> {campaign.totalFailed || 0} Failed</span>
             </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {/* A/B Testing Comparative Telemetry Card */}
+      {abMetrics && abMetrics.isAbTest && (
+        <GlassCard className="p-6 sm:p-8 border-purple-500/30 bg-gradient-to-br from-white via-purple-50/20 to-transparent dark:from-ink-900 dark:via-purple-950/20 shadow-xl space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-base-c pb-5">
+            <div className="flex items-center gap-3">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shadow-inner">
+                <Trophy className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-primary-c">A/B Optimization Experiment</h3>
+                  <span
+                    className={cx(
+                      'rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase border',
+                      abMetrics.abStatus === 'WINNER_PROMOTED'
+                        ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30'
+                        : abMetrics.abStatus === 'TESTING'
+                        ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 animate-pulse'
+                        : 'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/30'
+                    )}
+                  >
+                    {abMetrics.abStatus === 'WINNER_PROMOTED'
+                      ? '🏆 Winner Promoted & Holdout Released'
+                      : abMetrics.abStatus === 'TESTING'
+                      ? '⚡ Active Experiment • Testing'
+                      : abMetrics.abStatus}
+                  </span>
+                </div>
+                <p className="text-xs text-secondary-c mt-0.5 font-medium">
+                  Audience is partitioned cryptographically. Winner receives remaining holdout pool.
+                </p>
+              </div>
+            </div>
+
+            {/* Overall parameters strip */}
+            <div className="flex items-center gap-4 text-xs font-semibold text-secondary-c bg-slate-100/80 dark:bg-ink-850 px-4 py-2 rounded-xl border border-base-c">
+              <div>
+                <span className="text-muted-c text-[10px] uppercase font-bold block">Target Metric</span>
+                <span className="text-purple-600 dark:text-purple-400 font-extrabold">
+                  {abMetrics.winnerMetric === 'OPEN_RATE' ? 'Unique Opens' : 'Click-Through Rate'}
+                </span>
+              </div>
+              <div className="w-px h-6 bg-base-c"></div>
+              <div>
+                <span className="text-muted-c text-[10px] uppercase font-bold block">Holdout Pool</span>
+                <span className="font-bold text-primary-c">{abMetrics.holdoutRecipientsCount || 0} Contacts</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Side-by-Side Variant Telemetry Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {abMetrics.variants.map((v) => {
+              const isLeader = v.id === abMetrics.leadingVariantId;
+              return (
+                <div
+                  key={v.id}
+                  className={cx(
+                    'relative rounded-2xl border p-6 transition-all duration-300 space-y-4 shadow-sm',
+                    v.isWinner
+                      ? 'border-emerald-500/50 bg-gradient-to-br from-emerald-50/40 via-white to-emerald-50/20 dark:from-emerald-950/30 dark:via-ink-900 ring-2 ring-emerald-500/30'
+                      : isLeader
+                      ? 'border-purple-500/40 bg-gradient-to-br from-purple-50/30 via-white to-transparent dark:from-purple-950/20 dark:via-ink-900 ring-1 ring-purple-500/20'
+                      : 'border-base-c bg-white/60 dark:bg-ink-850/60'
+                  )}
+                >
+                  {/* Variant Header & Badges */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={cx(
+                          'grid h-8 w-8 place-items-center rounded-xl text-xs font-black uppercase text-white shadow-xs',
+                          v.variantCode === 'A' ? 'bg-indigo-600' : 'bg-purple-600'
+                        )}
+                      >
+                        {v.variantCode}
+                      </span>
+                      <div>
+                        <h4 className="text-sm font-bold text-primary-c">
+                          Variant {v.variantCode} {v.variantCode === 'A' ? '(Control)' : '(Challenger)'}
+                        </h4>
+                        <span className="text-[10px] text-muted-c font-bold uppercase tracking-wider">
+                          {v.trafficSplitPercent || 50}% Audience Share
+                        </span>
+                      </div>
+                    </div>
+
+                    {v.isWinner ? (
+                      <span className="flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-extrabold text-white shadow-sm">
+                        <Crown className="h-3.5 w-3.5" /> WINNER DECLARED
+                      </span>
+                    ) : isLeader ? (
+                      <span className="flex items-center gap-1.5 rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300 border border-purple-500/30 px-3 py-1 text-[11px] font-extrabold">
+                        ⚡ CURRENTLY LEADING
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Subject Line Box */}
+                  <div className="p-3 rounded-xl bg-slate-50 dark:bg-ink-900 border border-base-c text-xs">
+                    <span className="text-muted-c text-[10px] uppercase font-bold block mb-0.5">Subject Line</span>
+                    <p className="font-semibold text-primary-c truncate">&quot;{v.subject}&quot;</p>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-ink-900/80 border border-base-c">
+                      <p className="text-[10px] uppercase font-bold text-muted-c">Delivered</p>
+                      <p className="text-lg font-black text-primary-c mt-0.5">{v.sentCount}</p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-ink-900/80 border border-base-c">
+                      <p className="text-[10px] uppercase font-bold text-muted-c">Opens (Rate)</p>
+                      <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {v.openedCount} <span className="text-xs font-normal">({v.openRate}%)</span>
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-ink-900/80 border border-base-c">
+                      <p className="text-[10px] uppercase font-bold text-muted-c">Clicks (CTR)</p>
+                      <p className="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                        {v.clickedCount} <span className="text-xs font-normal">({v.ctr}%)</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Action: Manual Winner Promotion */}
+                  {abMetrics.abStatus === 'TESTING' && (
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        disabled={promotingWinnerId !== null}
+                        onClick={() => handlePromoteWinner(v.id)}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white py-2.5 text-xs font-bold transition-all shadow-sm hover:shadow-purple-600/25 disabled:opacity-50"
+                      >
+                        <Trophy className="h-3.5 w-3.5" />
+                        {promotingWinnerId === v.id ? 'Promoting Winner...' : `Promote Variant ${v.variantCode} as Winner Now`}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </GlassCard>
       )}

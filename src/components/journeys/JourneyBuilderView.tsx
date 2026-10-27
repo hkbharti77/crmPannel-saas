@@ -386,13 +386,25 @@ export const JourneyBuilderView: React.FC = () => {
               <select
                 value={filterTrigger}
                 onChange={(e) => setFilterTrigger(e.target.value)}
-                className="form-input text-xs py-1.5 min-w-[180px]"
+                className="form-input text-xs py-1.5 min-w-[210px]"
               >
                 <option value="ALL">All Trigger Events</option>
-                <option value="EVENT_LEAD_CREATED">New Lead Created</option>
-                <option value="EVENT_APPOINTMENT_CREATED">Appointment Booked</option>
-                <option value="EVENT_BOOKING_CONFIRMED">Service Booking Confirmed</option>
-                <option value="EVENT_BULK_UPLOAD">Bulk Contacts Ingestion</option>
+                <optgroup label="CRM Pipeline Stage Transitions">
+                  <option value="LEAD_STAGE_QUALIFIED">🎯 Deal Moved to Qualified</option>
+                  <option value="LEAD_STAGE_INTERESTED">⭐ Deal Moved to Interested</option>
+                  <option value="LEAD_STAGE_FOLLOW_UP">⏳ Deal Moved to Follow Up</option>
+                  <option value="LEAD_STAGE_BOOKED">📅 Deal Moved to Booked</option>
+                  <option value="LEAD_STAGE_WON">🏆 Deal Won (LEAD_STAGE_WON)</option>
+                  <option value="DEAL_WON">💎 Deal Closed Won (DEAL_WON)</option>
+                  <option value="LEAD_STAGE_LOST">❌ Deal Lost (LEAD_STAGE_LOST)</option>
+                  <option value="LEAD_STATUS_CHANGED">🔄 Any Pipeline Stage Change</option>
+                </optgroup>
+                <optgroup label="Standard Lifecycle Events">
+                  <option value="EVENT_LEAD_CREATED">📥 New Lead Created</option>
+                  <option value="EVENT_APPOINTMENT_CREATED">📅 Appointment Booked</option>
+                  <option value="EVENT_BOOKING_CONFIRMED">🛒 Service Booking Confirmed</option>
+                  <option value="EVENT_BULK_UPLOAD">📁 Bulk Contacts Ingested</option>
+                </optgroup>
               </select>
             </div>
           </div>
@@ -963,10 +975,22 @@ export const JourneyBuilderView: React.FC = () => {
                         onChange={(e) => setNewJourneyTrigger(e.target.value)}
                         className="form-input text-xs"
                       >
-                        <option value="EVENT_LEAD_CREATED">🎯 New Lead Created</option>
-                        <option value="EVENT_APPOINTMENT_CREATED">📅 Appointment Booked</option>
-                        <option value="EVENT_BOOKING_CONFIRMED">🛒 Service Booking Confirmed</option>
-                        <option value="EVENT_BULK_UPLOAD">📁 Bulk Contacts Ingested</option>
+                        <optgroup label="CRM Pipeline Stage Transitions">
+                          <option value="LEAD_STAGE_QUALIFIED">🎯 Deal Moved to Qualified</option>
+                          <option value="LEAD_STAGE_INTERESTED">⭐ Deal Moved to Interested</option>
+                          <option value="LEAD_STAGE_FOLLOW_UP">⏳ Deal Moved to Follow Up</option>
+                          <option value="LEAD_STAGE_BOOKED">📅 Deal Moved to Booked</option>
+                          <option value="LEAD_STAGE_WON">🏆 Deal Won (LEAD_STAGE_WON)</option>
+                          <option value="DEAL_WON">💎 Deal Closed Won (DEAL_WON)</option>
+                          <option value="LEAD_STAGE_LOST">❌ Deal Lost (LEAD_STAGE_LOST)</option>
+                          <option value="LEAD_STATUS_CHANGED">🔄 Any Pipeline Stage Change</option>
+                        </optgroup>
+                        <optgroup label="Standard Lifecycle Events">
+                          <option value="EVENT_LEAD_CREATED">📥 New Lead Created</option>
+                          <option value="EVENT_APPOINTMENT_CREATED">📅 Appointment Booked</option>
+                          <option value="EVENT_BOOKING_CONFIRMED">🛒 Service Booking Confirmed</option>
+                          <option value="EVENT_BULK_UPLOAD">📁 Bulk Contacts Ingested</option>
+                        </optgroup>
                       </select>
                     </div>
 

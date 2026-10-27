@@ -22,8 +22,14 @@ export type Broadcast = {
   delivered: number;
   read: number;
   responded: number;
+  clicks?: number;
+  ctr?: number;
   channel: 'whatsapp' | 'sms' | 'email';
   template: string;
+  isAbTest?: boolean;
+  abStatus?: 'TESTING' | 'EVALUATED' | 'COMPLETED' | string;
+  abWinnerMetric?: string;
+  winningVariantId?: string | null;
 };
 
 export const STATUS_META: Record<

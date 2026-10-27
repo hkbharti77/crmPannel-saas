@@ -432,6 +432,9 @@ export function ChatRoomView() {
             botMode={botMode}
             onToggleBot={handleToggleBot}
             theme={chatTheme}
+            contactId={contactId}
+            contactName={contactDetails?.name}
+            onVoiceNoteSent={() => loadData()}
             onRequestPayment={() => setIsPaymentModalOpen(true)}
             onSendMenu={contactId && contactId.includes('-') ? handleSendMenu : undefined}
             onSendFlow={contactId && contactId.includes('-') ? () => setIsSendFlowModalOpen(true) : undefined}

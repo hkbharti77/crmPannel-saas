@@ -15,6 +15,14 @@ export type WhatsAppCampaignDto = {
   deliveredCount?: number;
   readCount?: number;
   failedCount?: number;
+  trackedLinkClicks?: number;
+  isAbTest?: boolean;
+  abTestPercentage?: number;
+  abWinnerMetric?: string;
+  abEvaluationHours?: number;
+  abEvaluationEndsAt?: string;
+  winningVariantId?: string;
+  abStatus?: string;
 };
 
 export type TemplateButtonType = 'QUICK_REPLY' | 'PHONE_NUMBER' | 'URL' | 'FLOW' | string;
@@ -57,6 +65,7 @@ export type CampaignAnalyticsDto = {
   deliveryRate: number;
   readRate: number;
   responseRate: number;
+  trackedLinkClicks?: number;
 };
 
 export type PagedCampaignResponse = {
@@ -88,18 +97,84 @@ export async function fetchCampaignById(
   return { data: res.data || null, error: null };
 }
 
+export type CampaignVariantInput = {
+  variantLabel: string;
+  templateId: string;
+  variableMappingJson?: string;
+  samplePercentage?: number;
+};
+
+export type VariantMetricsDto = {
+  id: string;
+  variantLabel: string;
+  templateName: string;
+  sampleCount: number;
+  sentCount: number;
+  deliveredCount: number;
+  readCount: number;
+  clickCount: number;
+  readRate: number;
+  ctr: number;
+  isWinner: boolean;
+  isLeader: boolean;
+};
+
+export type CampaignAbMetricsDto = {
+  campaignId: string;
+  campaignName: string;
+  abStatus: string;
+  isAbTest: boolean;
+  winnerMetric: string;
+  evaluationEndsAt?: string;
+  remainingMinutes?: number;
+  winningVariantLabel?: string;
+  totalAudience: number;
+  testSampleCount: number;
+  holdoutCount: number;
+  variants: VariantMetricsDto[];
+};
+
 export async function createCampaign(payload: {
   name: string;
-  templateId: string;
+  templateId?: string;
   targetType: string;
   targetFilterJson?: string;
   variableMappingJson?: string;
   saveImportedRecipients?: boolean;
+  isAbTest?: boolean;
+  abTestPercentage?: number;
+  abWinnerMetric?: string;
+  abEvaluationHours?: number;
+  variants?: CampaignVariantInput[];
 }): Promise<{ data: WhatsAppCampaignDto | null; error: string | null }> {
   const res = await apiFetch<WhatsAppCampaignDto>('/api/v1/whatsapp/campaigns', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
+export async function fetchCampaignAbMetrics(
+  campaignId: string
+): Promise<{ data: CampaignAbMetricsDto | null; error: string | null }> {
+  const res = await apiFetch<CampaignAbMetricsDto>(`/api/v1/whatsapp/campaigns/${campaignId}/ab-metrics`);
+  if (res.error) {
+    return { data: null, error: res.error };
+  }
+  return { data: res.data || null, error: null };
+}
+
+export async function promoteAbWinner(
+  campaignId: string,
+  variantId?: string
+): Promise<{ data: unknown | null; error: string | null }> {
+  const url = variantId
+    ? `/api/v1/whatsapp/campaigns/${campaignId}/promote-winner?variantId=${variantId}`
+    : `/api/v1/whatsapp/campaigns/${campaignId}/promote-winner`;
+  const res = await apiFetch<unknown>(url, { method: 'POST' });
   if (res.error) {
     return { data: null, error: res.error };
   }

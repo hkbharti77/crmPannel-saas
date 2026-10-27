@@ -36,6 +36,59 @@ export type CustomEmailDTO = {
   bounceRate?: number;
   unsubscribeRate?: number;
   replyRatePercentage?: number;
+
+  // A/B Testing & Visual Builder
+  isAbTest?: boolean;
+  abTestPercentage?: number;
+  abWinnerMetric?: 'OPEN_RATE' | 'CLICK_RATE';
+  abEvaluationHours?: number;
+  abEvaluationEndsAt?: string;
+  winningVariantId?: string;
+  abStatus?: string;
+  builderJson?: string;
+};
+
+export type EmailVariantInput = {
+  variantCode: string;
+  name?: string;
+  subject?: string;
+  body?: string;
+  builderJson?: string;
+};
+
+export type EmailVariantDto = {
+  id: string;
+  variantCode: string;
+  name: string;
+  subject: string;
+  body: string;
+  builderJson?: string;
+  sampleCount: number;
+  sentCount: number;
+  deliveredCount: number;
+  openedCount: number;
+  clickedCount: number;
+  openRate: number;
+  ctr: number;
+  isWinner: boolean;
+  isLeader: boolean;
+};
+
+export type EmailAbMetricsDto = {
+  campaignId: string;
+  campaignName: string;
+  abStatus: string;
+  isAbTest: boolean;
+  winnerMetric: 'OPEN_RATE' | 'CLICK_RATE';
+  evaluationEndsAt?: string;
+  remainingMinutes?: number;
+  winningVariantId?: string;
+  winningVariantCode?: string;
+  winningVariantName?: string;
+  totalAudience: number;
+  testSampleCount: number;
+  holdoutCount: number;
+  variants: EmailVariantDto[];
 };
 
 export type CustomEmailRequest = {
@@ -48,6 +101,12 @@ export type CustomEmailRequest = {
   tagsFilter?: string;
   manualRecipients?: string;
   scheduledAt?: string;
+  isAbTest?: boolean;
+  abTestPercentage?: number;
+  abWinnerMetric?: 'OPEN_RATE' | 'CLICK_RATE';
+  abEvaluationHours?: number;
+  builderJson?: string;
+  variants?: EmailVariantInput[];
 };
 
 export type EmailTemplateDTO = {
@@ -55,6 +114,7 @@ export type EmailTemplateDTO = {
   name: string;
   subject: string;
   content: string;
+  builderJson?: string;
   interestCategory?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -340,6 +400,26 @@ export async function simulateCampaignInboundReply(campaignId: string, fromEmail
   const res = await apiFetch<EmailInboundMessageDTO>(`/api/v1/custom-emails/${campaignId}/simulate-reply`, {
     method: 'POST',
     body: JSON.stringify({ fromEmail, textBody, subject }),
+  });
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data || null, error: null };
+}
+
+export async function fetchEmailAbMetrics(
+  campaignId: string
+): Promise<{ data: EmailAbMetricsDto | null; error: string | null }> {
+  const res = await apiFetch<EmailAbMetricsDto>(`/api/v1/custom-emails/${campaignId}/ab-metrics`);
+  if (res.error) return { data: null, error: res.error };
+  return { data: res.data || null, error: null };
+}
+
+export async function promoteEmailWinner(
+  campaignId: string,
+  variantId?: string
+): Promise<{ data: EmailVariantDto | null; error: string | null }> {
+  const res = await apiFetch<EmailVariantDto>(`/api/v1/custom-emails/${campaignId}/promote-winner`, {
+    method: 'POST',
+    body: JSON.stringify(variantId ? { variantId } : {}),
   });
   if (res.error) return { data: null, error: res.error };
   return { data: res.data || null, error: null };
