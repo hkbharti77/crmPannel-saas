@@ -16,8 +16,11 @@ import {
   fetchWhatsAppTemplates,
   deleteWhatsAppTemplate,
   fetchCampaignRecipients,
+  fetchCampaignAbMetrics,
+  promoteAbWinner,
   type WhatsAppTemplateDto,
   type WhatsAppCampaignRecipientDto,
+  type CampaignAbMetricsDto,
 } from '@/lib/broadcastsApi';
 import { fetchLeadsPaged } from '@/lib/leadsApi';
 import {
@@ -53,6 +56,8 @@ import {
   Zap,
   Clock,
   Calendar,
+  Split,
+  Trophy,
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 import { EditBroadcastModal } from './EditBroadcastModal';
@@ -148,7 +153,13 @@ export function BroadcastsView() {
           delivered: c.deliveredCount || 0,
           read: c.readCount || 0,
           responded: c.failedCount || 0,
+          clicks: c.trackedLinkClicks || 0,
+          ctr: (c.deliveredCount && c.deliveredCount > 0) ? Math.round(((c.trackedLinkClicks || 0) / c.deliveredCount) * 100) : 0,
           template: c.templateId || 'Meta Approved',
+          isAbTest: c.isAbTest,
+          abStatus: c.abStatus,
+          abWinnerMetric: c.abWinnerMetric,
+          winningVariantId: c.winningVariantId,
         };
       });
       setBroadcasts(converted);
@@ -195,12 +206,15 @@ export function BroadcastsView() {
     const totalDelivered = broadcasts.reduce((s, b) => s + b.delivered, 0);
     const totalRead = broadcasts.reduce((s, b) => s + b.read, 0);
     const totalResponded = broadcasts.reduce((s, b) => s + b.responded, 0);
+    const totalClicks = broadcasts.reduce((s, b) => s + (b.clicks || 0), 0);
     return {
       totalSent: sent.length,
       totalRecipients,
+      totalClicks,
       deliveryRate: totalRecipients ? Math.round((totalDelivered / totalRecipients) * 100) : 0,
       readRate: totalDelivered ? Math.round((totalRead / totalDelivered) * 100) : 0,
       responseRate: totalRead ? Math.round((totalResponded / totalRead) * 100) : 0,
+      ctrRate: totalDelivered ? Math.round((totalClicks / totalDelivered) * 100) : 0,
     };
   }, [broadcasts]);
 
@@ -404,11 +418,11 @@ export function BroadcastsView() {
             />
             <StatCard
               icon={Reply}
-              label="Read & Response Rate"
-              value={`${stats.readRate}% / ${stats.responseRate}%`}
-              badge="User Engagement"
-              badgeColor="text-amber-600 bg-amber-500/10"
-              accent="#F59E0B"
+              label="Read & CTR Rate"
+              value={`${stats.readRate}% / ${stats.ctrRate}%`}
+              badge={`${stats.totalClicks} CTA Clicks`}
+              badgeColor="text-blue-600 bg-blue-500/10"
+              accent="#2563EB"
             />
           </div>
 
@@ -479,6 +493,7 @@ export function BroadcastsView() {
                   onDelete={() => handleDelete(selected.id)}
                   onEdit={() => setEditingBroadcast(selected)}
                   onCancelSchedule={() => handleCancelSchedule(selected.id)}
+                  onRefresh={loadData}
                 />
               ) : (
                 <GlassCard className="flex flex-col items-center justify-center py-24 text-center min-h-[450px]">
@@ -945,11 +960,16 @@ function BroadcastListItem({
 
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className={cx('h-2 w-2 rounded-full', dotClass)} />
             <span className={cx('rounded-full px-2 py-0.5 text-[9px] font-bold uppercase', colorClass)}>
               {labelText}
             </span>
+            {broadcast.isAbTest && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[9px] font-bold text-purple-600 dark:text-purple-300">
+                <Split className="h-2.5 w-2.5" /> A/B ({broadcast.abStatus || 'TESTING'})
+              </span>
+            )}
           </div>
           <h4 className="mt-1.5 truncate text-xs font-bold text-primary-c">{broadcast.title}</h4>
           <p className="mt-0.5 truncate text-[11px] text-muted-c">{broadcast.template}</p>
@@ -972,7 +992,14 @@ function BroadcastListItem({
       </div>
 
       <div className="mt-2.5 flex items-center justify-between border-t border-base-c pt-2 text-[10px] text-muted-c">
-        <span>{broadcast.recipients} Recipients</span>
+        <span>
+          {broadcast.recipients} Recipients
+          {broadcast.clicks !== undefined && broadcast.clicks > 0 ? (
+            <span className="ml-1 font-semibold text-blue-600 dark:text-blue-400">
+              • {broadcast.clicks} clicks
+            </span>
+          ) : null}
+        </span>
         {broadcast.status === 'scheduled' && broadcast.scheduledAt ? (
           <span className="flex items-center gap-1 font-semibold text-primary-600 dark:text-primary-400">
             <Clock className="h-3 w-3" /> {new Date(broadcast.scheduledAt).toLocaleString()}
@@ -990,11 +1017,13 @@ function BroadcastDetail({
   onDelete,
   onEdit,
   onCancelSchedule,
+  onRefresh,
 }: {
   broadcast: Broadcast;
   onDelete: () => void;
   onEdit?: () => void;
   onCancelSchedule?: () => void;
+  onRefresh?: () => void;
 }) {
   const statusMeta = (broadcast?.status && STATUS_META[broadcast.status])
     || (broadcast?.status && STATUS_META[broadcast.status.toLowerCase()])
@@ -1018,6 +1047,11 @@ function BroadcastDetail({
             <span className={cx('rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase', colorClass)}>
               {labelText}
             </span>
+            {broadcast.isAbTest && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 text-[10px] font-bold text-purple-600 dark:text-purple-300">
+                <Split className="h-3 w-3" /> A/B Split Test
+              </span>
+            )}
             <span className="text-xs font-mono text-muted-c">ID: {broadcast.id}</span>
           </div>
           <h3 className="mt-1.5 text-lg font-bold text-primary-c">{broadcast.title}</h3>
@@ -1063,8 +1097,13 @@ function BroadcastDetail({
         </div>
       )}
 
-      {/* Delivery & Read Rates Metrics Card */}
-      <div className="grid grid-cols-3 gap-3">
+      {/* WhatsApp A/B Split Testing Comparative Analytics (Gap 07) */}
+      {broadcast.isAbTest && (
+        <AbTestComparativeCard campaignId={broadcast.id} onWinnerPromoted={onRefresh} />
+      )}
+
+      {/* Delivery, Read & Click Rates Metrics Card */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-base-c bg-card-c p-3.5 text-center">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Delivered</p>
           <p className="mt-1 text-xl font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{broadcast.delivered}</p>
@@ -1074,6 +1113,11 @@ function BroadcastDetail({
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Read</p>
           <p className="mt-1 text-xl font-bold text-purple-600 dark:text-purple-400 tabular-nums">{broadcast.read}</p>
           <p className="text-[10px] font-semibold text-purple-600/80 mt-0.5">{readRate}% Read Rate</p>
+        </div>
+        <div className="rounded-2xl border border-base-c bg-card-c p-3.5 text-center">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Link Clicks</p>
+          <p className="mt-1 text-xl font-bold text-blue-600 dark:text-blue-400 tabular-nums">{broadcast.clicks || 0}</p>
+          <p className="text-[10px] font-semibold text-blue-600/80 mt-0.5">{broadcast.ctr || 0}% CTR</p>
         </div>
         <div className="rounded-2xl border border-base-c bg-card-c p-3.5 text-center">
           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-c">Failed / Skipped</p>
@@ -1094,6 +1138,228 @@ function BroadcastDetail({
       {/* Recipient Logs & Meta Reasons Table */}
       <CampaignRecipientsTable campaignId={broadcast.id} />
     </GlassCard>
+  );
+}
+
+/* ─── A/B Split Testing Comparative Analytics Card (Gap 07) ─── */
+function AbTestComparativeCard({
+  campaignId,
+  onWinnerPromoted,
+}: {
+  campaignId: string;
+  onWinnerPromoted?: () => void;
+}) {
+  const [metrics, setMetrics] = useState<CampaignAbMetricsDto | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [promotingId, setPromotingId] = useState<string | null>(null);
+  const [confirmPromote, setConfirmPromote] = useState<{ isOpen: boolean; variantId: string; variantName: string }>({
+    isOpen: false,
+    variantId: '',
+    variantName: '',
+  });
+
+  const loadMetrics = useCallback(async () => {
+    setLoading(true);
+    const res = await fetchCampaignAbMetrics(campaignId);
+    setLoading(false);
+    if (res.data) {
+      setMetrics(res.data);
+    }
+  }, [campaignId]);
+
+  useEffect(() => {
+    loadMetrics();
+  }, [loadMetrics]);
+
+  const handlePromote = async (variantId: string) => {
+    setPromotingId(variantId);
+    const res = await promoteAbWinner(campaignId, variantId);
+    setPromotingId(null);
+    setConfirmPromote({ isOpen: false, variantId: '', variantName: '' });
+    if (res.data) {
+      await loadMetrics();
+      if (onWinnerPromoted) onWinnerPromoted();
+    }
+  };
+
+  if (loading && !metrics) {
+    return (
+      <div className="flex items-center justify-center p-6 rounded-2xl border border-purple-500/20 bg-purple-50/20 text-xs text-purple-700 dark:text-purple-300">
+        <Loader2 className="h-4 w-4 animate-spin mr-2" /> Loading live A/B test telemetry...
+      </div>
+    );
+  }
+
+  if (!metrics) return null;
+
+  const isTesting = metrics.abStatus === 'TESTING';
+
+  return (
+    <div className="rounded-2xl border border-purple-500/30 bg-purple-50/20 dark:bg-purple-950/20 p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white shadow-xs">
+            <Split className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-primary-c">A/B Experiment Telemetry</h4>
+              <span className={cx(
+                'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase',
+                isTesting
+                  ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse'
+                  : 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+              )}>
+                {metrics.abStatus}
+              </span>
+            </div>
+            <p className="text-[11px] text-secondary-c mt-0.5">
+              Optimizing for: <strong className="font-semibold text-purple-600 dark:text-purple-400">{metrics.winnerMetric === 'CLICK_RATE' ? 'Click-Through Rate (CTR %)' : 'Read Rate %'}</strong>
+              {metrics.evaluationEndsAt && isTesting && (
+                <span className="ml-2 text-muted-c">
+                  • Auto-resolves at {new Date(metrics.evaluationEndsAt).toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={loadMetrics}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-purple-500/30 text-xs font-semibold text-purple-700 dark:text-purple-300 hover:bg-purple-500/10 transition-all cursor-pointer"
+        >
+          <RefreshCw className={cx('h-3 w-3', loading && 'animate-spin')} />
+          <span>Refresh Telemetry</span>
+        </button>
+      </div>
+
+      {/* Audience partitioning mini badge */}
+      <div className="grid grid-cols-3 gap-2 text-center text-xs bg-white/60 dark:bg-ink-900/60 border border-purple-500/15 p-2.5 rounded-xl">
+        <div>
+          <span className="text-[10px] text-muted-c font-semibold block uppercase">Total Audience</span>
+          <strong className="text-primary-c font-bold">{metrics.totalAudience}</strong>
+        </div>
+        <div>
+          <span className="text-[10px] text-muted-c font-semibold block uppercase">Test Group</span>
+          <strong className="text-purple-600 dark:text-purple-400 font-bold">{metrics.testSampleCount}</strong>
+        </div>
+        <div>
+          <span className="text-[10px] text-muted-c font-semibold block uppercase">Holdout Pool</span>
+          <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{metrics.holdoutCount}</strong>
+        </div>
+      </div>
+
+      {/* Side-by-Side Variant Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        {metrics.variants.map((v) => {
+          const isWinner = v.isWinner;
+          const isLeader = v.isLeader && !isWinner;
+
+          return (
+            <div
+              key={v.variantId}
+              className={cx(
+                'rounded-xl border p-4 transition-all relative overflow-hidden bg-card-c',
+                isWinner
+                  ? 'border-amber-400 dark:border-amber-500/80 shadow-md ring-2 ring-amber-400/30 bg-amber-50/10 dark:bg-amber-950/10'
+                  : isLeader
+                  ? 'border-purple-400 dark:border-purple-500 shadow-sm'
+                  : 'border-base-c'
+              )}
+            >
+              {isWinner && (
+                <div className="absolute top-0 right-0 bg-amber-500 text-white text-[9px] font-bold px-3 py-0.5 rounded-bl-lg flex items-center gap-1 shadow-xs">
+                  <Trophy className="h-3 w-3" /> PROMOTED WINNER
+                </div>
+              )}
+              {isLeader && isTesting && (
+                <div className="absolute top-0 right-0 bg-purple-600 text-white text-[9px] font-bold px-2.5 py-0.5 rounded-bl-lg flex items-center gap-1 shadow-xs">
+                  <Sparkles className="h-3 w-3" /> CURRENT LEADER
+                </div>
+              )}
+
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cx(
+                  'flex h-6 w-6 items-center justify-center rounded-lg text-xs font-bold text-white',
+                  v.variantCode === 'A' ? 'bg-indigo-600' : 'bg-purple-600'
+                )}>
+                  {v.variantCode}
+                </span>
+                <div>
+                  <h5 className="text-xs font-bold text-primary-c">{v.name}</h5>
+                  <p className="text-[10px] font-mono text-muted-c truncate max-w-[180px]">{v.templateName}</p>
+                </div>
+              </div>
+
+              {/* Variant Metrics Grid */}
+              <div className="grid grid-cols-4 gap-1.5 text-center mt-3 pt-2.5 border-t border-base-c text-[11px]">
+                <div className="bg-subtle-c p-1.5 rounded-lg">
+                  <span className="text-[9px] text-muted-c uppercase block">Sent</span>
+                  <span className="font-bold text-primary-c">{v.sentCount}</span>
+                </div>
+                <div className="bg-subtle-c p-1.5 rounded-lg">
+                  <span className="text-[9px] text-muted-c uppercase block">Delivered</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{v.deliveredCount}</span>
+                </div>
+                <div className="bg-subtle-c p-1.5 rounded-lg">
+                  <span className="text-[9px] text-muted-c uppercase block">Read</span>
+                  <span className="font-bold text-purple-600 dark:text-purple-400">{v.readCount}</span>
+                </div>
+                <div className="bg-subtle-c p-1.5 rounded-lg">
+                  <span className="text-[9px] text-muted-c uppercase block">Clicks</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{v.clickCount}</span>
+                </div>
+              </div>
+
+              {/* Conversion Rates */}
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-secondary-c font-medium flex items-center gap-1">
+                    <Trophy className="h-3 w-3 text-amber-500" /> CTR %
+                  </span>
+                  <strong className={cx('tabular-nums font-bold text-sm', v.ctr > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-primary-c')}>
+                    {v.ctr.toFixed(1)}%
+                  </strong>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-secondary-c font-medium">Read Rate %</span>
+                  <strong className="tabular-nums font-semibold text-purple-600 dark:text-purple-400">
+                    {v.readRate.toFixed(1)}%
+                  </strong>
+                </div>
+              </div>
+
+              {/* Manual Override Winner Button (Active during TESTING) */}
+              {isTesting && !isWinner && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmPromote({ isOpen: true, variantId: v.variantId, variantName: v.name })}
+                  disabled={!!promotingId}
+                  className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl border border-purple-500/30 bg-purple-500/10 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {promotingId === v.variantId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trophy className="h-3.5 w-3.5" />}
+                  <span>Promote as Winner</span>
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Confirmation Modal for Manual Winner Override */}
+      <ConfirmModal
+        isOpen={confirmPromote.isOpen}
+        title="Promote Winning Variant"
+        message={`Are you sure you want to promote ${confirmPromote.variantName} as the winner now? This will immediately resolve the experiment and dispatch the holdout audience (${metrics.holdoutCount} recipients) with this template.`}
+        confirmText="Promote & Dispatch Holdout"
+        variant="primary"
+        onConfirm={() => handlePromote(confirmPromote.variantId)}
+        onCancel={() => setConfirmPromote({ isOpen: false, variantId: '', variantName: '' })}
+      />
+    </div>
   );
 }
 

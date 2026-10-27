@@ -6,7 +6,9 @@ import {
   generateAiEmailContent,
   sendEmailCampaign,
   type RecipientMode,
+  type EmailVariantInput,
 } from '@/lib/emailsApi';
+import { VisualEmailBuilder } from './builder/VisualEmailBuilder';
 
 export interface AudienceFilterDTO {
   logicalOperator: 'AND' | 'OR';
@@ -48,7 +50,12 @@ import {
   FileText,
   Clock,
   Sparkle,
-  Lock
+  Lock,
+  TestTube2,
+  Trophy,
+  Split,
+  LayoutTemplate,
+  Code2
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -183,6 +190,62 @@ export function CreateEmailCampaignView() {
   const [tagsFilter, setTagsFilter] = useState('');
   const [manualRecipients, setManualRecipients] = useState('');
   const [scheduledAt, setScheduledAt] = useState('');
+
+  // A/B Variant Testing State (Enterprise Grade)
+  const [isAbTest, setIsAbTest] = useState(false);
+  const [abTestPercentage, setAbTestPercentage] = useState<number>(20);
+  const [abWinnerMetric, setAbWinnerMetric] = useState<'OPEN_RATE' | 'CLICK_RATE'>('OPEN_RATE');
+  const [abEvaluationHours, setAbEvaluationHours] = useState<number>(4);
+  const [activeVariantTab, setActiveVariantTab] = useState<'A' | 'B'>('A');
+
+  // Variant A State
+  const [variantASubject, setVariantASubject] = useState('');
+  const [variantABody, setVariantABody] = useState('');
+  const [variantABuilderJson, setVariantABuilderJson] = useState<string | null>(null);
+
+  // Variant B State
+  const [variantBSubject, setVariantBSubject] = useState('');
+  const [variantBBody, setVariantBBody] = useState('');
+  const [variantBBuilderJson, setVariantBBuilderJson] = useState<string | null>(null);
+
+  // Visual Drag-and-Drop Builder State
+  const [editorStyle, setEditorStyle] = useState<'visual' | 'code'>('visual');
+  const [builderJson, setBuilderJson] = useState<string | null>(null);
+
+  const toggleAbTest = (enabled: boolean) => {
+    setIsAbTest(enabled);
+    if (enabled) {
+      const curSub = subject.trim() || 'Exciting Updates Inside!';
+      const curBody = body.trim() || '<p>Hello {{Name}},</p><p>We have an exclusive update for you.</p>';
+      if (!variantASubject) {
+        setVariantASubject(curSub);
+        setSubject(curSub);
+      }
+      if (!variantABody) {
+        setVariantABody(curBody);
+        setBody(curBody);
+      }
+      if (!variantABuilderJson && builderJson) setVariantABuilderJson(builderJson);
+
+      if (!variantBSubject) setVariantBSubject(`[Alternative] ${curSub}`);
+      if (!variantBBody) setVariantBBody(curBody);
+      if (!variantBBuilderJson && builderJson) setVariantBBuilderJson(builderJson);
+    }
+  };
+
+  const handleSubjectChange = (val: string) => {
+    if (isAbTest) {
+      if (activeVariantTab === 'A') {
+        setVariantASubject(val);
+        setSubject(val);
+      } else {
+        setVariantBSubject(val);
+      }
+    } else {
+      setSubject(val);
+      setVariantASubject(val);
+    }
+  };
 
   // Enterprise Dynamic CSV Dataset State (Up to 100 Columns)
   const [csvFileName, setCsvFileName] = useState<string>('');
@@ -453,9 +516,29 @@ export function CreateEmailCampaignView() {
     showToast(`Inserted ${tag} into email body.`);
   };
 
+  // Active Content for Preview & Compilation based on A/B Variant
+  const effectiveSubjectA = variantASubject || subject;
+  const effectiveBodyA = variantABody || body;
+  const effectiveSubjectB = variantBSubject;
+  const effectiveBodyB = variantBBody;
+
+  const activePreviewBody = useMemo(() => {
+    if (isAbTest && activeVariantTab === 'B') {
+      return effectiveBodyB;
+    }
+    return effectiveBodyA;
+  }, [isAbTest, activeVariantTab, effectiveBodyA, effectiveBodyB]);
+
+  const activePreviewSubject = useMemo(() => {
+    if (isAbTest && activeVariantTab === 'B') {
+      return effectiveSubjectB;
+    }
+    return effectiveSubjectA;
+  }, [isAbTest, activeVariantTab, effectiveSubjectA, effectiveSubjectB]);
+
   // Live Email Preview Renderer with Sample Data Substitution
   const renderedBodyPreview = useMemo(() => {
-    if (!body) return 'Write your email content in the editor to see live rendering here...';
+    if (!activePreviewBody) return 'Write your email content in the editor to see live rendering here...';
 
     // Sample substitution data from row 1 of uploaded CSV or dummy defaults
     const sampleRow: Record<string, string> = csvRows.length > 0 ? csvRows[0] : {
@@ -468,19 +551,23 @@ export function CreateEmailCampaignView() {
       Score: '98',
     };
 
-    let result = body;
+    let result = activePreviewBody;
     Object.keys(sampleRow).forEach((key) => {
       const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'gi');
       result = result.replace(regex, `<strong className="text-indigo-600 font-bold">${sampleRow[key]}</strong>`);
     });
 
     return result;
-  }, [body, csvRows]);
+  }, [activePreviewBody, csvRows]);
 
   const canSubmit =
     name.trim().length > 0 &&
-    subject.trim().length > 0 &&
-    body.trim().length > 0 &&
+    (isAbTest
+      ? effectiveSubjectA.trim().length > 0 &&
+        effectiveBodyA.trim().length > 0 &&
+        effectiveSubjectB.trim().length > 0 &&
+        effectiveBodyB.trim().length > 0
+      : subject.trim().length > 0 && body.trim().length > 0) &&
     (recipientMode === 'ALL' ||
       (recipientMode === 'TAGGED' && tagsFilter.trim().length > 0) ||
       (recipientMode === 'MANUAL' && (manualRecipients.trim().length > 0 || csvRows.length > 0)));
@@ -489,16 +576,44 @@ export function CreateEmailCampaignView() {
     if (!canSubmit) return;
     setSending(true);
 
+    const subA = effectiveSubjectA.trim();
+    const bdyA = effectiveBodyA.trim();
+
+    const variants: EmailVariantInput[] | undefined = isAbTest
+      ? [
+          {
+            variantCode: 'A',
+            subject: subA,
+            body: bdyA,
+            builderJson: (variantABuilderJson || builderJson) || undefined,
+            trafficSplitPercent: 50,
+          },
+          {
+            variantCode: 'B',
+            subject: effectiveSubjectB.trim(),
+            body: effectiveBodyB.trim(),
+            builderJson: variantBBuilderJson || undefined,
+            trafficSplitPercent: 50,
+          },
+        ]
+      : undefined;
+
     const res = await sendEmailCampaign({
       name: name.trim() || undefined,
-      subject: subject.trim(),
-      body: body.trim(),
+      subject: subA,
+      body: bdyA,
       ctaLabel: ctaLabel.trim() || undefined,
       ctaUrl: ctaUrl.trim() || undefined,
       recipientMode,
       tagsFilter: recipientMode === 'TAGGED' ? tagsFilter.trim() : undefined,
       manualRecipients: recipientMode === 'MANUAL' ? manualRecipients.trim() : undefined,
       scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+      isAbTest,
+      abTestPercentage: isAbTest ? abTestPercentage : undefined,
+      abWinnerMetric: isAbTest ? abWinnerMetric : undefined,
+      abEvaluationHours: isAbTest ? abEvaluationHours : undefined,
+      builderJson: (!isAbTest && builderJson) ? builderJson : undefined,
+      variants,
     });
 
     setSending(false);
@@ -1149,266 +1264,324 @@ export function CreateEmailCampaignView() {
       )}
 
       {/* ========================================================================= */}
-      {/* STEP 2: CONTENT & DESIGN (SPLIT EDITOR + LIVE PREVIEW)                    */}
+      {/* STEP 2: CONTENT & DESIGN (DUAL MODE: VISUAL BUILDER + A/B STUDIO)         */}
       {/* ========================================================================= */}
       {activeStep === 'content' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-200">
-          
-          {/* Left Column: Composer Controls (7 cols) */}
-          <div className="lg:col-span-7 space-y-6">
-            <GlassCard className="p-6 space-y-6">
-              {/* Creator Mode Tabs Bar */}
-              <div>
-                <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted-c">
-                  Content Creation Method
-                </label>
-                <div className="grid grid-cols-3 gap-2 rounded-xl border border-base-c bg-slate-100/80 dark:bg-ink-900/80 p-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setCreationMode('custom')}
-                    className={cx(
-                      'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
-                      creationMode === 'custom'
-                        ? 'bg-white text-indigo-700 shadow-sm dark:bg-ink-800 dark:text-indigo-400 border border-indigo-500/30'
-                        : 'text-muted-c hover:text-primary-c'
-                    )}
-                  >
-                    <FileText className="h-3.5 w-3.5 text-indigo-500" />
-                    Standard Editor
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isPremium) {
-                        setCreationMode('ai');
-                      } else {
-                        navigate('/settings?tab=billing');
-                      }
-                    }}
-                    className={cx(
-                      'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
-                      creationMode === 'ai'
-                        ? 'bg-white text-emerald-700 shadow-sm dark:bg-ink-800 dark:text-emerald-400 border border-emerald-500/30'
-                        : isPremium 
-                          ? 'text-muted-c hover:text-primary-c'
-                          : 'text-amber-500/70 hover:text-amber-600 bg-amber-50/50 dark:bg-amber-900/10'
-                    )}
-                  >
-                    {isPremium ? <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> : <Lock className="h-3.5 w-3.5 text-amber-500" />}
-                    AI Writer PRO
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setCreationMode('template')}
-                    className={cx(
-                      'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
-                      creationMode === 'template'
-                        ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-800 dark:text-primary-400 border border-primary-500/30'
-                        : 'text-muted-c hover:text-primary-c'
-                    )}
-                  >
-                    <Palette className="h-3.5 w-3.5 text-primary-500" />
-                    Saved Template
-                  </button>
+        <div className="space-y-6 animate-in fade-in duration-200">
+          {/* A/B Experimentation Studio Card */}
+          <GlassCard className="p-6 border-purple-500/25 bg-gradient-to-r from-purple-500/5 via-indigo-500/5 to-transparent shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-base-c pb-4">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                  <TestTube2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-primary-c">A/B Variant Experimentation Engine</h3>
+                    <span className="rounded-full bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-black uppercase text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                      Multi-Variant Telemetry
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary-c mt-0.5">
+                    Split traffic cryptographically, evaluate conversion metrics, and automatically release winning variant to holdout audience.
+                  </p>
                 </div>
               </div>
 
-              {/* Creation Mode 1: AI Writer Box */}
-              {creationMode === 'ai' && (
-                <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent p-4 space-y-3 animate-fade-in">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
-                      AI Copywriter Assistant
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => toggleAbTest(!isAbTest)}
+                className={cx(
+                  'flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-sm shrink-0',
+                  isAbTest
+                    ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-600/20'
+                    : 'bg-white hover:bg-slate-50 text-secondary-c border border-base-c dark:bg-ink-850 dark:hover:bg-ink-800'
+                )}
+              >
+                <Split className="h-4 w-4" />
+                {isAbTest ? '✓ A/B Experiment Active' : '+ Enable A/B Testing'}
+              </button>
+            </div>
+
+            {/* A/B Configuration Controls (Expanded when enabled) */}
+            {isAbTest && (
+              <div className="space-y-6 animate-in fade-in duration-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-slate-50/70 dark:bg-ink-900/60 p-5 rounded-2xl border border-base-c">
+                  {/* Control 1: Audience Sample Slider */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs font-bold text-secondary-c">
+                      <span>Test Audience Sample</span>
+                      <span className="text-purple-600 dark:text-purple-400 font-extrabold">{abTestPercentage}%</span>
+                    </div>
                     <input
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      placeholder="e.g. Write a product launch announcement for our new AI feature..."
-                      className="form-input flex-1 bg-white/80 dark:bg-ink-900/80 text-xs"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleWriteAi();
-                      }}
+                      type="range"
+                      min={10}
+                      max={50}
+                      step={5}
+                      value={abTestPercentage}
+                      onChange={(e) => setAbTestPercentage(Number(e.target.value))}
+                      className="w-full accent-purple-600 cursor-pointer"
                     />
-                    <button
-                      type="button"
-                      onClick={handleWriteAi}
-                      disabled={!aiPrompt.trim() || aiLoading}
-                      className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
-                    >
-                      {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      Generate
-                    </button>
+                    <div className="flex justify-between text-[11px] text-muted-c font-medium">
+                      <span>{abTestPercentage / 2}% Variant A</span>
+                      <span>{abTestPercentage / 2}% Variant B</span>
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400">{100 - abTestPercentage}% Holdout</span>
+                    </div>
                   </div>
-                  {aiError && <p className="text-xs text-rose-500">{aiError}</p>}
-                </div>
-              )}
 
-              {/* Creation Mode 2: Saved Template Box */}
-              {creationMode === 'template' && (
-                <div className="rounded-xl border border-primary-500/30 bg-gradient-to-r from-primary-500/10 to-transparent p-4 space-y-3 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-primary-c flex items-center gap-1.5">
-                      <Palette className="h-4 w-4 text-primary-500" /> Select HTML Template
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => navigate('/settings/email-templates')}
-                      className="text-xs font-bold text-primary-600 hover:underline flex items-center gap-1"
-                    >
-                      Manage Library <ExternalLink className="h-3 w-3" />
-                    </button>
-                  </div>
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedTemplateId}
-                      onChange={(e) => handleSelectTemplate(e.target.value)}
-                      disabled={loadingTemplates}
-                      className="form-input flex-1 bg-white/90 dark:bg-ink-900/90 text-xs font-medium"
-                    >
-                      <option value="">— Choose a Saved Template —</option>
-                      {savedTemplates.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} — {t.subject}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Subject Line & Personalization Inserter */}
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-bold text-primary-c">
-                      Campaign Name <span className="text-muted-c font-normal text-[11px]">(Internal)</span>
-                    </label>
-                    <span className="text-[11px] text-muted-c">{name.length} / 150 chars</span>
-                  </div>
-                  <input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Q3 Enterprise Lead Nurture"
-                    className="form-input text-sm font-medium h-11"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-bold text-primary-c">
-                      Subject Line <span className="text-danger-500">*</span>
-                    </label>
-                    <span className="text-[11px] text-muted-c">{subject.length} / 150 chars</span>
-                  </div>
-                  <input
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Enter an engaging, high-converting subject line..."
-                    className="form-input text-sm font-medium h-11"
-                  />
-                </div>
-
-                {/* Dynamic Field Tag Inserter Toolbar */}
-                <div className="rounded-xl border border-base-c bg-slate-50 dark:bg-ink-850 p-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-secondary-c flex items-center gap-1.5">
-                      <Sparkle className="h-3.5 w-3.5 text-indigo-500" /> Dynamic Tag Inserter
-                    </span>
-                    <span className="text-[10px] text-muted-c">Click tag to insert into Email Body</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1 scrollbar-thin">
-                    {availableTags.map((tag) => (
+                  {/* Control 2: Winning Success Metric */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-secondary-c block">Winning Optimization Metric</label>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
-                        key={tag}
                         type="button"
-                        onClick={() => insertTagToBody(tag)}
-                        className="rounded-lg bg-white dark:bg-ink-900 border border-base-c px-2.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
+                        onClick={() => setAbWinnerMetric('OPEN_RATE')}
+                        className={cx(
+                          'p-2 rounded-xl text-xs font-bold transition-all text-center border',
+                          abWinnerMetric === 'OPEN_RATE'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                            : 'bg-white dark:bg-ink-850 text-secondary-c border-base-c hover:bg-slate-100 dark:hover:bg-ink-800'
+                        )}
                       >
-                        + &#123;&#123;{tag}&#127;&#127;
+                        <Mail className="h-3.5 w-3.5 mx-auto mb-1 opacity-80" />
+                        Highest Open Rate
                       </button>
-                    ))}
+                      <button
+                        type="button"
+                        onClick={() => setAbWinnerMetric('CLICK_RATE')}
+                        className={cx(
+                          'p-2 rounded-xl text-xs font-bold transition-all text-center border',
+                          abWinnerMetric === 'CLICK_RATE'
+                            ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                            : 'bg-white dark:bg-ink-850 text-secondary-c border-base-c hover:bg-slate-100 dark:hover:bg-ink-800'
+                        )}
+                      >
+                        <MousePointerClick className="h-3.5 w-3.5 mx-auto mb-1 opacity-80" />
+                        Highest CTR
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Email Body Editor */}
-                <div>
-                  <label className="mb-2 block text-sm font-bold text-primary-c">
-                    Email Body Content <span className="text-danger-500">*</span>
-                  </label>
-                  <div className="rounded-xl border border-base-c overflow-hidden focus-within:ring-2 focus-within:ring-primary-500/20 transition-all">
-                    {/* Toolbar */}
-                    <div className="bg-slate-100 dark:bg-ink-800 border-b border-base-c px-3 py-2 flex items-center gap-1.5">
-                      {['B', 'I', 'U'].map((btn) => (
+                  {/* Control 3: Evaluation Window Hours */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-secondary-c block">Evaluation Window Duration</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[2, 4, 6, 12, 24].map((hrs) => (
                         <button
-                          key={btn}
+                          key={hrs}
                           type="button"
-                          className="h-7 w-7 rounded border border-transparent hover:bg-white dark:hover:bg-ink-700 text-xs font-bold text-secondary-c flex items-center justify-center transition-colors"
+                          onClick={() => setAbEvaluationHours(hrs)}
+                          className={cx(
+                            'px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border',
+                            abEvaluationHours === hrs
+                              ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                              : 'bg-white dark:bg-ink-850 text-secondary-c border-base-c hover:bg-slate-100 dark:hover:bg-ink-800'
+                          )}
                         >
-                          {btn}
+                          {hrs}h
                         </button>
                       ))}
-                      <div className="w-px h-4 bg-base-c mx-1"></div>
-                      <button
-                        type="button"
-                        className="h-7 px-2 rounded border border-transparent hover:bg-white dark:hover:bg-ink-700 text-xs font-medium text-secondary-c flex items-center justify-center"
-                      >
-                        Link
-                      </button>
-                      <button
-                        type="button"
-                        className="h-7 px-2 rounded border border-transparent hover:bg-white dark:hover:bg-ink-700 text-xs font-medium text-secondary-c flex items-center justify-center"
-                      >
-                        Image
-                      </button>
-                      <div className="flex-1"></div>
-                      <span className="text-[10px] text-muted-c font-medium">Markdown &amp; HTML Supported</span>
                     </div>
-
-                    <textarea
-                      ref={bodyTextareaRef}
-                      value={body}
-                      onChange={(e) => setBody(e.target.value)}
-                      rows={12}
-                      placeholder="Write your email body here. Use tags like {{Name}} or {{Company}} to personalize for each recipient..."
-                      className="w-full resize-y bg-transparent p-4 text-sm leading-relaxed outline-none border-0"
-                    />
+                    <p className="text-[10px] text-muted-c">
+                      Winner automatically receives holdout dispatch after {abEvaluationHours} hours.
+                    </p>
                   </div>
                 </div>
 
-                {/* Call to Action Controls */}
-                <div className="rounded-xl border border-base-c bg-slate-50/50 dark:bg-ink-850/50 p-4 space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-secondary-c">
-                    Call To Action Button (Optional)
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-secondary-c">Button Label</label>
-                      <input
-                        value={ctaLabel}
-                        onChange={(e) => setCtaLabel(e.target.value)}
-                        placeholder="e.g. Shop Summer Sale"
-                        className="form-input text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-secondary-c">Destination URL</label>
-                      <input
-                        value={ctaUrl}
-                        onChange={(e) => setCtaUrl(e.target.value)}
-                        placeholder="https://yourbrand.com/sale"
-                        className="form-input text-xs"
-                      />
-                    </div>
+                {/* Variant Switcher Tabs */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-ink-850 p-2 rounded-2xl border border-base-c">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveVariantTab('A')}
+                      className={cx(
+                        'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all',
+                        activeVariantTab === 'A'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800'
+                      )}
+                    >
+                      <span className="grid h-5 w-5 place-items-center rounded-md bg-white/20 text-[10px] font-black">A</span>
+                      Variant A (Control)
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveVariantTab('B')}
+                      className={cx(
+                        'flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all',
+                        activeVariantTab === 'B'
+                          ? 'bg-purple-600 text-white shadow-sm'
+                          : 'text-secondary-c hover:bg-slate-100 dark:hover:bg-ink-800'
+                      )}
+                    >
+                      <span className="grid h-5 w-5 place-items-center rounded-md bg-white/20 text-[10px] font-black">B</span>
+                      Variant B (Challenger)
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-c px-2">
+                    {effectiveSubjectA !== effectiveSubjectB && effectiveBodyA !== effectiveBodyB ? (
+                      <span className="text-purple-600 dark:text-purple-400 font-bold flex items-center gap-1">
+                        ⚡ Testing Subject &amp; Content
+                      </span>
+                    ) : effectiveSubjectA !== effectiveSubjectB ? (
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold flex items-center gap-1">
+                        ✉️ Testing Subject Line Variation
+                      </span>
+                    ) : effectiveBodyA !== effectiveBodyB ? (
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        🎨 Testing Layout &amp; Content
+                      </span>
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400 font-medium">
+                        ⚠️ Variants currently have identical copy
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
+            )}
+          </GlassCard>
 
-              {/* Step 2 Navigation Footer */}
+          {/* Editor Header: Active Target & Visual vs Code Toggle */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/80 dark:bg-ink-900/80 p-3 rounded-2xl border border-base-c">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-primary-c flex items-center gap-2">
+                {isAbTest ? (
+                  <>
+                    <span
+                      className={cx(
+                        'px-2 py-0.5 rounded-md text-[10px] font-black uppercase text-white',
+                        activeVariantTab === 'A' ? 'bg-indigo-600' : 'bg-purple-600'
+                      )}
+                    >
+                      Variant {activeVariantTab}
+                    </span>
+                    Editing {activeVariantTab === 'A' ? 'Control Variant' : 'Challenger Variant'}
+                  </>
+                ) : (
+                  'Email Design Studio'
+                )}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white dark:bg-ink-850 p-1 rounded-xl border border-base-c shadow-2xs">
+              <button
+                type="button"
+                onClick={() => setEditorStyle('visual')}
+                className={cx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  editorStyle === 'visual'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-muted-c hover:text-primary-c'
+                )}
+              >
+                <LayoutTemplate className="h-3.5 w-3.5" /> Visual Block Builder
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditorStyle('code')}
+                className={cx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all',
+                  editorStyle === 'code'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'text-muted-c hover:text-primary-c'
+                )}
+              >
+                <Code2 className="h-3.5 w-3.5" /> Code &amp; Textarea
+              </button>
+            </div>
+          </div>
+
+          {/* DUAL MODE 1: VISUAL DRAG-AND-DROP EMAIL BUILDER */}
+          {editorStyle === 'visual' ? (
+            <div className="space-y-6">
+              {/* Subject Line & Name Card */}
+              <GlassCard className="p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-secondary-c mb-1.5 block">
+                      Campaign Internal Name
+                    </label>
+                    <input
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="e.g. Q3 Enterprise Lead Nurture"
+                      className="form-input text-xs font-medium h-10"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-bold text-primary-c flex items-center gap-1.5">
+                        Subject Line
+                        {isAbTest && (
+                          <span
+                            className={cx(
+                              'text-[10px] px-1.5 py-0.5 rounded font-black uppercase text-white',
+                              activeVariantTab === 'A' ? 'bg-indigo-600' : 'bg-purple-600'
+                            )}
+                          >
+                            Variant {activeVariantTab}
+                          </span>
+                        )}
+                        <span className="text-danger-500">*</span>
+                      </label>
+                      <span className="text-[10px] text-muted-c">
+                        {(activeVariantTab === 'B' ? variantBSubject : effectiveSubjectA).length} / 150
+                      </span>
+                    </div>
+                    <input
+                      value={activeVariantTab === 'B' ? variantBSubject : effectiveSubjectA}
+                      onChange={(e) => handleSubjectChange(e.target.value)}
+                      placeholder={
+                        isAbTest && activeVariantTab === 'B'
+                          ? 'Enter Variant B challenger subject line...'
+                          : 'Enter engaging subject line...'
+                      }
+                      className="form-input text-xs font-medium h-10"
+                    />
+                  </div>
+                </div>
+              </GlassCard>
+
+              {/* Modular Visual Email Builder Component */}
+              <VisualEmailBuilder
+                key={isAbTest ? `visual-builder-${activeVariantTab}` : 'visual-builder-single'}
+                initialJson={
+                  isAbTest
+                    ? activeVariantTab === 'B'
+                      ? variantBBuilderJson || undefined
+                      : variantABuilderJson || builderJson || undefined
+                    : builderJson || undefined
+                }
+                initialHtml={
+                  isAbTest
+                    ? activeVariantTab === 'B'
+                      ? variantBBody || undefined
+                      : effectiveBodyA || undefined
+                    : body || undefined
+                }
+                onChange={({ html, builderJson: json }) => {
+                  if (isAbTest) {
+                    if (activeVariantTab === 'A') {
+                      setVariantABody(html);
+                      setVariantABuilderJson(json);
+                      setBody(html);
+                      setBuilderJson(json);
+                    } else {
+                      setVariantBBody(html);
+                      setVariantBBuilderJson(json);
+                    }
+                  } else {
+                    setBody(html);
+                    setBuilderJson(json);
+                  }
+                }}
+              />
+
+              {/* Footer Step Navigation */}
               <div className="pt-4 border-t border-base-c flex items-center justify-between">
                 <button
                   type="button"
@@ -1425,105 +1598,425 @@ export function CreateEmailCampaignView() {
                   Continue to Review &amp; Delivery <ChevronRight className="h-4 w-4" />
                 </button>
               </div>
-            </GlassCard>
-          </div>
-
-          {/* Right Column: Live Recipient Email Preview (5 cols) */}
-          <div className="lg:col-span-5 space-y-6">
-            <GlassCard className="p-6 space-y-4 border-indigo-500/20 shadow-sm sticky top-6">
-              <div className="flex items-center justify-between border-b border-base-c pb-3">
-                <div className="flex items-center gap-2">
-                  <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-                  <h4 className="text-sm font-bold text-primary-c">Live Recipient Email Preview</h4>
-                </div>
-
-                {/* Device Frame Toggle */}
-                <TabSwitcher
-                  tabs={[
-                    { id: 'desktop', label: 'Desktop', icon: <Monitor className="h-4 w-4" /> },
-                    { id: 'mobile', label: 'Mobile', icon: <Smartphone className="h-4 w-4" /> }
-                  ]}
-                  activeTab={previewDevice}
-                  onChange={(id) => setPreviewDevice(id as 'desktop' | 'mobile')}
-                />
-              </div>
-
-              {/* Email Frame Container */}
-              <div
-                className={cx(
-                  'mx-auto rounded-2xl border border-base-c bg-white dark:bg-ink-900 shadow-lg overflow-hidden transition-all duration-300',
-                  previewDevice === 'mobile' ? 'max-w-[320px]' : 'w-full'
-                )}
-              >
-                {/* Email Client Header Bar */}
-                <div className="bg-slate-100 dark:bg-ink-800 p-3 border-b border-base-c space-y-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
-                    <span className="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
-                    <span className="text-[10px] text-muted-c font-mono ml-2 truncate">Inbox Preview</span>
-                  </div>
-                  <div className="text-xs font-bold text-primary-c truncate">
-                    Subject: {subject || <span className="text-muted-c italic">(No subject line)</span>}
-                  </div>
-                  <div className="text-[11px] text-muted-c truncate">
-                    From: GyanVani Email Service &lt;noreply@crm-connect.com&gt;
-                  </div>
-                  <div className="text-[11px] text-muted-c truncate">
-                    To: {activeRecipientsList[0] || 'sarah.jenkins@acme.com'} (Sample Recipient 1)
-                  </div>
-                </div>
-
-                {/* Email Body Content Window */}
-                  <iframe
-                    srcDoc={`
-                      <!DOCTYPE html>
-                      <html>
-                        <head>
-                          <meta charset="utf-8">
-                          <style>
-                            body { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.6; color: #334155; margin: 0; padding: 8px; }
-                            strong { color: #4f46e5; }
-                          </style>
-                        </head>
-                        <body>
-                          ${renderedBodyPreview}
-                        </body>
-                      </html>
-                    `}
-                    sandbox="allow-same-origin"
-                    className="w-full min-h-[200px] border-none bg-transparent"
-                    title="Email Preview"
-                  />
-
-                  {/* Render CTA Button if configured */}
-                  {(ctaLabel || ctaUrl) && (
-                    <div className="pt-4 text-center">
-                      <a
-                        href={ctaUrl || '#'}
-                        onClick={(e) => e.preventDefault()}
-                        className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-indigo-700 pointer-events-none"
+            </div>
+          ) : (
+            /* DUAL MODE 2: STANDARD / CODE EDITOR + SIDE-BY-SIDE PREVIEW */
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-in fade-in duration-200">
+              {/* Left Column: Composer Controls (7 cols) */}
+              <div className="lg:col-span-7 space-y-6">
+                <GlassCard className="p-6 space-y-6">
+                  {/* Creator Mode Tabs Bar */}
+                  <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-muted-c">
+                      Content Creation Method
+                    </label>
+                    <div className="grid grid-cols-3 gap-2 rounded-xl border border-base-c bg-slate-100/80 dark:bg-ink-900/80 p-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCreationMode('custom')}
+                        className={cx(
+                          'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
+                          creationMode === 'custom'
+                            ? 'bg-white text-indigo-700 shadow-sm dark:bg-ink-800 dark:text-indigo-400 border border-indigo-500/30'
+                            : 'text-muted-c hover:text-primary-c'
+                        )}
                       >
-                        {ctaLabel || 'Click Here'}
-                      </a>
+                        <FileText className="h-3.5 w-3.5 text-indigo-500" />
+                        Standard Editor
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isPremium) {
+                            setCreationMode('ai');
+                          } else {
+                            navigate('/settings?tab=billing');
+                          }
+                        }}
+                        className={cx(
+                          'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
+                          creationMode === 'ai'
+                            ? 'bg-white text-emerald-700 shadow-sm dark:bg-ink-800 dark:text-emerald-400 border border-emerald-500/30'
+                            : isPremium
+                            ? 'text-muted-c hover:text-primary-c'
+                            : 'text-amber-500/70 hover:text-amber-600 bg-amber-50/50 dark:bg-amber-900/10'
+                        )}
+                      >
+                        {isPremium ? <Sparkles className="h-3.5 w-3.5 text-emerald-500" /> : <Lock className="h-3.5 w-3.5 text-amber-500" />}
+                        AI Writer PRO
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setCreationMode('template')}
+                        className={cx(
+                          'flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs font-bold transition-all',
+                          creationMode === 'template'
+                            ? 'bg-white text-primary-700 shadow-sm dark:bg-ink-800 dark:text-primary-400 border border-primary-500/30'
+                            : 'text-muted-c hover:text-primary-c'
+                        )}
+                      >
+                        <Palette className="h-3.5 w-3.5 text-primary-500" />
+                        Saved Template
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Creation Mode 1: AI Writer Box */}
+                  {creationMode === 'ai' && (
+                    <div className="rounded-xl border border-emerald-500/30 bg-gradient-to-r from-emerald-500/10 via-teal-500/5 to-transparent p-4 space-y-3 animate-fade-in">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">
+                          AI Copywriter Assistant
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <input
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          placeholder="e.g. Write a product launch announcement for our new AI feature..."
+                          className="form-input flex-1 bg-white/80 dark:bg-ink-900/80 text-xs"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleWriteAi();
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={handleWriteAi}
+                          disabled={!aiPrompt.trim() || aiLoading}
+                          className="rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                        >
+                          {aiLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          Generate
+                        </button>
+                      </div>
+                      {aiError && <p className="text-xs text-rose-500">{aiError}</p>}
                     </div>
                   )}
 
-                {/* Footer CAN-SPAM Notice Preview */}
-                <div className="bg-slate-50 dark:bg-ink-850 p-3 border-t border-base-c text-[10px] text-muted-c text-center leading-normal">
-                  <p>You received this email as a subscriber of GyanVani Connect.</p>
-                  <p className="mt-1">
-                    <span className="underline cursor-pointer">Unsubscribe</span> | <span className="underline cursor-pointer">Manage Preferences</span>
-                  </p>
-                </div>
+                  {/* Creation Mode 2: Saved Template Box */}
+                  {creationMode === 'template' && (
+                    <div className="rounded-xl border border-primary-500/30 bg-gradient-to-r from-primary-500/10 to-transparent p-4 space-y-3 animate-fade-in">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-primary-c flex items-center gap-1.5">
+                          <Palette className="h-4 w-4 text-primary-500" /> Select HTML Template
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => navigate('/settings/email-templates')}
+                          className="text-xs font-bold text-primary-600 hover:underline flex items-center gap-1"
+                        >
+                          Manage Library <ExternalLink className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <div className="flex gap-2">
+                        <select
+                          value={selectedTemplateId}
+                          onChange={(e) => handleSelectTemplate(e.target.value)}
+                          disabled={loadingTemplates}
+                          className="form-input flex-1 bg-white/90 dark:bg-ink-900/90 text-xs font-medium"
+                        >
+                          <option value="">— Choose a Saved Template —</option>
+                          {savedTemplates.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} — {t.subject}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Subject Line & Personalization Inserter */}
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-bold text-primary-c">
+                          Campaign Name <span className="text-muted-c font-normal text-[11px]">(Internal)</span>
+                        </label>
+                        <span className="text-[11px] text-muted-c">{name.length} / 150 chars</span>
+                      </div>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Q3 Enterprise Lead Nurture"
+                        className="form-input text-sm font-medium h-11"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-bold text-primary-c flex items-center gap-2">
+                          Subject Line
+                          {isAbTest && (
+                            <span
+                              className={cx(
+                                'text-[10px] px-1.5 py-0.5 rounded font-black uppercase text-white',
+                                activeVariantTab === 'A' ? 'bg-indigo-600' : 'bg-purple-600'
+                              )}
+                            >
+                              Variant {activeVariantTab}
+                            </span>
+                          )}
+                          <span className="text-danger-500">*</span>
+                        </label>
+                        <span className="text-[11px] text-muted-c">
+                          {(activeVariantTab === 'B' ? variantBSubject : effectiveSubjectA).length} / 150 chars
+                        </span>
+                      </div>
+                      <input
+                        value={activeVariantTab === 'B' ? variantBSubject : effectiveSubjectA}
+                        onChange={(e) => handleSubjectChange(e.target.value)}
+                        placeholder="Enter an engaging, high-converting subject line..."
+                        className="form-input text-sm font-medium h-11"
+                      />
+                    </div>
+
+                    {/* Dynamic Field Tag Inserter Toolbar */}
+                    <div className="rounded-xl border border-base-c bg-slate-50 dark:bg-ink-850 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-secondary-c flex items-center gap-1.5">
+                          <Sparkle className="h-3.5 w-3.5 text-indigo-500" /> Dynamic Tag Inserter
+                        </span>
+                        <span className="text-[10px] text-muted-c">Click tag to insert into Email Body</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1 scrollbar-thin">
+                        {availableTags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => insertTagToBody(tag)}
+                            className="rounded-lg bg-white dark:bg-ink-900 border border-base-c px-2.5 py-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950 transition-colors"
+                          >
+                            + &#123;&#123;{tag}&#127;&#127;
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Email Body Editor */}
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-primary-c">
+                        Email Body Content{' '}
+                        {isAbTest && (
+                          <span
+                            className={cx(
+                              'text-[10px] px-1.5 py-0.5 rounded font-black uppercase text-white ml-1',
+                              activeVariantTab === 'A' ? 'bg-indigo-600' : 'bg-purple-600'
+                            )}
+                          >
+                            Variant {activeVariantTab}
+                          </span>
+                        )}
+                        <span className="text-danger-500">*</span>
+                      </label>
+                      <div className="rounded-xl border border-base-c overflow-hidden focus-within:ring-2 focus-within:ring-primary-500/20 transition-all">
+                        {/* Toolbar */}
+                        <div className="bg-slate-100 dark:bg-ink-800 border-b border-base-c px-3 py-2 flex items-center gap-1.5">
+                          {['B', 'I', 'U'].map((btn) => (
+                            <button
+                              key={btn}
+                              type="button"
+                              className="h-7 w-7 rounded border border-transparent hover:bg-white dark:hover:bg-ink-700 text-xs font-bold text-secondary-c flex items-center justify-center transition-colors"
+                            >
+                              {btn}
+                            </button>
+                          ))}
+                          <div className="w-px h-4 bg-base-c mx-1"></div>
+                          <button
+                            type="button"
+                            className="h-7 px-2 rounded border border-transparent hover:bg-white dark:hover:bg-ink-700 text-xs font-medium text-secondary-c flex items-center justify-center"
+                          >
+                            Link
+                          </button>
+                          <button
+                            type="button"
+                            className="h-7 px-2 rounded border border-transparent hover:bg-white dark:hover:bg-ink-700 text-xs font-medium text-secondary-c flex items-center justify-center"
+                          >
+                            Image
+                          </button>
+                          <div className="flex-1"></div>
+                          <span className="text-[10px] text-muted-c font-medium">Markdown &amp; HTML Supported</span>
+                        </div>
+
+                        <textarea
+                          ref={bodyTextareaRef}
+                          value={activeVariantTab === 'B' ? variantBBody : effectiveBodyA}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (isAbTest) {
+                              if (activeVariantTab === 'A') {
+                                setVariantABody(val);
+                                setBody(val);
+                              } else {
+                                setVariantBBody(val);
+                              }
+                            } else {
+                              setBody(val);
+                              setVariantABody(val);
+                            }
+                          }}
+                          rows={12}
+                          placeholder="Write your email body here. Use tags like {{Name}} or {{Company}} to personalize for each recipient..."
+                          className="w-full resize-y bg-transparent p-4 text-sm leading-relaxed outline-none border-0"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Call to Action Controls */}
+                    <div className="rounded-xl border border-base-c bg-slate-50/50 dark:bg-ink-850/50 p-4 space-y-4">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-secondary-c">
+                        Call To Action Button (Optional)
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-secondary-c">Button Label</label>
+                          <input
+                            value={ctaLabel}
+                            onChange={(e) => setCtaLabel(e.target.value)}
+                            placeholder="e.g. Shop Summer Sale"
+                            className="form-input text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-xs font-semibold text-secondary-c">Destination URL</label>
+                          <input
+                            value={ctaUrl}
+                            onChange={(e) => setCtaUrl(e.target.value)}
+                            placeholder="https://yourbrand.com/sale"
+                            className="form-input text-xs"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2 Navigation Footer */}
+                  <div className="pt-4 border-t border-base-c flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setActiveStep('audience')}
+                      className="rounded-xl border border-base-c bg-white px-5 py-2.5 text-xs font-bold text-secondary-c hover:bg-slate-50 dark:bg-ink-850"
+                    >
+                      ← Back to Audience
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveStep('review')}
+                      className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-indigo-500"
+                    >
+                      Continue to Review &amp; Delivery <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </GlassCard>
               </div>
 
+              {/* Right Column: Live Recipient Email Preview (5 cols) */}
+              <div className="lg:col-span-5 space-y-6">
+                <GlassCard className="p-6 space-y-4 border-indigo-500/20 shadow-sm sticky top-6">
+                  <div className="flex items-center justify-between border-b border-base-c pb-3">
+                    <div className="flex items-center gap-2">
+                      <Eye className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                      <div>
+                        <h4 className="text-sm font-bold text-primary-c">Live Recipient Email Preview</h4>
+                        {isAbTest && (
+                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                            Showing Variant {activeVariantTab}
+                          </span>
+                        )}
+                      </div>
+                    </div>
 
-              <div className="text-[11px] text-muted-c text-center">
-                💡 Placeholders like <code className="font-bold text-indigo-600">&#123;&#123;Name&#127;&#127;</code> automatically render recipient-specific data at dispatch.
+                    {/* Device Frame Toggle */}
+                    <TabSwitcher
+                      tabs={[
+                        { id: 'desktop', label: 'Desktop', icon: <Monitor className="h-4 w-4" /> },
+                        { id: 'mobile', label: 'Mobile', icon: <Smartphone className="h-4 w-4" /> },
+                      ]}
+                      activeTab={previewDevice}
+                      onChange={(id) => setPreviewDevice(id as 'desktop' | 'mobile')}
+                    />
+                  </div>
+
+                  {/* Email Frame Container */}
+                  <div
+                    className={cx(
+                      'mx-auto rounded-2xl border border-base-c bg-white dark:bg-ink-900 shadow-lg overflow-hidden transition-all duration-300',
+                      previewDevice === 'mobile' ? 'max-w-[320px]' : 'w-full'
+                    )}
+                  >
+                    {/* Email Client Header Bar */}
+                    <div className="bg-slate-100 dark:bg-ink-800 p-3 border-b border-base-c space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
+                        <span className="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
+                        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400"></span>
+                        <span className="text-[10px] text-muted-c font-mono ml-2 truncate">Inbox Preview</span>
+                      </div>
+                      <div className="text-xs font-bold text-primary-c truncate">
+                        Subject: {activePreviewSubject || <span className="text-muted-c italic">(No subject line)</span>}
+                      </div>
+                      <div className="text-[11px] text-muted-c truncate">
+                        From: GyanVani Email Service &lt;noreply@crm-connect.com&gt;
+                      </div>
+                      <div className="text-[11px] text-muted-c truncate">
+                        To: {activeRecipientsList[0] || 'sarah.jenkins@acme.com'} (Sample Recipient 1)
+                      </div>
+                    </div>
+
+                    {/* Email Body Content Window */}
+                    <iframe
+                      srcDoc={`
+                        <!DOCTYPE html>
+                        <html>
+                          <head>
+                            <meta charset="utf-8">
+                            <style>
+                              body { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; line-height: 1.6; color: #334155; margin: 0; padding: 8px; }
+                              strong { color: #4f46e5; }
+                            </style>
+                          </head>
+                          <body>
+                            ${renderedBodyPreview}
+                          </body>
+                        </html>
+                      `}
+                      sandbox="allow-same-origin"
+                      className="w-full min-h-[200px] border-none bg-transparent"
+                      title="Email Preview"
+                    />
+
+                    {/* Render CTA Button if configured */}
+                    {(ctaLabel || ctaUrl) && (
+                      <div className="pt-4 text-center">
+                        <a
+                          href={ctaUrl || '#'}
+                          onClick={(e) => e.preventDefault()}
+                          className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-indigo-700 pointer-events-none"
+                        >
+                          {ctaLabel || 'Click Here'}
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Footer CAN-SPAM Notice Preview */}
+                    <div className="bg-slate-50 dark:bg-ink-850 p-3 border-t border-base-c text-[10px] text-muted-c text-center leading-normal">
+                      <p>You received this email as a subscriber of GyanVani Connect.</p>
+                      <p className="mt-1">
+                        <span className="underline cursor-pointer">Unsubscribe</span> | <span className="underline cursor-pointer">Manage Preferences</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-muted-c text-center">
+                    💡 Placeholders like <code className="font-bold text-indigo-600">&#123;&#123;Name&#127;&#127;</code> automatically render recipient-specific data at dispatch.
+                  </div>
+                </GlassCard>
               </div>
-            </GlassCard>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1543,6 +2036,73 @@ export function CreateEmailCampaignView() {
                 Review audience parameters, content metrics, and spam compliance before dispatch.
               </p>
             </div>
+
+            {/* A/B Optimization Experiment Parameters Audit Box */}
+            {isAbTest && (
+              <div className="rounded-2xl border border-purple-500/30 bg-purple-50/25 dark:bg-purple-950/25 p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-500/20 pb-3">
+                  <div className="flex items-center gap-2.5 text-purple-700 dark:text-purple-300">
+                    <TestTube2 className="h-5 w-5" />
+                    <div>
+                      <h4 className="text-sm font-bold text-primary-c">A/B Optimization Experiment Parameters</h4>
+                      <p className="text-[11px] text-muted-c">Automated statistical winner declaration and holdout pool release</p>
+                    </div>
+                  </div>
+                  <span className="rounded-full bg-purple-600 px-3 py-1 text-[10px] font-black uppercase text-white shadow-xs self-start sm:self-auto">
+                    Automated Promotion Active
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-medium">
+                  <div>
+                    <span className="text-muted-c block text-[11px] font-bold uppercase">Audience Split</span>
+                    <strong className="text-primary-c font-extrabold text-sm">{abTestPercentage}% Test Pool</strong>
+                    <p className="text-[10px] text-muted-c mt-0.5">{100 - abTestPercentage}% Holdout Released Post-Test</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-c block text-[11px] font-bold uppercase">Winning Metric</span>
+                    <strong className="text-purple-600 dark:text-purple-400 font-extrabold text-sm">
+                      {abWinnerMetric === 'OPEN_RATE' ? 'Highest Open Rate' : 'Highest Click-Through'}
+                    </strong>
+                    <p className="text-[10px] text-muted-c mt-0.5">Automated Telemetry Audit</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-c block text-[11px] font-bold uppercase">Test Duration</span>
+                    <strong className="text-primary-c font-extrabold text-sm">{abEvaluationHours} Hours</strong>
+                    <p className="text-[10px] text-muted-c mt-0.5">Evaluation Window</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-c block text-[11px] font-bold uppercase">Holdout Dispatch</span>
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">Instant Winner Release</strong>
+                    <p className="text-[10px] text-muted-c mt-0.5">Automated Quartz Trigger</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs border-t border-purple-500/15">
+                  <div className="p-3 rounded-xl bg-white/80 dark:bg-ink-900/80 border border-purple-500/20 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                        <span className="grid h-4 w-4 place-items-center rounded bg-indigo-100 dark:bg-indigo-950 text-[9px] font-black">A</span>
+                        Variant A (Control)
+                      </span>
+                      <span className="text-[10px] font-bold text-muted-c">{abTestPercentage / 2}% Split</span>
+                    </div>
+                    <p className="text-primary-c font-semibold truncate">&quot;{effectiveSubjectA}&quot;</p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white/80 dark:bg-ink-900/80 border border-purple-500/20 shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold text-purple-600 dark:text-purple-400 flex items-center gap-1.5">
+                        <span className="grid h-4 w-4 place-items-center rounded bg-purple-100 dark:bg-purple-950 text-[9px] font-black">B</span>
+                        Variant B (Challenger)
+                      </span>
+                      <span className="text-[10px] font-bold text-muted-c">{abTestPercentage / 2}% Split</span>
+                    </div>
+                    <p className="text-primary-c font-semibold truncate">&quot;{effectiveSubjectB}&quot;</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Audit Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1591,18 +2151,20 @@ export function CreateEmailCampaignView() {
                 <div className="space-y-1.5 text-xs text-secondary-c font-medium">
                   <p className="truncate">
                     <span className="text-muted-c">Subject:</span>{' '}
-                    <strong className="text-primary-c">{subject || 'Untitled Subject'}</strong>
+                    <strong className="text-primary-c">
+                      {isAbTest ? `Variant A: "${effectiveSubjectA}"` : (subject || 'Untitled Subject')}
+                    </strong>
                   </p>
                   <p>
-                    <span className="text-muted-c">Word Count:</span> {body.split(/\s+/).filter(Boolean).length} words
+                    <span className="text-muted-c">Word Count:</span> {effectiveBodyA.split(/\s+/).filter(Boolean).length} words
                   </p>
                   <p>
                     <span className="text-muted-c">CTA Action:</span>{' '}
                     {ctaLabel ? <strong className="text-indigo-600">{ctaLabel}</strong> : 'None'}
                   </p>
                   <p>
-                    <span className="text-muted-c">Creation Mode:</span>{' '}
-                    {creationMode === 'ai' ? 'AI Generated' : creationMode === 'template' ? 'Saved Template' : 'Standard Editor'}
+                    <span className="text-muted-c">Editor Mode:</span>{' '}
+                    {editorStyle === 'visual' ? 'Visual Block Builder' : creationMode === 'ai' ? 'AI Generated' : 'Standard Editor'}
                   </p>
                 </div>
               </div>
@@ -1629,11 +2191,42 @@ export function CreateEmailCampaignView() {
 
             {/* Test Deliverability Bench */}
             <div className="rounded-2xl border border-indigo-500/20 bg-indigo-50/30 dark:bg-indigo-950/20 p-5 space-y-3">
-              <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
-                <Send className="h-4 w-4 text-indigo-600" /> Test Deliverability Bench
-              </h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
+                  <Send className="h-4 w-4 text-indigo-600" /> Test Deliverability Bench
+                </h4>
+                {isAbTest && (
+                  <div className="flex items-center gap-1.5 text-xs font-bold">
+                    <span className="text-muted-c text-[11px]">Send:</span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveVariantTab('A')}
+                      className={cx(
+                        'px-2 py-1 rounded-lg transition-all',
+                        activeVariantTab === 'A'
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-secondary-c dark:bg-ink-850'
+                      )}
+                    >
+                      Variant A
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveVariantTab('B')}
+                      className={cx(
+                        'px-2 py-1 rounded-lg transition-all',
+                        activeVariantTab === 'B'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white text-secondary-c dark:bg-ink-850'
+                      )}
+                    >
+                      Variant B
+                    </button>
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-muted-c">
-                Send a live test version to your personal inbox to verify styling, links, and rendering.
+                Send a live test version {isAbTest ? `of Variant ${activeVariantTab}` : ''} to your personal inbox to verify styling, links, and rendering.
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <input
@@ -1650,7 +2243,14 @@ export function CreateEmailCampaignView() {
                       showToast('Please enter a valid test email address.', true);
                       return;
                     }
-                    if (!subject || !body) {
+                    const testSubject = isAbTest
+                      ? (activeVariantTab === 'B' ? effectiveSubjectB : effectiveSubjectA)
+                      : effectiveSubjectA;
+                    const testBody = isAbTest
+                      ? (activeVariantTab === 'B' ? effectiveBodyB : effectiveBodyA)
+                      : effectiveBodyA;
+
+                    if (!testSubject || !testBody) {
                       showToast('Please enter subject and body content first.', true);
                       return;
                     }
@@ -1660,9 +2260,9 @@ export function CreateEmailCampaignView() {
 
                     try {
                       const req = {
-                        name: name.trim() || subject,
-                        subject,
-                        body,
+                        name: name.trim() || testSubject,
+                        subject: testSubject,
+                        body: testBody,
                         ctaLabel: ctaLabel || undefined,
                         ctaUrl: ctaUrl || undefined,
                         recipientMode,
@@ -1679,17 +2279,17 @@ export function CreateEmailCampaignView() {
                         body: JSON.stringify({ testEmail: el.value }),
                       });
                       if (testRes.error) throw new Error(testRes.error);
-                      showToast('✅ Test email delivered successfully to ' + el.value);
+                      showToast(`✅ Test email (${isAbTest ? `Variant ${activeVariantTab}` : 'Standard'}) delivered to ${el.value}`);
                     } catch (err: unknown) {
                       showToast((err as Error).message || 'Error sending test email', true);
                     } finally {
                       btn.disabled = false;
-                      btn.innerText = 'Send Test Email';
+                      btn.innerText = isAbTest ? `Send Variant ${activeVariantTab} Test` : 'Send Test Email';
                     }
                   }}
                   className="rounded-xl border border-indigo-500/30 bg-white px-5 py-2.5 text-xs font-bold text-indigo-700 hover:bg-indigo-50 dark:bg-ink-850 dark:text-indigo-300 shadow-sm shrink-0"
                 >
-                  Send Test Email
+                  {isAbTest ? `Send Variant ${activeVariantTab} Test` : 'Send Test Email'}
                 </button>
               </div>
             </div>
