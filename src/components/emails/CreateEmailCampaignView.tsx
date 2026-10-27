@@ -55,7 +55,8 @@ import {
   Trophy,
   Split,
   LayoutTemplate,
-  Code2
+  Code2,
+  MousePointerClick
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
