@@ -22,6 +22,9 @@ export interface ContactDTO {
   marketingOptedOut?: boolean;
   marketingOptedOutAt?: string | null;
   marketingOptOutSource?: string | null;
+  /** Contact merge tracking (Gap 13) */
+  isMerged?: boolean;
+  mergedIntoId?: string | null;
 }
 
 export interface ConsentAuditLogEntry {
@@ -270,3 +273,91 @@ export async function fetchConsentSummary() {
     return { data: null, error: (error as Error).message };
   }
 }
+
+// ---------------------------------------------------------------------------
+// CRM Contact Merge & Deduplication Engine (Gap 13)
+// ---------------------------------------------------------------------------
+
+export interface DuplicateCandidateDTO {
+  contactId: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  waId: string | null;
+  source: string | null;
+  similarityScore: number;
+  matchReason: string;
+  createdAt?: string | null;
+}
+
+export interface MergeContactRequestDTO {
+  secondaryContactId: string;
+  winningName?: string;
+  winningPhone?: string;
+  winningEmail?: string;
+  winningSource?: string;
+  winningMarketingOptOut?: boolean;
+  additionalTags?: string[];
+  mergeNotes?: string;
+}
+
+export interface MergeResultDTO {
+  mergeHistoryId: string;
+  primaryContactId: string;
+  secondaryContactId: string;
+  primaryContactName: string;
+  secondaryContactName: string;
+  transferredEntities: Record<string, number>;
+  mergedAt: string;
+  performedBy: string;
+  success: boolean;
+}
+
+export interface ContactMergeHistoryDTO {
+  id: string;
+  primaryContactId: string;
+  secondaryContactId: string;
+  secondaryContactName: string;
+  secondaryContactPhone: string | null;
+  secondaryContactEmail: string | null;
+  secondaryContactWaId: string | null;
+  transferredEntitiesSummary: Record<string, number>;
+  resolvedFields: Record<string, any>;
+  mergedAt: string;
+  mergedBy: string;
+  mergeNotes: string | null;
+}
+
+export async function fetchDuplicateCandidates(contactId: string) {
+  try {
+    const res = await apiFetch<DuplicateCandidateDTO[]>(`/api/v1/contacts/${contactId}/duplicate-candidates`);
+    return { data: res.data, error: res.error };
+  } catch (error: unknown) {
+    console.error('Error fetching duplicate candidates:', error);
+    return { data: null, error: (error as Error).message };
+  }
+}
+
+export async function mergeContacts(primaryContactId: string, payload: MergeContactRequestDTO) {
+  try {
+    const res = await apiFetch<MergeResultDTO>(`/api/v1/contacts/${primaryContactId}/merge`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    return { data: res.data, error: res.error };
+  } catch (error: unknown) {
+    console.error('Error merging contacts:', error);
+    return { data: null, error: (error as Error).message };
+  }
+}
+
+export async function fetchMergeHistory(contactId: string) {
+  try {
+    const res = await apiFetch<ContactMergeHistoryDTO[]>(`/api/v1/contacts/${contactId}/merge-history`);
+    return { data: res.data, error: res.error };
+  } catch (error: unknown) {
+    console.error('Error fetching merge history:', error);
+    return { data: null, error: (error as Error).message };
+  }
+}
+

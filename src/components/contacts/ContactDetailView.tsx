@@ -27,13 +27,23 @@ import {
   ChevronRight,
   X,
   PhoneCall,
+  GitMerge,
 } from 'lucide-react';
-import { fetchContactById, toggleContactBot, updateContactConsent, updateContactTags, type ContactDTO } from '@/lib/contactsApi';
+import { 
+  fetchContactById, 
+  toggleContactBot, 
+  updateContactConsent, 
+  updateContactTags, 
+  fetchDuplicateCandidates,
+  type ContactDTO,
+  type DuplicateCandidateDTO 
+} from '@/lib/contactsApi';
 import { apiFetch } from '@/lib/api';
 import { fetchLeadsByContactId, type LeadDTO } from '@/lib/leadsApi';
 import { fetchBookingsByContactId, type BookingDto } from '@/lib/bookingsApi';
 import { fetchAppointmentsByContactId, type AppointmentDto } from '@/lib/appointmentsApi';
 import { WhatsAppCallModal } from '@/components/calling/WhatsAppCallModal';
+import { MergeContactModal } from '@/components/contacts/MergeContactModal';
 import { CallsView } from '@/components/calling/CallsView';
 import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
@@ -53,6 +63,8 @@ export function ContactDetailView() {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isCallModalOpen, setIsCallModalOpen] = useState(false);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidateDTO[]>([]);
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [newTagInput, setNewTagInput] = useState('');
   const [savingTag, setSavingTag] = useState(false);
@@ -144,11 +156,12 @@ export function ContactDetailView() {
     async function load() {
       if (!contactId) return;
       setLoading(true);
-      const [res, leadsRes, bookingsRes, appointmentsRes] = await Promise.all([
+      const [res, leadsRes, bookingsRes, appointmentsRes, dupesRes] = await Promise.all([
         fetchContactById(contactId),
         fetchLeadsByContactId(contactId),
         fetchBookingsByContactId(contactId),
-        fetchAppointmentsByContactId(contactId)
+        fetchAppointmentsByContactId(contactId),
+        fetchDuplicateCandidates(contactId)
       ]);
 
       if (res.error) {
@@ -159,6 +172,7 @@ export function ContactDetailView() {
       if (leadsRes.data) setLeads(leadsRes.data);
       if (bookingsRes.data) setBookings(bookingsRes.data);
       if (appointmentsRes.data) setAppointments(appointmentsRes.data);
+      if (dupesRes.data) setDuplicateCandidates(dupesRes.data);
       setLoading(false);
     }
     load();
@@ -240,6 +254,11 @@ export function ContactDetailView() {
         </button>
 
         <div className="flex items-center gap-2">
+          {contact.isMerged && (
+            <Badge variant="warning">
+              <GitMerge className="h-3 w-3 mr-1" /> Merged Record
+            </Badge>
+          )}
           <Badge variant={contact.botPaused ? 'warning' : 'success'}>
             <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse mr-1" />
             {contact.botPaused ? 'Bot Paused' : 'Bot Active'}
@@ -255,6 +274,44 @@ export function ContactDetailView() {
           )}
         </div>
       </div>
+
+      {/* Merged Contact Banner */}
+      {contact.isMerged && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-xs text-amber-900 dark:text-amber-200">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5 sm:mt-0" />
+            <span>
+              <strong>Archived Merged Contact:</strong> This record was merged into another contact profile. All conversations, deals, and appointments are preserved on the primary record.
+            </span>
+          </div>
+          {contact.mergedIntoId && (
+            <button
+              onClick={() => navigate(`/contacts/${contact.mergedIntoId}`)}
+              className="inline-flex items-center gap-1.5 shrink-0 self-start sm:self-auto rounded-xl bg-amber-600 px-4 py-2 font-bold text-white shadow-soft transition-transform hover:scale-[1.02] cursor-pointer"
+            >
+              View Primary Record <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Potential Duplicate Notification Banner */}
+      {!contact.isMerged && duplicateCandidates.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-primary-500/10 p-4 text-xs text-primary-c">
+          <div className="flex items-start sm:items-center gap-2.5">
+            <GitMerge className="h-5 w-5 shrink-0 text-primary-500 mt-0.5 sm:mt-0" />
+            <div>
+              <strong className="text-primary-500">Duplicate Contacts Detected:</strong> Found {duplicateCandidates.length} potential duplicate record{duplicateCandidates.length > 1 ? 's' : ''} with matching phone number, email, or similar name.
+            </div>
+          </div>
+          <button
+            onClick={() => setIsMergeModalOpen(true)}
+            className="inline-flex items-center gap-1.5 shrink-0 self-start sm:self-auto rounded-xl bg-gradient-accent px-4 py-2 font-bold text-white shadow-soft transition-transform hover:scale-[1.02] cursor-pointer"
+          >
+            Review & Merge <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Main Executive Banner Card */}
       <GlassCard className="relative overflow-hidden p-6 lg:p-8">
@@ -352,6 +409,22 @@ export function ContactDetailView() {
             >
               <WhatsAppIcon className="h-4 w-4" /> Start AI Call
             </button>
+
+            {!contact.isMerged && (
+              <button
+                onClick={() => setIsMergeModalOpen(true)}
+                className="flex items-center gap-2 rounded-xl border border-base-c bg-card-c hover:bg-subtle-c px-4 py-2.5 text-xs font-bold text-primary-c shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                title="Merge duplicate contacts"
+              >
+                <GitMerge className="h-4 w-4 text-primary-500" />
+                <span>Merge Contact</span>
+                {duplicateCandidates.length > 0 && (
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                    {duplicateCandidates.length}
+                  </span>
+                )}
+              </button>
+            )}
 
             <button className="flex items-center gap-2 rounded-xl border border-base-c bg-card-c hover:bg-subtle-c px-4 py-2.5 text-xs font-bold text-primary-c shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
               <MessageSquare className="h-4 w-4" /> Open Live Chat
@@ -984,6 +1057,24 @@ export function ContactDetailView() {
         contactName={contact.name || undefined}
         phoneNumber={contact.phone || contact.waId || undefined}
       />
+
+      {/* Merge Contact Modal */}
+      {isMergeModalOpen && contact && (
+        <MergeContactModal
+          primaryContact={contact}
+          onClose={() => setIsMergeModalOpen(false)}
+          onSuccess={async () => {
+            if (contactId) {
+              const [cRes, dRes] = await Promise.all([
+                fetchContactById(contactId),
+                fetchDuplicateCandidates(contactId)
+              ]);
+              if (cRes.data) setContact(cRes.data);
+              if (dRes.data) setDuplicateCandidates(dRes.data);
+            }
+          }}
+        />
+      )}
 
     </div>
   );

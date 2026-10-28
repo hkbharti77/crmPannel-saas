@@ -15,6 +15,12 @@ import { fetchFaqs, type FaqItemDto } from '@/lib/faqApi';
 import { FaqManagementView } from './FaqManagementView';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { fetchVoiceConfig, saveVoiceConfig } from '@/lib/flowFieldsApi';
+import { Globe, Compass, Play, XCircle, ExternalLink, ShieldCheck, PieChart } from 'lucide-react';
+import { InspectChunksModal } from './InspectChunksModal';
+import {
+  fetchTenantQuotas, submitCrawlJob, fetchCrawlJob, cancelCrawlJob, reindexDocument,
+  type TenantRagQuotaDto, type CrawlJobDto
+} from '@/lib/knowledgeBaseApi';
 
 interface RagDocumentDto {
   documentId: string;
@@ -77,29 +83,69 @@ const VOICE_PERSONA_TEMPLATES = [
   },
 ];
 
-const VOICE_MODELS = [
-  // Female
-  { id: 'simran',  name: 'Simran',  gender: 'female', style: 'Warm & Professional (Hindi/Eng)' },
-  { id: 'priya',   name: 'Priya',   gender: 'female', style: 'Soft & Friendly (Marathi/Eng)' },
-  { id: 'neha',    name: 'Neha',    gender: 'female', style: 'Clear & Direct (Gujarati/Eng)' },
-  // Male
-  { id: 'rahul',   name: 'Rahul',   gender: 'male',   style: 'Deep & Confident (Hindi/Eng)' },
-  { id: 'rohan',   name: 'Rohan',   gender: 'male',   style: 'Smooth & Neutral (Bengali/Eng)' },
-  { id: 'amit',    name: 'Amit',    gender: 'male',   style: 'Friendly & Casual' },
+export interface VoiceModelOption {
+  id: string;
+  name: string;
+  gender: 'female' | 'male';
+  style: string;
+  badge?: string;
+}
+
+const VOICE_MODELS: readonly VoiceModelOption[] = [
+  // ── Female Voices (Sarvam Bulbul V4 Flash) ──
+  { id: 'simran_enhi_customer',     name: 'Simran',         gender: 'female', style: 'Warm & Professional (Hinglish Support)', badge: 'Default' },
+  { id: 'simran_hi_assistant',      name: 'Simran (Hindi)', gender: 'female', style: 'Formal & Polite Assistant (Hindi)' },
+  { id: 'ishita_enhi_customer',     name: 'Ishita',         gender: 'female', style: 'Soft & Empathetic (Hinglish/Eng)' },
+  { id: 'ritu_hi_customer',         name: 'Ritu',           gender: 'female', style: 'Clear & Expressive (Hindi/Eng)' },
+  { id: 'sanchita_hi_assistant',    name: 'Sanchita',       gender: 'female', style: 'Reassuring Helpdesk (Hindi/Eng)' },
+  { id: 'neha_en_customer',         name: 'Neha',           gender: 'female', style: 'Direct Corporate Support (English)' },
+  { id: 'roopa_hi_conversational',  name: 'Roopa',          gender: 'female', style: 'Friendly & Casual Chat (Hindi)' },
+  { id: 'shalini_enhi_customer',    name: 'Shalini',        gender: 'female', style: 'Empathetic Customer Care (Hinglish)' },
+  { id: 'aura-2-thalia-en',         name: 'Thalia (Deepgram)', gender: 'female', style: 'Ultra-Fast <90ms (Global English)', badge: 'Aura-2' },
+
+  // ── Male Voices (Sarvam Bulbul V4 Flash) ──
+  { id: 'shubh_enhi_customer',         name: 'Shubh',   gender: 'male', style: 'Confident & Friendly Support', badge: 'Popular' },
+  { id: 'rahul_hi_conversational',     name: 'Rahul',   gender: 'male', style: 'Deep & Professional (Hindi/Eng)' },
+  { id: 'aditya_hi_conversational',    name: 'Aditya',  gender: 'male', style: 'Energetic & Confident Sales (Hindi/Eng)' },
+  { id: 'ratan_hi_customer_expressive',name: 'Ratan',   gender: 'male', style: 'Articulate & Trustworthy Desk (Hindi/Eng)' },
+  { id: 'sunny_enhi_customer',         name: 'Sunny',   gender: 'male', style: 'Modern & Upbeat Telephony (Hinglish)' },
+  { id: 'amit_hi_conversational',      name: 'Amit',    gender: 'male', style: 'Friendly & Casual Advisor (Hindi)' },
+  { id: 'dev_en_conversational',       name: 'Dev',     gender: 'male', style: 'Smooth Corporate Executive (English)' },
+  { id: 'rohan_en_recovery',           name: 'Rohan',   gender: 'male', style: 'Calm & Reassuring Guidance (English)' },
+  { id: 'aura-2-apollo-en',            name: 'Apollo (Deepgram)', gender: 'male', style: 'Ultra-Fast <90ms (Global English)', badge: 'Aura-2' },
 ] as const;
 
-type VoiceModelId = typeof VOICE_MODELS[number]['id'];
+type VoiceModelId = string;
 
 const MAX_PERSONA_CHARS = 4000;
 
 export function KnowledgeBaseView() {
-  const [activeTab, setActiveTab] = useState<'persona' | 'rag' | 'faq'>('persona');
+  const [activeTab, setActiveTab] = useState<'persona' | 'rag' | 'crawler' | 'faq'>('persona');
   const [documents, setDocuments] = useState<RagDocumentDto[]>([]);
   const [docSearchQuery, setDocSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [_planLocked, setPlanLocked] = useState(false);
+
+  // ── Chunk Inspection Modal State ──
+  const [inspectModal, setInspectModal] = useState<{
+    isOpen: boolean;
+    docId: string;
+    docName: string;
+  }>({ isOpen: false, docId: '', docName: '' });
+
+  // ── Staged Re-indexing State ──
+  const [reindexingDocId, setReindexingDocId] = useState<string | null>(null);
+
+  // ── Web Crawler & Sitemap State ──
+  const [quotas, setQuotas] = useState<TenantRagQuotaDto | null>(null);
+  const [crawlUrl, setCrawlUrl] = useState('');
+  const [crawlType, setCrawlType] = useState<'SINGLE_PAGE' | 'RECURSIVE_CRAWL' | 'SITEMAP_INDEX'>('SINGLE_PAGE');
+  const [crawlSubmitting, setCrawlSubmitting] = useState(false);
+  const [activeCrawlJob, setActiveCrawlJob] = useState<CrawlJobDto | null>(null);
+  const [crawlError, setCrawlError] = useState<string | null>(null);
+  const [crawlMessage, setCrawlMessage] = useState<string | null>(null);
 
   // ── AI Persona State ──
   const [personaPrompt, setPersonaPrompt] = useState('');
@@ -239,6 +285,105 @@ export function KnowledgeBaseView() {
     return { activeCount, totalHits, highHitCount, totalCategories: categories.length };
   }, [faqs]);
 
+  const loadQuotas = useCallback(async () => {
+    const res = await fetchTenantQuotas();
+    if (res.data) {
+      setQuotas(res.data);
+    }
+  }, []);
+
+  // Poll active crawl job
+  useEffect(() => {
+    if (!activeCrawlJob) return;
+    const isRunning = activeCrawlJob.status === 'QUEUED' || activeCrawlJob.status === 'CRAWLING' || activeCrawlJob.status === 'RETRYING';
+    if (!isRunning) return;
+
+    const interval = setInterval(async () => {
+      const res = await fetchCrawlJob(activeCrawlJob.id);
+      if (res.data) {
+        setActiveCrawlJob(res.data);
+        if (res.data.status === 'COMPLETED' || res.data.status === 'PARTIAL_SUCCESS') {
+          loadDocuments(true);
+          loadQuotas();
+          setCrawlMessage(`Crawl completed! ${res.data.pagesCrawled} pages crawled, ${res.data.totalChunks} chunks generated.`);
+          setTimeout(() => setCrawlMessage(null), 5000);
+        } else if (res.data.status === 'FAILED') {
+          loadQuotas();
+          setCrawlError(res.data.errorMessage || 'Crawl job failed.');
+        }
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [activeCrawlJob, loadDocuments, loadQuotas]);
+
+  const handleStartCrawl = async () => {
+    if (!crawlUrl.trim()) {
+      setCrawlError('URL is required.');
+      return;
+    }
+    setCrawlSubmitting(true);
+    setCrawlError(null);
+    setCrawlMessage(null);
+    try {
+      const res = await submitCrawlJob(crawlUrl.trim(), crawlType);
+      if (res.data) {
+        setCrawlMessage('Crawl job submitted and running in background...');
+        setActiveCrawlJob({
+          id: res.data.jobId,
+          sourceUrl: res.data.sourceUrl,
+          crawlType: res.data.crawlType,
+          status: 'QUEUED',
+          pagesDiscovered: 1,
+          pagesCrawled: 0,
+          pagesFailed: 0,
+          totalChunks: 0,
+          createdAt: new Date().toISOString(),
+        });
+        loadQuotas();
+      } else if (res.error) {
+        setCrawlError(res.error);
+      }
+    } catch (e: any) {
+      setCrawlError(e.message || 'Failed to submit crawl job');
+    } finally {
+      setCrawlSubmitting(false);
+    }
+  };
+
+  const handleCancelCrawl = async () => {
+    if (!activeCrawlJob) return;
+    try {
+      await cancelCrawlJob(activeCrawlJob.id);
+      setActiveCrawlJob(prev => prev ? { ...prev, status: 'CANCELLED' } : null);
+      loadQuotas();
+      setCrawlMessage('Crawl job cancelled.');
+      setTimeout(() => setCrawlMessage(null), 3000);
+    } catch (e: any) {
+      setCrawlError(e.message || 'Failed to cancel crawl job');
+    }
+  };
+
+  const handleReindex = async (docId: string) => {
+    setReindexingDocId(docId);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await reindexDocument(docId);
+      if (res.data) {
+        setMessage(`Document reindexed successfully! Swapped to v${res.data.activeVersion} (${res.data.totalChunks} chunks).`);
+        loadDocuments(true);
+        setTimeout(() => setMessage(null), 4000);
+      } else if (res.error) {
+        setError(`Re-indexing failed: ${res.error}`);
+      }
+    } catch (e: any) {
+      setError(`Re-indexing error: ${e.message}`);
+    } finally {
+      setReindexingDocId(null);
+    }
+  };
+
   useEffect(() => {
     Promise.all([
       fetchSubscriptionStatus(),
@@ -246,6 +391,7 @@ export function KnowledgeBaseView() {
       loadVoicePersona(),
       loadDocuments(),
       loadFaqs(),
+      loadQuotas(),
     ]).then(([subRes]) => {
       if (subRes.data) {
         const isPaidPlan = subRes.data.planId === 'PRO' || subRes.data.planId === 'ENTERPRISE';
@@ -261,13 +407,13 @@ export function KnowledgeBaseView() {
   }, [documents]);
 
   const activeVoiceName = useMemo(() => {
-    const v = VOICE_MODELS.find(m => m.id === ttsVoiceId);
+    const v = VOICE_MODELS.find(m => m.id === ttsVoiceId || (ttsVoiceId === 'simran' && m.id === 'simran_enhi_customer'));
     return v ? `${v.name} (${v.gender === 'female' ? '♀' : '♂'})` : 'Simran (♀)';
   }, [ttsVoiceId]);
 
   const filteredDocuments = useMemo(() => {
     if (!docSearchQuery) return documents;
-    return documents.filter(doc => doc.name.toLowerCase().includes(docSearchQuery.toLowerCase()));
+    return documents.filter(doc => (doc.name || '').toLowerCase().includes(docSearchQuery.toLowerCase()));
   }, [documents, docSearchQuery]);
 
   // Save Persona Handler
@@ -336,8 +482,16 @@ export function KnowledgeBaseView() {
   const handleFileUpload = async (file: File) => {
     if (!file) return;
 
-    if (file.size > 20 * 1024 * 1024) {
-      setError('File size exceeds maximum limit of 20MB.');
+    const maxMb = quotas?.maxFileSizeMb || 20;
+    if (file.size > maxMb * 1024 * 1024) {
+      setError(`File size (${(file.size / (1024 * 1024)).toFixed(1)}MB) exceeds your plan's maximum limit of ${maxMb}MB.`);
+      return;
+    }
+
+    const maxDocs = quotas?.maxDocumentsLimit ?? 25;
+    const currentDocs = quotas?.activeDocumentsCount ?? documents.length;
+    if (currentDocs >= maxDocs) {
+      setError(`Document limit reached (${currentDocs}/${maxDocs} documents). Please delete an older document or upgrade your subscription.`);
       return;
     }
 
@@ -389,11 +543,13 @@ export function KnowledgeBaseView() {
                 setUploading(false);
                 const code = statusData.errorCode ? ` [${statusData.errorCode}]` : '';
                 setError(`Processing failed${code}: ${statusData.error || 'Unknown error'}`);
+                loadQuotas();
               } else if (statusData.status !== 'PROCESSING') {
                 isDone = true;
                 setUploading(false);
                 setMessage(`Document "${file.name}" uploaded and indexed successfully!`);
                 loadDocuments(true);
+                loadQuotas();
                 setTimeout(() => setMessage(null), 4000);
               }
             } else {
@@ -401,6 +557,7 @@ export function KnowledgeBaseView() {
               isDone = true;
               setUploading(false);
               loadDocuments(true);
+              loadQuotas();
             }
           }
         } else {
@@ -408,6 +565,7 @@ export function KnowledgeBaseView() {
           setUploading(false);
           setMessage(`Document "${file.name}" uploaded successfully!`);
           loadDocuments(true);
+          loadQuotas();
           setTimeout(() => setMessage(null), 4000);
         }
       } else {
@@ -445,6 +603,7 @@ export function KnowledgeBaseView() {
     if (!res.error) {
       setMessage(`Document "${docName}" deleted from RAG vector store.`);
       loadDocuments();
+      loadQuotas();
       setTimeout(() => setMessage(null), 4000);
     } else {
       setError(`Delete error: ${res.error}`);
@@ -591,10 +750,11 @@ export function KnowledgeBaseView() {
         tabs={[
           { id: 'persona', label: 'AI Persona & Voice Engine', icon: <Brain className="h-4 w-4" /> },
           { id: 'rag', label: `Document Embeddings (${documents.length})`, icon: <FileText className="h-4 w-4 text-indigo-500" /> },
+          { id: 'crawler', label: 'Web Crawler & Sitemap', icon: <Globe className="h-4 w-4 text-purple-500" /> },
           { id: 'faq', label: 'Structured Q&A Knowledge', icon: <HelpCircle className="h-4 w-4" /> }
         ]}
         activeTab={activeTab}
-        onChange={(id) => setActiveTab(id as 'persona' | 'rag' | 'faq')}
+        onChange={(id) => setActiveTab(id as 'persona' | 'rag' | 'crawler' | 'faq')}
         className="w-full justify-between [&>button]:flex-1 bg-slate-100/80 dark:bg-ink-900/60 p-1 rounded-xl"
       />
 
@@ -776,7 +936,7 @@ export function KnowledgeBaseView() {
               </div>
               <div className="flex items-center gap-1.5 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
                 <Radio className="h-3 w-3 animate-pulse text-indigo-500" />
-                <span>Deepgram + Sarvam HD</span>
+                <span>Deepgram Nova-3 + Sarvam V4 Flash</span>
               </div>
             </div>
 
@@ -833,7 +993,7 @@ export function KnowledgeBaseView() {
                     </label>
                     <div className="flex items-center gap-2 rounded-xl border border-base-c bg-slate-50/60 dark:bg-ink-900/50 p-2.5 text-xs text-primary-c">
                       <Volume2 className="h-4 w-4 text-indigo-500 shrink-0" />
-                      <span className="font-medium">Deepgram Nova-2 + Sarvam AI &bull; 24kHz HD</span>
+                      <span className="font-medium">Deepgram Nova-3 + Sarvam Bulbul V4 Flash &bull; &lt;100ms HD</span>
                     </div>
                     <p className="mt-1 text-[11px] text-muted-c">
                       High-speed enterprise STT/TTS with sub-second latency.
@@ -879,63 +1039,83 @@ export function KnowledgeBaseView() {
                   <div className="mb-2 flex items-center gap-2">
                     <Volume2 className="h-4 w-4 text-indigo-500" />
                     <span className="text-xs font-semibold text-primary-c">Voice Model</span>
-                    <span className="ml-auto text-[11px] text-muted-c">Sarvam AI · Multilingual HD</span>
+                    <span className="ml-auto text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">Sarvam Bulbul V4 Flash &bull; &lt;250ms HD</span>
                   </div>
 
                   {/* Female voices */}
                   <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-pink-500">
                     <span>♀</span> Female Voices
                   </p>
-                  <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-                    {VOICE_MODELS.filter(v => v.gender === 'female').map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => handleSelectVoiceModel(v)}
-                        className={cx(
-                          'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
-                          ttsVoiceId === v.id
-                            ? 'border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-400/30'
-                            : 'border-base-c bg-card-c hover:border-indigo-300 hover:bg-indigo-500/5'
-                        )}
-                      >
-                        {ttsVoiceId === v.id && (
-                          <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500">
-                            <Check className="h-2.5 w-2.5 text-white" />
-                          </span>
-                        )}
-                        <span className="text-sm font-bold text-primary-c">{v.name}</span>
-                        <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
-                      </button>
-                    ))}
+                  <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {VOICE_MODELS.filter(v => v.gender === 'female').map((v) => {
+                      const isSelected = ttsVoiceId === v.id || (v.id === 'simran_enhi_customer' && (!ttsVoiceId || ttsVoiceId === 'simran'));
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => handleSelectVoiceModel(v)}
+                          className={cx(
+                            'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
+                            isSelected
+                              ? 'border-indigo-500 bg-indigo-500/10 ring-2 ring-indigo-400/30'
+                              : 'border-base-c bg-card-c hover:border-indigo-300 hover:bg-indigo-500/5'
+                          )}
+                        >
+                          {isSelected && (
+                            <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-500">
+                              <Check className="h-2.5 w-2.5 text-white" />
+                            </span>
+                          )}
+                          <div className="flex items-center gap-1.5 pr-4">
+                            <span className="text-xs font-bold text-primary-c">{v.name}</span>
+                            {v.badge && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                {v.badge}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Male voices */}
                   <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-sky-500">
                     <span>♂</span> Male Voices
                   </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    {VOICE_MODELS.filter(v => v.gender === 'male').map((v) => (
-                      <button
-                        key={v.id}
-                        type="button"
-                        onClick={() => handleSelectVoiceModel(v)}
-                        className={cx(
-                          'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
-                          ttsVoiceId === v.id
-                            ? 'border-sky-500 bg-sky-500/10 ring-2 ring-sky-400/30'
-                            : 'border-base-c bg-card-c hover:border-sky-300 hover:bg-sky-500/5'
-                        )}
-                      >
-                        {ttsVoiceId === v.id && (
-                          <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500">
-                            <Check className="h-2.5 w-2.5 text-white" />
-                          </span>
-                        )}
-                        <span className="text-sm font-bold text-primary-c">{v.name}</span>
-                        <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                    {VOICE_MODELS.filter(v => v.gender === 'male').map((v) => {
+                      const isSelected = ttsVoiceId === v.id;
+                      return (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => handleSelectVoiceModel(v)}
+                          className={cx(
+                            'relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-all',
+                            isSelected
+                              ? 'border-sky-500 bg-sky-500/10 ring-2 ring-sky-400/30'
+                              : 'border-base-c bg-card-c hover:border-sky-300 hover:bg-sky-500/5'
+                          )}
+                        >
+                          {isSelected && (
+                            <span className="absolute right-2 top-2 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500">
+                              <Check className="h-2.5 w-2.5 text-white" />
+                            </span>
+                          )}
+                          <div className="flex items-center gap-1.5 pr-4">
+                            <span className="text-xs font-bold text-primary-c">{v.name}</span>
+                            {v.badge && (
+                              <span className="text-[9px] font-semibold px-1.5 py-0.2 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20">
+                                {v.badge}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] leading-tight text-muted-c">{v.style}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1014,6 +1194,82 @@ export function KnowledgeBaseView() {
             </div>
           )}
 
+          {/* Document Quota & Budget Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-base-c bg-card-c p-4 shadow-xs">
+              <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+                <span>Active Documents</span>
+                <FileText className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="mt-3 flex items-baseline justify-between">
+                <span className="text-xl font-black text-primary-c">
+                  {quotas?.activeDocumentsCount ?? documents.length} / {quotas?.maxDocumentsLimit ?? 25}
+                </span>
+                <span className={cx(
+                  'text-[11px] font-bold',
+                  (quotas?.activeDocumentsCount ?? documents.length) >= (quotas?.maxDocumentsLimit ?? 25)
+                    ? 'text-rose-600 dark:text-rose-400'
+                    : 'text-indigo-600 dark:text-indigo-400'
+                )}>
+                  {Math.max(0, (quotas?.maxDocumentsLimit ?? 25) - (quotas?.activeDocumentsCount ?? documents.length))} slots left
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-slate-100 dark:bg-ink-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, (((quotas?.activeDocumentsCount ?? documents.length)) / (quotas?.maxDocumentsLimit ?? 25)) * 100)}%`
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-[10px] text-muted-c">
+                Plan Limit: {quotas?.planId || 'GROWTH'} ({quotas?.maxDocumentsLimit ?? 25} max files)
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-base-c bg-card-c p-4 shadow-xs">
+              <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+                <span>Monthly Chunks Budget</span>
+                <Database className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="mt-3 flex items-baseline justify-between">
+                <span className="text-xl font-black text-primary-c">
+                  {quotas ? quotas.monthlyChunksConsumed : 0} / {quotas ? quotas.monthlyChunkLimit : 2500}
+                </span>
+                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                  {quotas ? Math.max(0, quotas.monthlyChunkLimit - quotas.monthlyChunksConsumed) : 2500} available
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-slate-100 dark:bg-ink-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, quotas ? (quotas.monthlyChunksConsumed / quotas.monthlyChunkLimit) * 100 : 0)}%`
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-[10px] text-muted-c">Shared across File Ingestion &amp; Web Crawler</p>
+            </div>
+
+            <div className="rounded-2xl border border-base-c bg-card-c p-4 shadow-xs">
+              <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+                <span>Upload Allowance</span>
+                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="mt-2 space-y-1 text-[11px] text-muted-c">
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Max File Size: {quotas?.maxFileSizeMb ?? 20} MB
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> 8 Supported Formats (PDF/DOCX/TXT/etc)
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Vector Model: MiniLM-L6-v2 (384d)
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Upload Drop Zone Card */}
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -1044,7 +1300,7 @@ export function KnowledgeBaseView() {
               {uploading ? 'Processing & Parsing Document Embeddings…' : 'Upload Vector Knowledge Document'}
             </h3>
             <p className="mt-1 text-xs text-muted-c max-w-md leading-relaxed">
-              Drag &amp; drop PDF, DOCX, TXT, CSV, Excel, HTML, or JSON files (max 20MB). Text is automatically split into 384-dim Float32 vector embeddings.
+              Drag &amp; drop PDF, DOCX, TXT, CSV, Excel, HTML, or JSON files (max {quotas?.maxFileSizeMb ?? 20}MB). Text is automatically split into 384-dim Float32 vector embeddings.
             </p>
             <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 text-[10px] font-bold">
               <span className="rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 border border-indigo-500/20">PDF</span>
@@ -1056,9 +1312,17 @@ export function KnowledgeBaseView() {
               <span className="rounded-md bg-orange-500/10 text-orange-600 dark:text-orange-400 px-2 py-0.5 border border-orange-500/20">HTML</span>
               <span className="rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 px-2 py-0.5 border border-cyan-500/20">JSON</span>
             </div>
+
+            {Boolean(quotas?.maxDocumentsLimit && (quotas.activeDocumentsCount ?? documents.length) >= quotas.maxDocumentsLimit) && (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Active document limit ({quotas?.maxDocumentsLimit}/{quotas?.maxDocumentsLimit}) reached. Please delete an older document or upgrade your subscription.</span>
+              </div>
+            )}
+
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+              disabled={uploading || Boolean(quotas?.maxDocumentsLimit && (quotas.activeDocumentsCount ?? documents.length) >= quotas.maxDocumentsLimit)}
               className="mt-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 px-5 py-2.5 text-xs font-bold text-white shadow-soft transition-all disabled:opacity-50 btn-tactile"
             >
               Select Document from Computer
@@ -1122,7 +1386,8 @@ export function KnowledgeBaseView() {
                   </thead>
                   <tbody className="divide-y divide-base-c/70">
                     {filteredDocuments.map((doc) => {
-                      const ext = doc.name.split('.').pop()?.toUpperCase() || 'FILE';
+                      const docDisplayName = doc.name || 'Untitled Document';
+                      const ext = docDisplayName.includes('.') ? docDisplayName.split('.').pop()?.toUpperCase() || 'FILE' : 'DOC';
                       const extColor =
                         ext === 'PDF' ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20' :
                         ext === 'DOCX' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
@@ -1135,7 +1400,7 @@ export function KnowledgeBaseView() {
                             <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                               <FileText className="h-4 w-4" />
                             </div>
-                            <span className="truncate max-w-sm">{doc.name}</span>
+                            <span className="truncate max-w-sm">{docDisplayName}</span>
                           </td>
                           <td className="py-3.5 px-4">
                             <span className={cx('inline-block rounded-md px-2 py-0.5 text-[10px] font-bold border', extColor)}>
@@ -1158,15 +1423,30 @@ export function KnowledgeBaseView() {
                           <td className="py-3.5 px-4 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
-                                onClick={() => handleDownloadDocument(doc.documentId, doc.name)}
-                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-indigo-600 hover:bg-indigo-500/10 transition-all"
-                                title="Download document"
+                                onClick={() => setInspectModal({ isOpen: true, docId: doc.documentId, docName: docDisplayName })}
+                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-purple-600 hover:bg-purple-500/10 transition-all shadow-2xs"
+                                title="Inspect & Edit Individual Chunks"
+                              >
+                                <Layers className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleReindex(doc.documentId)}
+                                disabled={reindexingDocId === doc.documentId}
+                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-indigo-600 hover:bg-indigo-500/10 transition-all shadow-2xs disabled:opacity-40"
+                                title="Non-Destructive Staged Re-Index"
+                              >
+                                <RefreshCw className={cx('h-3.5 w-3.5', reindexingDocId === doc.documentId && 'animate-spin text-purple-600')} />
+                              </button>
+                              <button
+                                onClick={() => handleDownloadDocument(doc.documentId, docDisplayName)}
+                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-indigo-600 hover:bg-indigo-500/10 transition-all shadow-2xs"
+                                title="Download document text"
                               >
                                 <Download className="h-3.5 w-3.5" />
                               </button>
                               <button
-                                onClick={() => setDeleteModal({ isOpen: true, docId: doc.documentId, docName: doc.name })}
-                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-rose-600 hover:bg-rose-500/10 transition-all"
+                                onClick={() => setDeleteModal({ isOpen: true, docId: doc.documentId, docName: docDisplayName })}
+                                className="rounded-lg border border-base-c/80 p-1.5 text-muted-c hover:text-rose-600 hover:bg-rose-500/10 transition-all shadow-2xs"
                                 title="Delete vector document"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1184,7 +1464,296 @@ export function KnowledgeBaseView() {
         </div>
       )}
 
-      {/* ── TAB 3: FAQ KNOWLEDGE BASE ── */}
+      {/* ── TAB 3: WEB CRAWLER & SITEMAP INGESTION ── */}
+      {activeTab === 'crawler' && (
+        <div className="space-y-5 animate-fade-in">
+          {crawlMessage && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{crawlMessage}</span>
+            </div>
+          )}
+
+          {crawlError && (
+            <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/10 p-3.5 text-xs font-semibold text-rose-700 dark:text-rose-400">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{crawlError}</span>
+            </div>
+          )}
+
+          {/* Quota & Security Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="rounded-2xl border border-base-c bg-card-c p-4 shadow-xs">
+              <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+                <span>Daily Web Pages Quota</span>
+                <Globe className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div className="mt-3 flex items-baseline justify-between">
+                <span className="text-xl font-black text-primary-c">
+                  {quotas ? quotas.dailyPagesConsumed : 0} / {quotas ? quotas.dailyPageLimit : 50}
+                </span>
+                <span className="text-[11px] font-bold text-purple-600 dark:text-purple-400">
+                  {quotas ? Math.max(0, quotas.dailyPageLimit - quotas.dailyPagesConsumed) : 50} available
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-slate-100 dark:bg-ink-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-purple-600 h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, quotas ? (quotas.dailyPagesConsumed / quotas.dailyPageLimit) * 100 : 0)}%`
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-[10px] text-muted-c">Resets daily at midnight ({quotas?.timezone || 'UTC'})</p>
+            </div>
+
+            <div className="rounded-2xl border border-base-c bg-card-c p-4 shadow-xs">
+              <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+                <span>Monthly Chunks Budget</span>
+                <Database className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div className="mt-3 flex items-baseline justify-between">
+                <span className="text-xl font-black text-primary-c">
+                  {quotas ? quotas.monthlyChunksConsumed : 0} / {quotas ? quotas.monthlyChunkLimit : 2500}
+                </span>
+                <span className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                  {quotas ? Math.max(0, quotas.monthlyChunkLimit - quotas.monthlyChunksConsumed) : 2500} available
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-slate-100 dark:bg-ink-800 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-indigo-600 h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: `${Math.min(100, quotas ? (quotas.monthlyChunksConsumed / quotas.monthlyChunkLimit) * 100 : 0)}%`
+                  }}
+                />
+              </div>
+              <p className="mt-2 text-[10px] text-muted-c">Embedding vector calculation capacity</p>
+            </div>
+
+            <div className="rounded-2xl border border-base-c bg-card-c p-4 shadow-xs">
+              <div className="flex items-center justify-between text-muted-c text-xs font-semibold">
+                <span>Enterprise Guardrails</span>
+                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div className="mt-2 space-y-1 text-[11px] text-muted-c">
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Pinning DNS Resolver (Anti-SSRF)
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Safe XML Decompression Bomb Guard
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-3 w-3" /> Monotonic 500ms Domain Politeness
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Crawler Configuration Form */}
+          <div className="rounded-2xl border border-base-c bg-card-c p-6 shadow-xs space-y-5">
+            <div>
+              <h3 className="text-sm font-bold text-primary-c flex items-center gap-2">
+                <Globe className="h-4 w-4 text-purple-600" />
+                Automated Web Crawler &amp; Sitemap Ingestion
+              </h3>
+              <p className="text-xs text-muted-c mt-0.5">
+                Ingest live documentation, marketing websites, or complete XML sitemaps directly into your vector knowledge base.
+              </p>
+            </div>
+
+            {/* URL Input */}
+            <div>
+              <label className="block text-xs font-semibold text-primary-c mb-1.5">
+                Target Website or Sitemap URL
+              </label>
+              <div className="relative">
+                <Globe className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-c" />
+                <input
+                  type="url"
+                  value={crawlUrl}
+                  onChange={(e) => setCrawlUrl(e.target.value)}
+                  placeholder="https://example.com or https://example.com/sitemap.xml"
+                  className="w-full rounded-xl border border-base-c bg-slate-50/50 dark:bg-ink-950/60 pl-9 pr-4 py-2.5 text-xs text-primary-c placeholder:text-muted-c focus:border-purple-500 focus:outline-none transition-colors"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-muted-c">
+                Only public HTTPS/HTTP endpoints on ports 80 and 443 are allowed. Private IP subnets and cloud metadata are strictly blocked.
+              </p>
+            </div>
+
+            {/* Ingestion Mode Radio Cards */}
+            <div>
+              <label className="block text-xs font-semibold text-primary-c mb-2">
+                Crawl Scope &amp; Discovery Strategy
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCrawlType('SINGLE_PAGE')}
+                  className={cx(
+                    'p-3.5 rounded-xl border text-left transition-all',
+                    crawlType === 'SINGLE_PAGE'
+                      ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-400/20'
+                      : 'border-base-c bg-card-c hover:border-purple-300'
+                  )}
+                >
+                  <span className="text-xs font-bold text-primary-c block">Single Page</span>
+                  <span className="text-[11px] text-muted-c mt-1 block">
+                    Crawl only the exact URL entered without following outbound links. (1 page budget)
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCrawlType('RECURSIVE_CRAWL')}
+                  className={cx(
+                    'p-3.5 rounded-xl border text-left transition-all',
+                    crawlType === 'RECURSIVE_CRAWL'
+                      ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-400/20'
+                      : 'border-base-c bg-card-c hover:border-purple-300'
+                  )}
+                >
+                  <span className="text-xs font-bold text-primary-c block">Recursive Crawler</span>
+                  <span className="text-[11px] text-muted-c mt-1 block">
+                    Follow same-domain child &lt;a href&gt; links up to 50 pages maximum.
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCrawlType('SITEMAP_INDEX')}
+                  className={cx(
+                    'p-3.5 rounded-xl border text-left transition-all',
+                    crawlType === 'SITEMAP_INDEX'
+                      ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-400/20'
+                      : 'border-base-c bg-card-c hover:border-purple-300'
+                  )}
+                >
+                  <span className="text-xs font-bold text-primary-c block">Sitemap XML Parser</span>
+                  <span className="text-[11px] text-muted-c mt-1 block">
+                    Auto-parse &lt;urlset&gt; or &lt;sitemapindex&gt; (supporting .xml and .xml.gz).
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Pre-crawl Estimator Bar */}
+            <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <div className="flex items-center gap-2 text-muted-c">
+                <Compass className="h-4 w-4 text-purple-600 shrink-0" />
+                <span>
+                  Budget Reservation:{' '}
+                  <strong className="text-primary-c">
+                    {crawlType === 'SINGLE_PAGE' ? '1 page (~10 chunks)' : 'Up to 50 pages (~500 chunks)'}
+                  </strong>
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleStartCrawl}
+                disabled={crawlSubmitting || !crawlUrl.trim() || (activeCrawlJob && (activeCrawlJob.status === 'QUEUED' || activeCrawlJob.status === 'CRAWLING'))}
+                className="flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-700 px-5 py-2 text-xs font-bold text-white shadow-soft transition-all disabled:opacity-40"
+              >
+                {crawlSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Start Ingestion
+              </button>
+            </div>
+          </div>
+
+          {/* Active / Recent Crawl Job Monitor */}
+          {activeCrawlJob && (
+            <div className="rounded-2xl border border-base-c bg-card-c p-6 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="grid h-9 w-9 place-items-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <Globe className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-primary-c truncate max-w-md">
+                      {activeCrawlJob.sourceUrl}
+                    </h4>
+                    <p className="text-[11px] text-muted-c">
+                      Scope: {activeCrawlJob.crawlType} &bull; Started {new Date(activeCrawlJob.createdAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className={cx(
+                    'rounded-full px-2.5 py-0.5 text-[10px] font-bold border flex items-center gap-1',
+                    activeCrawlJob.status === 'CRAWLING' || activeCrawlJob.status === 'QUEUED'
+                      ? 'bg-amber-500/10 text-amber-600 border-amber-500/20'
+                      : activeCrawlJob.status === 'COMPLETED'
+                      ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                      : activeCrawlJob.status === 'PARTIAL_SUCCESS'
+                      ? 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20'
+                      : 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                  )}>
+                    {(activeCrawlJob.status === 'CRAWLING' || activeCrawlJob.status === 'QUEUED') && (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    )}
+                    {activeCrawlJob.status}
+                  </span>
+
+                  {(activeCrawlJob.status === 'CRAWLING' || activeCrawlJob.status === 'QUEUED') && (
+                    <button
+                      onClick={handleCancelCrawl}
+                      className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-500/20 transition-colors"
+                    >
+                      Cancel Crawl
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Progress metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                <div className="rounded-xl border border-base-c/60 bg-slate-50/50 dark:bg-ink-950/40 p-3">
+                  <span className="text-[10px] font-semibold text-muted-c block">Pages Discovered</span>
+                  <span className="text-lg font-black text-primary-c mt-0.5 block">{activeCrawlJob.pagesDiscovered}</span>
+                </div>
+                <div className="rounded-xl border border-base-c/60 bg-slate-50/50 dark:bg-ink-950/40 p-3">
+                  <span className="text-[10px] font-semibold text-muted-c block">Pages Crawled</span>
+                  <span className="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5 block">{activeCrawlJob.pagesCrawled}</span>
+                </div>
+                <div className="rounded-xl border border-base-c/60 bg-slate-50/50 dark:bg-ink-950/40 p-3">
+                  <span className="text-[10px] font-semibold text-muted-c block">Pages Failed</span>
+                  <span className="text-lg font-black text-rose-600 dark:text-rose-400 mt-0.5 block">{activeCrawlJob.pagesFailed}</span>
+                </div>
+                <div className="rounded-xl border border-base-c/60 bg-slate-50/50 dark:bg-ink-950/40 p-3">
+                  <span className="text-[10px] font-semibold text-muted-c block">Vector Chunks Created</span>
+                  <span className="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5 block">{activeCrawlJob.totalChunks}</span>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="w-full bg-slate-100 dark:bg-ink-800 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-purple-600 h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.min(100, Math.round((activeCrawlJob.pagesCrawled / Math.max(1, activeCrawlJob.pagesDiscovered)) * 100))}%`
+                  }}
+                />
+              </div>
+
+              {/* Partial failures summary */}
+              {activeCrawlJob.partialFailuresJson && activeCrawlJob.partialFailuresJson !== '[]' && (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs space-y-1">
+                  <span className="font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5" /> Partial URL Failures Recorded
+                  </span>
+                  <p className="text-[11px] text-muted-c">
+                    Some URLs could not be scraped (404, connection timeout) and were skipped while preserving successful pages.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB 4: FAQ KNOWLEDGE BASE ── */}
       {activeTab === 'faq' && (
         <div className="pt-2 animate-fade-in">
           <FaqManagementView />
@@ -1200,6 +1769,15 @@ export function KnowledgeBaseView() {
         variant="danger"
         onConfirm={confirmDeleteDocument}
         onCancel={() => setDeleteModal({ isOpen: false, docId: '', docName: '' })}
+      />
+
+      {/* Chunk Inspection & Editing Modal */}
+      <InspectChunksModal
+        isOpen={inspectModal.isOpen}
+        docId={inspectModal.docId}
+        docName={inspectModal.docName}
+        onClose={() => setInspectModal({ isOpen: false, docId: '', docName: '' })}
+        onChunksChanged={() => loadDocuments(true)}
       />
     </div>
   );
