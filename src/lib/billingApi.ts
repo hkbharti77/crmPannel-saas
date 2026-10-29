@@ -41,6 +41,10 @@ export interface SubscriptionData {
   currentPeriodStart?: string;
   currentPeriodEnd?: string;
   primaryResource?: string;
+  aiCreditBalance?: number;
+  whatsappIntegrationMode?: string;
+  monthlyRepliesUsed?: number;
+  monthlyFreeRepliesLimit?: number;
   limits: BillingLimits;
   usage: BillingUsage;
 }
@@ -244,13 +248,47 @@ export async function initiateCheckout(
 }
 
 export async function verifyRazorpayPayment(payload: VerifyRazorpayPayload) {
-  return apiFetch<{ success: boolean; message: string; planId: string }>('/api/v1/billing/verify-razorpay', {
+  return apiFetch<{ success: boolean; message: string; planId: string; newBalance?: number; aiCreditBalance?: number }>('/api/v1/billing/verify-razorpay', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
-export async function downloadInvoice(transactionId: string) {
+export interface InvoiceData {
+  invoiceNo: string;
+  transactionId: string;
+  createdAt: string;
+  createdDateFormatted: string;
+  amount: number;
+  currency: string;
+  formattedAmount: string;
+  status: string;
+  paymentGateway: string;
+  gatewayTransactionId: string;
+  billedTo: {
+    tenantId: string;
+    businessName: string;
+    email: string;
+  };
+  plan: {
+    tierId: string;
+    planName: string;
+    billingCycle: string;
+    periodText: string;
+    staffLimit: number;
+    leadLimit: number;
+    emailLimit: number;
+    hasWhatsapp: boolean;
+    hasAi: boolean;
+    hasMultiCurrency: boolean;
+  };
+}
+
+export async function fetchInvoiceData(transactionId: string) {
+  return apiFetch<InvoiceData>(`/api/v1/billing/invoice/${transactionId}/data`);
+}
+
+export async function downloadInvoiceHtml(transactionId: string) {
   const token = getAuthToken();
   const tenantId = getTenantId();
 
@@ -270,15 +308,17 @@ export async function downloadInvoice(transactionId: string) {
   const blob = new Blob([htmlText], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
 
-  const win = window.open(url, '_blank');
-  if (!win) {
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Invoice-${transactionId.substring(0, 8)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Invoice-${transactionId.substring(0, 8).toUpperCase()}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export async function downloadInvoice(transactionId: string) {
+  return downloadInvoiceHtml(transactionId);
 }
 
 export async function resendInvoiceEmailApi(transactionId: string) {

@@ -8,6 +8,7 @@ import {
   Zap,
   ShieldCheck,
   Receipt,
+  FileText,
   Mail,
   Layers,
   Download,
@@ -85,16 +86,8 @@ export function BillingPanel() {
   const isIndiaDefault = userTz.toLowerCase().includes('kolkata') || userTz.toLowerCase().includes('calcutta') || userTz.toLowerCase().includes('india');
   const [currency, setCurrency] = useState<'INR' | 'USD'>(isIndiaDefault ? 'INR' : 'USD');
 
-  const handleDownloadInvoice = async (transactionId: string) => {
-    try {
-      setDownloadingId(transactionId);
-      await downloadInvoice(transactionId);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to download invoice receipt';
-      alert(msg);
-    } finally {
-      setDownloadingId(null);
-    }
+  const handleDownloadInvoice = (transactionId: string) => {
+    window.open(`/billing/invoice/${transactionId}`, '_blank');
   };
 
   const handleResendInvoiceEmail = async (transactionId: string) => {
@@ -137,8 +130,9 @@ export function BillingPanel() {
 
     if (subRes.data) {
       setSubData(subRes.data);
-      if (subRes.data.aiCreditBalance !== undefined) {
-        setCreditBalance(subRes.data.aiCreditBalance);
+      const subCredits = subRes.data.aiCreditBalance ?? subRes.data.usage?.aiCreditBalance;
+      if (subCredits !== undefined && subCredits !== null) {
+        setCreditBalance(subCredits);
       }
     } else {
       setSubData({
@@ -172,7 +166,7 @@ export function BillingPanel() {
       setCreditBalance(1000);
     }
 
-    if (creditsRes.data?.aiCreditBalance !== undefined) {
+    if (creditsRes.data?.aiCreditBalance !== undefined && creditsRes.data.aiCreditBalance !== null) {
       setCreditBalance(creditsRes.data.aiCreditBalance);
     }
 
@@ -233,7 +227,7 @@ export function BillingPanel() {
           hasWhatsapp: false,
           hasCustomWidget: false,
           hasRagLlm: false,
-          includedAiCredits: 100,
+          includedAiCredits: 500,
           hasVoiceBot: false,
           hasCallingAgent: false,
           hasWhatsappCoexistence: false,
@@ -247,15 +241,15 @@ export function BillingPanel() {
           priceYearlyInr: 19190,
           priceMonthlyUsd: 25.0,
           priceYearlyUsd: 240.0,
-          employeeLimit: 5,
-          primaryResourceLimit: 10000,
-          secondaryResourceLimit: 5000,
-          ticketLimit: 500,
-          emailLimit: 10000,
+          employeeLimit: 3,
+          primaryResourceLimit: 5000,
+          secondaryResourceLimit: 1000,
+          ticketLimit: 1000,
+          emailLimit: 5000,
           hasWhatsapp: true,
           hasCustomWidget: false,
           hasRagLlm: true,
-          includedAiCredits: 500,
+          includedAiCredits: 2500,
           hasVoiceBot: false,
           hasCallingAgent: false,
           hasWhatsappCoexistence: true,
@@ -269,15 +263,15 @@ export function BillingPanel() {
           priceYearlyInr: 47990,
           priceMonthlyUsd: 62.0,
           priceYearlyUsd: 595.0,
-          employeeLimit: 15,
-          primaryResourceLimit: 50000,
-          secondaryResourceLimit: 25000,
-          ticketLimit: 2500,
-          emailLimit: 50000,
+          employeeLimit: 8,
+          primaryResourceLimit: 20000,
+          secondaryResourceLimit: 10000,
+          ticketLimit: 10000,
+          emailLimit: 25000,
           hasWhatsapp: true,
           hasCustomWidget: true,
           hasRagLlm: true,
-          includedAiCredits: 1500,
+          includedAiCredits: 10000,
           hasVoiceBot: true,
           hasCallingAgent: false,
           hasWhatsappCoexistence: true,
@@ -291,15 +285,15 @@ export function BillingPanel() {
           priceYearlyInr: 95990,
           priceMonthlyUsd: 125.0,
           priceYearlyUsd: 1200.0,
-          employeeLimit: 50,
-          primaryResourceLimit: 200000,
-          secondaryResourceLimit: 100000,
-          ticketLimit: 10000,
-          emailLimit: 200000,
+          employeeLimit: 20,
+          primaryResourceLimit: 100000,
+          secondaryResourceLimit: 50000,
+          ticketLimit: 50000,
+          emailLimit: 100000,
           hasWhatsapp: true,
           hasCustomWidget: true,
           hasRagLlm: true,
-          includedAiCredits: 5000,
+          includedAiCredits: 25000,
           hasVoiceBot: true,
           hasCallingAgent: true,
           hasWhatsappCoexistence: true,
@@ -313,7 +307,7 @@ export function BillingPanel() {
           priceYearlyInr: 239990,
           priceMonthlyUsd: 315.0,
           priceYearlyUsd: 3000.0,
-          employeeLimit: 250,
+          employeeLimit: 50,
           primaryResourceLimit: 1000000,
           secondaryResourceLimit: 1000000,
           ticketLimit: 1000000,
@@ -321,7 +315,7 @@ export function BillingPanel() {
           hasWhatsapp: true,
           hasCustomWidget: true,
           hasRagLlm: true,
-          includedAiCredits: 20000,
+          includedAiCredits: 100000,
           hasVoiceBot: true,
           hasCallingAgent: true,
           hasWhatsappCoexistence: true,
@@ -445,8 +439,12 @@ export function BillingPanel() {
           if (verifyRes.error) {
             setError(`Payment verification failed: ${verifyRes.error}`);
           } else {
+            const newBal = verifyRes.data?.newBalance ?? verifyRes.data?.aiCreditBalance;
+            if (newBal !== undefined && newBal !== null) {
+              setCreditBalance(newBal);
+            }
             setSuccessMsg(`🎉 Successfully upgraded to ${planDisplayName}! Your invoice receipt email has been dispatched.`);
-            loadBillingData(currency);
+            await loadBillingData(currency);
           }
         },
       };
@@ -544,7 +542,7 @@ export function BillingPanel() {
           </div>
 
           {/* AI Credit Wallet Card */}
-          <div className="rounded-xl border border-primary-500/30 bg-primary-500/10 p-4 text-center relative overflow-hidden">
+          <div className="rounded-xl border border-primary-500/30 bg-primary-500/10 p-4 text-center relative overflow-hidden flex flex-col justify-center">
             <span className="text-xl font-black text-primary-600 dark:text-primary-400 flex items-center justify-center gap-1.5">
               <Sparkles className="h-4 w-4 text-amber-500" />
               {creditBalance.toLocaleString()}
@@ -552,6 +550,11 @@ export function BillingPanel() {
             <p className="text-[11px] font-bold text-primary-700 dark:text-primary-300 uppercase tracking-wider mt-1">
               AI CREDITS BALANCE
             </p>
+            {Boolean(limits?.includedAiCredits && limits.includedAiCredits > 0) && (
+              <span className="text-[10px] text-primary-600/80 dark:text-primary-400/80 font-medium block mt-0.5">
+                ({limits!.includedAiCredits!.toLocaleString()} included with {currentPlanId})
+              </span>
+            )}
           </div>
 
           {/* Active Agents Card */}
@@ -1046,21 +1049,11 @@ export function BillingPanel() {
                       <td className="py-3 px-3 text-right space-x-2">
                         <button
                           onClick={() => handleDownloadInvoice(tx.id)}
-                          disabled={downloadingId === tx.id}
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold hover:bg-primary-500/20 transition-all text-xs border border-primary-500/20"
-                          title="Download HTML Invoice"
+                          title="View Official Invoice Receipt"
                         >
-                          {downloadingId === tx.id ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              Loading...
-                            </>
-                          ) : (
-                            <>
-                              <Download className="h-3.5 w-3.5" />
-                              Invoice
-                            </>
-                          )}
+                          <FileText className="h-3.5 w-3.5" />
+                          Invoice
                         </button>
 
                         <button
