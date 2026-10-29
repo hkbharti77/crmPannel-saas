@@ -58,6 +58,8 @@ import { AdminSettings } from '@/components/admin/pages/AdminSettings';
 import { AdminTemplates } from '@/components/admin/pages/AdminTemplates';
 import { OnboardingScreen } from '@/components/onboarding/OnboardingScreen';
 import { CookieConsentBanner } from '@/components/common/CookieConsentBanner';
+import { InvoiceReceiptView } from '@/components/billing/InvoiceReceiptView';
+
 
 
 function ProtectedRoute({
@@ -138,6 +140,24 @@ function AppContent() {
               ) : (
                 <OnboardingScreen />
               )}
+            </ProtectedRoute>
+          }
+        />
+
+                {/* Official Billing Invoice / Receipt Routes */}
+        <Route
+          path="/billing/invoice/:transactionId"
+          element={
+            <ProtectedRoute>
+              <InvoiceReceiptView />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/invoice/:transactionId"
+          element={
+            <ProtectedRoute>
+              <InvoiceReceiptView />
             </ProtectedRoute>
           }
         />
