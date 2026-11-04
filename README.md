@@ -1,6 +1,6 @@
 # 🖥️ ChatCRM Lite - Frontend Web Portal
 
-> A modern, ultra-responsive CRM dashboard built with **React 18**, **TypeScript**, **Vite**, **Tailwind CSS**, and real-time **STOMP WebSockets**.
+> A modern, ultra-responsive CRM dashboard built with **React 18**, **TypeScript**, **Vite**, **Tailwind CSS**, and real-time **STOMP WebSockets**..
 
 ![React](https://img.shields.io/badge/React-18.3-blue?style=flat-square&logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.5-blue?style=flat-square&logo=typescript)
