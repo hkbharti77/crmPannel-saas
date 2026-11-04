@@ -378,6 +378,13 @@ export function CallDetailDrawer({ isOpen, onClose, callId }: CallDetailDrawerPr
                     loading={loadingRecording}
                     error={recordingError}
                     fallbackDuration={detail.recordingDurationSeconds || detail.durationSeconds}
+                    onRefresh={async () => {
+                      if (!callId) return;
+                      const res = await fetchWhatsAppCallRecording(callId);
+                      if (res.data) {
+                        setRecording(res.data);
+                      }
+                    }}
                   />
                 </div>
 
