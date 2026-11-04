@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Clock,
   HardDrive,
+  RefreshCw,
 } from 'lucide-react';
 import { formatCallDuration, type WhatsAppCallRecordingDTO } from '@/lib/whatsappCallingApi';
 
@@ -20,6 +21,19 @@ interface CallRecordingPlayerProps {
   loading?: boolean;
   error?: string | null;
   fallbackDuration?: number | null;
+  onRefresh?: () => Promise<void> | void;
+}
+
+function resolveAudioUrl(url?: string | null): string | null {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
+    return url;
+  }
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
+  if (baseUrl && url.startsWith('/')) {
+    return `${baseUrl.replace(/\/$/, '')}${url}`;
+  }
+  return url;
 }
 
 export function CallRecordingPlayer({
@@ -27,6 +41,7 @@ export function CallRecordingPlayer({
   loading = false,
   error = null,
   fallbackDuration = null,
+  onRefresh,
 }: CallRecordingPlayerProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -36,16 +51,22 @@ export function CallRecordingPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [activeSource, setActiveSource] = useState<string | null>(null);
+  const [hasTriedFallback, setHasTriedFallback] = useState(false);
 
   useEffect(() => {
     // Reset player on recording change
     setIsPlaying(false);
     setCurrentTime(0);
     setPlaybackError(null);
+    setHasTriedFallback(false);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
     }
+    const initialSource = resolveAudioUrl(recording?.playbackUrl || recording?.signedDirectUrl);
+    setActiveSource(initialSource);
+
     if (recording?.durationSeconds) {
       setDuration(recording.durationSeconds);
     } else if (fallbackDuration) {
@@ -53,7 +74,7 @@ export function CallRecordingPlayer({
     } else {
       setDuration(0);
     }
-  }, [recording?.playbackUrl, recording?.callId, fallbackDuration]);
+  }, [recording?.playbackUrl, recording?.signedDirectUrl, recording?.callId, fallbackDuration]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -185,7 +206,7 @@ export function CallRecordingPlayer({
     );
   }
 
-  const audioSource = recording.playbackUrl || recording.signedDirectUrl;
+  const audioSource = activeSource || resolveAudioUrl(recording.playbackUrl || recording.signedDirectUrl);
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
@@ -203,7 +224,26 @@ export function CallRecordingPlayer({
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onError={() => {
-          setPlaybackError('Failed to stream audio recording. Range request or HMAC token may have expired.');
+          const directUrl = resolveAudioUrl(recording.signedDirectUrl);
+          if (!hasTriedFallback && directUrl && activeSource !== directUrl) {
+            setHasTriedFallback(true);
+            setActiveSource(directUrl);
+            setPlaybackError('Backend stream unavailable. Retrying with direct Cloudinary stream...');
+            return;
+          }
+
+          const err = audioRef.current?.error;
+          let msg = 'Failed to stream audio recording. Range request or HMAC token may have expired.';
+          if (err) {
+            if (err.code === 2) {
+              msg = 'Network error streaming audio. Please check connection.';
+            } else if (err.code === 3) {
+              msg = 'Audio decoding failed (unsupported codec or corrupt audio).';
+            } else if (err.code === 4) {
+              msg = 'Failed to stream audio recording. Range request or HMAC token may have expired.';
+            }
+          }
+          setPlaybackError(msg);
           setIsPlaying(false);
         }}
       />
@@ -237,9 +277,39 @@ export function CallRecordingPlayer({
       </div>
 
       {playbackError && (
-        <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 flex items-center gap-2 text-[11px] text-rose-500">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          <span>{playbackError}</span>
+        <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-2.5 flex items-center justify-between gap-2 text-[11px] text-rose-500">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>{playbackError}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPlaybackError(null);
+                  onRefresh();
+                }}
+                className="flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 font-medium transition-colors text-[10px] cursor-pointer"
+              >
+                <RefreshCw className="h-2.5 w-2.5" />
+                <span>Refresh Token</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                setPlaybackError(null);
+                if (audioRef.current) {
+                  audioRef.current.load();
+                  audioRef.current.play().catch(() => {});
+                }
+              }}
+              className="px-2 py-0.5 rounded bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-300 font-medium transition-colors text-[10px] cursor-pointer"
+            >
+              Retry
+            </button>
+          </div>
         </div>
       )}
 

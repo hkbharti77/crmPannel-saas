@@ -31,6 +31,7 @@ export function LiveDemoView() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const scriptRef = useRef<HTMLScriptElement | null>(null);
 
   useEffect(() => {
@@ -73,20 +74,44 @@ export function LiveDemoView() {
     }
   };
 
+  // Force reload and purge local widget caches to immediately reflect backend edits
+  const handleSyncLatestSettings = () => {
+    if (!businessId) return;
+    setIsSyncing(true);
+
+    try {
+      localStorage.removeItem(`crm_chat_history_${businessId}`);
+      localStorage.removeItem(`crm_chat_theme_${businessId}`);
+      localStorage.removeItem(`crm_chat_session_${businessId}`);
+      localStorage.removeItem('crm_visitor_token');
+    } catch (_) {}
+
+    // Clean up existing widget DOM elements
+    document.getElementById('crm-chat-widget')?.remove();
+    document.querySelectorAll('[id*="crm-chat"]').forEach((el) => el.remove());
+    document.querySelectorAll('script[data-business-id]').forEach((el) => el.remove());
+
+    // Inject fresh script to immediately fetch newest configuration from backend
+    const script = document.createElement('script');
+    script.src = `${apiBase}/chat-widget.js`;
+    script.setAttribute('data-business-id', businessId);
+    script.async = true;
+    script.onload = () => {
+      setScriptLoaded(true);
+      setIsSyncing(false);
+    };
+    script.onerror = () => {
+      setIsSyncing(false);
+    };
+    document.body.appendChild(script);
+    scriptRef.current = script;
+  };
+
   // Dynamically load the client's actual backend widget script onto the page
   useEffect(() => {
     if (!businessId) return;
 
-    // Load styles.css if not present
-    let styleLink = document.querySelector(`link[href="${apiBase}/styles.css"]`) as HTMLLinkElement;
-    if (!styleLink) {
-      styleLink = document.createElement('link');
-      styleLink.rel = 'stylesheet';
-      styleLink.href = `${apiBase}/styles.css`;
-      document.head.appendChild(styleLink);
-    }
-
-    // Load chat-widget.js
+    // Load chat-widget.js (it automatically manages styles.css without blocking)
     const scriptUrl = `${apiBase}/chat-widget.js`;
     const existingScript = document.querySelector(`script[data-business-id="${businessId}"]`) as HTMLScriptElement;
 
@@ -219,6 +244,17 @@ export function LiveDemoView() {
           >
             <Sparkles className="h-3.5 w-3.5" />
             <span>Launch Chatbot</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSyncLatestSettings}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-2 rounded-xl border border-base-c bg-card-c px-3.5 py-2 text-xs font-bold text-secondary-c hover:text-primary-c hover:border-emerald-500/40 shadow-xs transition-all cursor-pointer"
+            title="Fetch and reflect latest branding, bot name, and welcome message from backend"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 text-emerald-500 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Latest Settings'}</span>
           </button>
 
           <button

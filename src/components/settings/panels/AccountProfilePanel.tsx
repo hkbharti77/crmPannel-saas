@@ -251,9 +251,9 @@ export function AccountProfilePanel() {
   const rawApiBase = (import.meta.env.VITE_API_BASE_URL || '').trim();
   const apiBase = widgetBaseUrl || rawApiBase || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? `${window.location.origin}` : 'http://localhost:8080');
 
-  const snippetCode = `<link rel="stylesheet" href="${apiBase}/styles.css">
-<script src="${apiBase}/chat-widget.js"
-  data-business-id="${businessId}">
+  const snippetCode = `<script src="${apiBase}/chat-widget.js"
+  data-business-id="${businessId}"
+  async>
 </script>`;
 
   const copySnippet = () => {
@@ -821,9 +821,9 @@ function WidgetDocModal({ businessId, widgetBaseUrl, onClose }: { businessId: st
   const rawApiBase = import.meta.env.VITE_API_BASE_URL || '';
   const apiBase = widgetBaseUrl || rawApiBase || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? `${window.location.origin}` : 'http://localhost:8080');
 
-  const htmlSnippet = `<link rel="stylesheet" href="${apiBase}/styles.css">
-<script src="${apiBase}/chat-widget.js"
-  data-business-id="${businessId}">
+  const htmlSnippet = `<script src="${apiBase}/chat-widget.js"
+  data-business-id="${businessId}"
+  async>
 </script>`;
 
   const reactSnippet = `import Script from 'next/script';
@@ -833,7 +833,6 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         {children}
-        <link rel="stylesheet" href="${apiBase}/styles.css" />
         <Script
           src="${apiBase}/chat-widget.js"
           data-business-id="${businessId}"
