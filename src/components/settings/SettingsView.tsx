@@ -8,6 +8,7 @@ import {
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, SlidersHorizontal, Smartphone, ChevronRight,
   Mail, FileText, Users, CheckSquare, HardDrive, FileSpreadsheet,
+  Bot,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -22,6 +23,7 @@ import { GoogleWorkspacePanel } from './panels/AccountPanels';
 import { PushNotificationPanel } from './panels/AccountPanels';
 import { BillingPanel } from './panels/AccountPanels';
 import { CustomBrandingPanel } from './panels/AppearancePanels';
+import { BotBuilderPanel } from './panels/BotBuilderPanel';
 import { NotificationsPanel } from './panels/AppearancePanels';
 import { MenuButtonsPanel } from './panels/MenuButtonsPanel';
 import { MenuBuilderPanel } from './panels/MenuBuilderPanel';
@@ -41,7 +43,7 @@ import { SmsProvidersPanel } from './panels/SmsProvidersPanel';
 
 export type SettingsSub =
   | 'account-profile' | 'security' | 'google-workspace' | 'google-calendar' | 'google-gmail' | 'google-contacts' | 'google-tasks' | 'google-drive' | 'google-sheets' | 'integrations' | 'billing' | 'payment-gateways'
-  | 'branding' | 'dark-mode'
+  | 'branding' | 'bot-builder' | 'dark-mode'
   | 'push-notifications' | 'notifications'
   | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
   | 'products' | 'form-fields' | 'custom-submenus' | 'email-templates' | 'email-providers' | 'sms-providers' | 'email-branding'
@@ -151,6 +153,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'billing': BillingPanel,
   'payment-gateways': () => <Navigate to="/payments?tab=settings" replace />,
   'branding': () => <CustomBrandingPanel defaultTab="global" />,
+  'bot-builder': () => <Navigate to="/settings/branding?tab=widget" replace />,
   'dark-mode': () => <Navigate to="/settings/branding" replace />,
   'push-notifications': PushNotificationPanel,
   'notifications': NotificationsPanel,

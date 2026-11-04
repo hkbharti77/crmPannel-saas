@@ -32,6 +32,12 @@ export interface UserProfileDto {
   defaultDailyLeadLimit?: number;
   autoAssignmentDelayMinutes?: number;
   webFlowsRoutingConfigJson?: string;
+  launcherStyle?: 'ROBOT_BUBBLE' | 'AVATAR_ONLY' | 'CIRCULAR_BUTTON' | 'PILL_BUTTON' | 'CUSTOM_PNG' | string;
+  avatarPreset?: 'ROBOT_CYAN_3D' | 'ROBOT_PURPLE_3D' | 'AI_SPARKLE_ORB' | 'SUPPORT_HUMAN' | 'CUSTOM' | string;
+  greetingBubbleText?: string;
+  greetingBubbleTheme?: 'GRADIENT_PURPLE' | 'BRAND_COLOR' | 'DARK_SLEEK' | 'GLASSMORPHIC' | 'CLEAN_WHITE' | string;
+  greetingBubbleEnabled?: boolean;
+  botAnimation?: 'FLOAT_BOB' | 'PULSE' | 'BOUNCE' | 'STATIC' | string;
 }
 
 export async function fetchCurrentUserProfile() {

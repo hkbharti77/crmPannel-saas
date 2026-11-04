@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { cx } from '@/lib/types';
 import { useTheme } from '@/context/ThemeContext';
 import { Badge } from '@/components/ui/primitives';
@@ -11,10 +12,33 @@ import { fetchSubscriptionStatus } from '@/lib/billingApi';
 import { fetchCurrentUserProfile, updateCurrentUserProfile, uploadWidgetIcon, uploadCompanyLogo } from '@/lib/userApi';
 import { apiFetch } from '@/lib/api';
 import { PanelHeader, FieldRow, Toggle, SaveBar, SectionCard, PlanLockBanner } from './_shared';
+import { BotBuilderPanel } from './BotBuilderPanel';
 
 /* ─── Unified Enterprise Brand & White-Labeling Suite ─── */
 export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'global' | 'widget' | 'email' | 'preview' } = {}) {
-  const [activeTab, setActiveTab] = useState<'global' | 'widget' | 'email' | 'preview'>(defaultTab);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'global' | 'widget' | 'email' | 'preview' | null;
+  const initialTab = tabParam && ['global', 'widget', 'email', 'preview'].includes(tabParam) ? tabParam : defaultTab;
+  const [activeTab, setActiveTabState] = useState<'global' | 'widget' | 'email' | 'preview'>(initialTab);
+
+  useEffect(() => {
+    if (tabParam && ['global', 'widget', 'email', 'preview'].includes(tabParam) && tabParam !== activeTab) {
+      setActiveTabState(tabParam);
+    }
+  }, [tabParam]);
+
+  const setActiveTab = (tab: 'global' | 'widget' | 'email' | 'preview') => {
+    setActiveTabState(tab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tab === 'global') {
+        next.delete('tab');
+      } else {
+        next.set('tab', tab);
+      }
+      return next;
+    }, { replace: true });
+  };
   const [botName, setBotName] = useState('GyanVani AI Assistant');
   const [businessName, setBusinessName] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#2563EB');
@@ -448,194 +472,9 @@ export function CustomBrandingPanel({ defaultTab = 'global' }: { defaultTab?: 'g
         </SectionCard>
       )}
 
-      {/* ─── TAB 2: Chat Widget & Bot Branding ─── */}
-      {(activeTab === 'widget' || activeTab === 'preview') && (
-        <SectionCard>
-          <PanelHeader
-            title="Chat Widget & Bot Appearance"
-            desc="Customize the floating chat launcher, bot profile, and conversation window on your website"
-            icon={<Bot className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
-          />
-
-          <div className="space-y-5">
-            {/* Widget Icons Row */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              {/* Widget Header Emblem */}
-              <div className="flex items-center justify-between gap-3 rounded-xl2 border border-primary-500/20 bg-primary-500/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-primary-500/30 bg-card-c shadow-sm">
-                    {logoUrl ? (
-                      <img
-                        src={getFullImageUrl(logoUrl)}
-                        alt="Header Logo"
-                        className="h-full w-full object-cover"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center bg-gradient-accent text-white font-bold text-sm">
-                        {getInitials(botName)}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-primary-c">Widget Header Emblem</p>
-                    <p className="text-[11px] text-muted-c">Uses Master Company Logo</p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('global')}
-                  className="text-xs font-semibold text-primary-600 hover:underline dark:text-primary-400"
-                >
-                  Change →
-                </button>
-              </div>
-
-              {/* Dedicated PNG Floating Launcher Icon */}
-              <div className="flex items-center justify-between gap-3 rounded-xl2 border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border-2 border-emerald-500/30 bg-card-c shadow-sm">
-                    {widgetIconUrl ? (
-                      <img
-                        src={getFullImageUrl(widgetIconUrl)}
-                        alt="Launcher Icon"
-                        className="h-full w-full object-cover"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
-                      />
-                    ) : (
-                      <Smartphone className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold text-primary-c">Launcher Icon</p>
-                      <Badge variant="success" className="text-[9px] py-0 px-1">PNG Only</Badge>
-                    </div>
-                    <p className="text-[11px] text-muted-c">Floating trigger button</p>
-                  </div>
-                </div>
-
-                <label className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-card-c px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/30 transition-all shrink-0">
-                  <Upload className="h-3 w-3" />
-                  {uploadingWidgetIcon ? 'Uploading…' : 'Upload PNG'}
-                  <input
-                    type="file"
-                    accept="image/png"
-                    onChange={handleWidgetIconSelect}
-                    className="hidden"
-                    disabled={uploadingWidgetIcon}
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Bot Name & Welcome Greeting */}
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">Bot / Assistant Display Name</label>
-                <input
-                  value={botName}
-                  onChange={(e) => setBotName(e.target.value)}
-                  placeholder="e.g. GyanVaniAi Assistant"
-                  className="form-input text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-secondary-c">Initial Welcome Greeting</label>
-                <textarea
-                  value={welcomeMsg}
-                  onChange={(e) => setWelcomeMsg(e.target.value)}
-                  rows={2}
-                  className="form-input text-xs resize-none"
-                  placeholder="Hello! How can I assist you today?"
-                />
-              </div>
-            </div>
-
-            {/* Widget Live Simulator Preview */}
-            <div className="rounded-2xl border border-base-c bg-slate-100/60 p-4 dark:bg-ink-900/60">
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-c flex items-center gap-1.5">
-                <Monitor className="h-3.5 w-3.5 text-primary-500" />
-                Live Chat Widget Simulator
-              </p>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                {/* Opened Chat Screen */}
-                <div className="md:col-span-2 rounded-2xl border border-base-c bg-white dark:bg-ink-800 p-4 space-y-3 shadow-sm">
-                  <div className="flex items-center justify-between border-b border-base-c pb-2">
-                    <span className="text-xs font-bold text-secondary-c flex items-center gap-1.5">
-                      <MessageSquare className="h-3.5 w-3.5 text-primary-500" />
-                      Opened Chat Window
-                    </span>
-                    <span className="text-[10px] text-muted-c">Real-time Header</span>
-                  </div>
-
-                  {/* Header Bar */}
-                  <div
-                    className="flex items-center justify-between rounded-xl px-3.5 py-2.5 text-white shadow-sm"
-                    style={{ backgroundColor: primaryColor }}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full border border-white/40 bg-white/20 text-white font-bold text-xs shadow-sm">
-                        {logoUrl ? (
-                          <img src={getFullImageUrl(logoUrl)} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <span>{getInitials(botName)}</span>
-                        )}
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-white leading-tight">{botName || 'AI Assistant'}</h4>
-                        <span className="text-[9px] text-white/80 block">Online & ready to assist</span>
-                      </div>
-                    </div>
-                    <div className="text-xs opacity-75">✕</div>
-                  </div>
-
-                  {/* Message Bubble */}
-                  <div className="flex items-start gap-2 pt-1">
-                    <div className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-full text-white shadow-sm text-[10px] font-bold" style={{ backgroundColor: primaryColor }}>
-                      {logoUrl ? (
-                        <img src={getFullImageUrl(logoUrl)} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        getInitials(botName)
-                      )}
-                    </div>
-                    <div className="rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-xs text-white shadow-sm max-w-[85%]" style={{ backgroundColor: primaryColor }}>
-                      {welcomeMsg}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Floating Launcher Button */}
-                <div className="rounded-2xl border border-base-c bg-white dark:bg-ink-800 p-4 flex flex-col justify-between items-center text-center shadow-sm">
-                  <div className="w-full flex items-center justify-between border-b border-base-c pb-2">
-                    <span className="text-xs font-bold text-secondary-c flex items-center gap-1.5">
-                      <Smartphone className="h-3.5 w-3.5 text-emerald-500" />
-                      Floating Button
-                    </span>
-                    <span className="text-[10px] text-muted-c">Closed state</span>
-                  </div>
-
-                  <div className="my-auto py-3 flex flex-col items-center gap-2">
-                    <div
-                      className="grid h-14 w-14 place-items-center overflow-hidden rounded-full shadow-lg border-2 border-white dark:border-ink-800 transition-transform hover:scale-110"
-                      style={{ backgroundColor: primaryColor }}
-                    >
-                      {widgetIconUrl ? (
-                        <img src={getFullImageUrl(widgetIconUrl)} alt="Launcher" className="h-full w-full object-cover" />
-                      ) : (
-                        <MessageSquare className="h-6 w-6 text-white" />
-                      )}
-                    </div>
-                    <p className="text-[11px] font-semibold text-primary-c">Website Bot Trigger</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
+      {/* ─── TAB 2: Chat Widget & Bot Studio ─── */}
+      {(activeTab === 'widget') && (
+        <BotBuilderPanel />
       )}
 
       {/* ─── TAB 3: Outgoing Email Branding ─── */}
