@@ -38,6 +38,9 @@ export interface UserProfileDto {
   greetingBubbleTheme?: 'GRADIENT_PURPLE' | 'BRAND_COLOR' | 'DARK_SLEEK' | 'GLASSMORPHIC' | 'CLEAN_WHITE' | string;
   greetingBubbleEnabled?: boolean;
   botAnimation?: 'FLOAT_BOB' | 'PULSE' | 'BOUNCE' | 'STATIC' | string;
+  webWelcomeMessage?: string;
+  webReturningMessage?: string;
+  webGreetingButtonsJson?: string;
 }
 
 export async function fetchCurrentUserProfile() {

@@ -161,6 +161,35 @@ export function InboxView() {
   const [wsMessages, setWsMessages] = useState<Record<string, ApiMessage[]>>({});
 
   const handleWsMessage = useCallback((msg: WsIncomingMessage) => {
+    if (!msg) return;
+
+    // Real-time updates for WebChat sessions list & badges
+    if (msg.type === 'WEBCHAT_USER_MSG' || msg.type === 'WEBCHAT_AGENT_REPLY' || msg.type === 'WEBCHAT_SUPPORT_UPDATE') {
+      const targetSessionId = msg.sessionId;
+      const targetWebId = (msg as any).webSessionId;
+      setWebSessions((prev) => {
+        const idx = prev.findIndex((s) => s.sessionId === targetSessionId || s.id === targetWebId || (msg.contactId && s.contactId === msg.contactId));
+        if (idx !== -1) {
+          const existing = prev[idx];
+          const updated: WebChatSession = {
+            ...existing,
+            lastMessageSnippet: msg.content || existing.lastMessageSnippet,
+            lastMessageTime: msg.timestamp || new Date().toISOString(),
+            lastMessageSender: msg.type === 'WEBCHAT_USER_MSG' ? 'USER' : (msg.type === 'WEBCHAT_AGENT_REPLY' ? 'AGENT' : existing.lastMessageSender),
+            supportState: (msg as any).supportState || existing.supportState,
+            assignedAgentName: msg.agentName || existing.assignedAgentName,
+          };
+          const rest = prev.filter((_, i) => i !== idx);
+          return [updated, ...rest];
+        } else {
+          // If a new session arrived, refresh list immediately
+          loadWebSessions();
+          return prev;
+        }
+      });
+      return;
+    }
+
     if (channel === 'webchat') return;
 
     const contactId = msg.contactId;
@@ -1001,8 +1030,9 @@ function WebChatPreview({
   useWebSocket((msg: WsIncomingMessage) => {
     if (!msg) return;
     const isTargetSession =
-      (msg.sessionId && msg.sessionId === localSession.sessionId) ||
-      (msg.contactId && localSession.contactId && msg.contactId.toLowerCase() === localSession.contactId.toLowerCase());
+      (msg.sessionId && (msg.sessionId === localSession?.sessionId || msg.sessionId === session?.sessionId || msg.sessionId === session?.id)) ||
+      ((msg as any).webSessionId && ((msg as any).webSessionId === session?.id || (msg as any).webSessionId === localSession?.id)) ||
+      (msg.contactId && localSession?.contactId && msg.contactId.toLowerCase() === localSession.contactId.toLowerCase());
 
     if (isTargetSession) {
       if (msg.type === 'WEBCHAT_USER_MSG' || msg.direction === 'INCOMING') {
@@ -1028,13 +1058,22 @@ function WebChatPreview({
           createdAt: msg.timestamp || new Date().toISOString(),
         };
         setMessages((prev) => {
-          if (prev.some((m) => m.content === newMsg.content && Math.abs(new Date(m.createdAt).getTime() - new Date(newMsg.createdAt).getTime()) < 2000)) {
+          // Replace matching optimistic temp message if present, or avoid duplicates
+          const withoutTemp = prev.filter((m) => !(m.id.startsWith('temp-') && m.content === newMsg.content));
+          if (withoutTemp.some((m) => m.content === newMsg.content && Math.abs(new Date(m.createdAt).getTime() - new Date(newMsg.createdAt).getTime()) < 2000)) {
             return prev;
           }
-          return [...prev, newMsg];
+          return [...withoutTemp, newMsg];
         });
         shouldForceScrollRef.current = true;
       } else if (msg.type === 'WEBCHAT_SUPPORT_UPDATE') {
+        if ((msg as any).supportState) {
+          setLocalSession((prev) => ({
+            ...prev,
+            supportState: (msg as any).supportState,
+            assignedAgentName: msg.agentName || prev.assignedAgentName,
+          }));
+        }
         loadDetails(false);
         if (onSessionUpdated) onSessionUpdated();
       }
