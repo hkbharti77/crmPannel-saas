@@ -22,7 +22,10 @@ const WS_URL = `${API_BASE_URL}/ws`;
 
 export type WsIncomingMessage = {
   id: string;
-  contactId: string;
+  contactId?: string;
+  sessionId?: string;
+  type?: string;
+  agentName?: string;
   contactName?: string;
   content: string;
   direction?: 'INCOMING' | 'OUTGOING';

@@ -1,7 +1,7 @@
 import { Avatar } from '@/components/ui/primitives';
 import { cx } from '@/lib/types';
 import type { Conversation, ConversationStatus, ConversationTag } from './inboxTypes';
-import { Bot, Check, CheckCheck } from 'lucide-react';
+import { Bot, Check, CheckCheck, Send } from 'lucide-react';
 
 const STATUS_STYLES: Record<ConversationStatus, { dot: string; label: string; text: string }> = {
   online: { dot: 'bg-emerald-500', label: 'Online', text: 'text-emerald-600 dark:text-emerald-400' },
@@ -27,10 +27,11 @@ export function ConversationItem({
   active: boolean;
   onClick: () => void;
 }) {
+  const isTelegram = conv.channel === 'telegram' || (conv.phone && conv.phone.startsWith('tg:'));
   const status = STATUS_STYLES[conv.status];
   const senderIcon =
     conv.lastMessageSender === 'me' ? (
-      <CheckCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+      <CheckCheck className={cx("h-3.5 w-3.5 shrink-0", isTelegram ? "text-[#229ED9]" : "text-emerald-500")} />
     ) : conv.lastMessageSender === 'bot' ? (
       <Bot className="h-3.5 w-3.5 text-purple-500 shrink-0" />
     ) : null;
@@ -41,18 +42,34 @@ export function ConversationItem({
       className={cx(
         'group relative flex w-full items-start gap-3 rounded-xl p-3 text-left transition-all duration-150 border',
         active
-          ? 'bg-emerald-500/10 border-emerald-500/30 shadow-xs dark:bg-emerald-500/15'
+          ? isTelegram
+            ? 'bg-[#229ED9]/10 border-[#229ED9]/30 shadow-xs dark:bg-[#229ED9]/15'
+            : 'bg-emerald-500/10 border-emerald-500/30 shadow-xs dark:bg-emerald-500/15'
           : 'border-transparent hover:bg-slate-100/70 dark:hover:bg-ink-850/60 hover:border-base-c/50',
       )}
     >
       {/* Active Left Accent Indicator */}
       {active && (
-        <span className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full bg-emerald-500 shadow-xs" />
+        <span
+          className={cx(
+            'absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-r-full shadow-xs',
+            isTelegram ? 'bg-[#229ED9]' : 'bg-emerald-500'
+          )}
+        />
       )}
 
       {/* Uniform Avatar with Status Badge */}
       <div className="relative shrink-0 w-11 h-11">
-        <Avatar name={conv.name} size={44} className="ring-2 ring-emerald-500/20" />
+        <Avatar
+          name={conv.name}
+          size={44}
+          className={cx('ring-2', isTelegram ? 'ring-[#229ED9]/30' : 'ring-emerald-500/20')}
+        />
+        {isTelegram && (
+          <span className="absolute -top-1 -left-1 z-10 grid h-4 w-4 place-items-center rounded-full bg-[#229ED9] text-white shadow-xs ring-1 ring-white dark:ring-slate-900">
+            <Send className="h-2 w-2" />
+          </span>
+        )}
         <span
           className={cx(
             'absolute -bottom-0.5 -right-0.5 z-10 h-3.5 w-3.5 rounded-full ring-2 ring-white dark:ring-slate-900 shadow-xs',
@@ -65,18 +82,29 @@ export function ConversationItem({
       {/* Item Content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <p
-            className={cx(
-              'truncate text-sm',
-              conv.unread > 0 ? 'font-bold text-primary-c' : 'font-semibold text-primary-c/90',
+          <div className="flex items-center gap-1.5 min-w-0 truncate">
+            <p
+              className={cx(
+                'truncate text-sm',
+                conv.unread > 0 ? 'font-bold text-primary-c' : 'font-semibold text-primary-c/90',
+              )}
+            >
+              {conv.name}
+            </p>
+            {isTelegram && conv.telegramUsername && (
+              <span className="text-[11px] font-medium text-[#229ED9] shrink-0">
+                {conv.telegramUsername}
+              </span>
             )}
-          >
-            {conv.name}
-          </p>
+          </div>
           <span
             className={cx(
               'shrink-0 text-[11px]',
-              conv.unread > 0 ? 'font-bold text-emerald-600 dark:text-emerald-400' : 'text-muted-c',
+              conv.unread > 0
+                ? isTelegram
+                  ? 'font-bold text-[#229ED9]'
+                  : 'font-bold text-emerald-600 dark:text-emerald-400'
+                : 'text-muted-c',
             )}
           >
             {conv.timestamp}
@@ -99,6 +127,12 @@ export function ConversationItem({
         {/* Badges & Tags Row */}
         <div className="mt-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 flex-wrap">
+            {isTelegram && (
+              <span className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wide bg-[#229ED9]/15 text-[#229ED9] border border-[#229ED9]/30">
+                <Send className="h-2 w-2" /> Telegram
+              </span>
+            )}
+
             {conv.tags.map((t) => (
               <span
                 key={t}
@@ -117,7 +151,9 @@ export function ConversationItem({
                 'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-bold tracking-wide border',
                 conv.isBotHandled
                   ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
-                  : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                  : isTelegram
+                    ? 'bg-[#229ED9]/10 text-[#229ED9] border-[#229ED9]/20'
+                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
               )}
             >
               {conv.isBotHandled ? <Bot className="h-2.5 w-2.5" /> : <Check className="h-2.5 w-2.5" />}
@@ -143,7 +179,12 @@ export function ConversationItem({
 
           {/* Unread Pill */}
           {conv.unread > 0 && (
-            <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-emerald-600 px-1.5 text-[10px] font-bold text-white shadow-soft">
+            <span
+              className={cx(
+                'grid h-5 min-w-5 shrink-0 place-items-center rounded-full px-1.5 text-[10px] font-bold text-white shadow-soft',
+                isTelegram ? 'bg-[#229ED9]' : 'bg-emerald-600'
+              )}
+            >
               {conv.unread}
             </span>
           )}

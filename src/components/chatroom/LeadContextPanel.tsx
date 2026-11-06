@@ -45,10 +45,19 @@ export function LeadContextPanel({
   onRequestPayment?: () => void;
   onSendCatalog?: () => void;
 }) {
-  const name = contact?.name || contact?.waId || 'WhatsApp Lead';
-  const phone = contact?.phone || contact?.waId || 'N/A';
+  const isTelegram =
+    contact?.source === 'TELEGRAM' ||
+    contact?.waId?.startsWith('tg:') ||
+    contact?.phone?.startsWith('tg:') ||
+    contact?.email?.endsWith('@telegram.contact') ||
+    Boolean(contact?.name && contact.name.toLowerCase().includes('telegram'));
+
+  const name = contact?.name || (isTelegram ? 'Telegram User' : 'WhatsApp Lead');
+  const phone = isTelegram && contact?.waId?.startsWith('tg:')
+    ? `Telegram ID: ${contact.waId.replace('tg:', '')}`
+    : (contact?.phone || contact?.waId || 'N/A');
   const email = contact?.email || 'Not provided';
-  const source = contact?.source || 'WhatsApp Ingress';
+  const source = contact?.source || (isTelegram ? 'Telegram Bot' : 'WhatsApp Ingress');
   const tags = contact?.tags || ['NEW'];
   const stage = 'CONTACTED';
   const botStatus = contact?.botPaused ? 'Paused (Manual)' : 'Active (AI Bot)';
@@ -92,14 +101,17 @@ export function LeadContextPanel({
           {onRequestPayment && (
             <button
               onClick={onRequestPayment}
-              className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition btn-tactile cursor-pointer"
+              className={cx(
+                "mt-3 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-white font-bold text-xs shadow-sm transition btn-tactile cursor-pointer",
+                isTelegram ? "bg-[#229ED9] hover:bg-[#1b8bc2]" : "bg-emerald-600 hover:bg-emerald-700"
+              )}
             >
               <span>💳</span>
-              <span>Send WhatsApp Bill</span>
+              <span>{isTelegram ? 'Send Payment Request' : 'Send WhatsApp Bill'}</span>
             </button>
           )}
 
-          {onSendCatalog && (
+          {!isTelegram && onSendCatalog && (
             <button
               onClick={onSendCatalog}
               className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-xs shadow-sm transition btn-tactile cursor-pointer"
@@ -149,7 +161,7 @@ export function LeadContextPanel({
             <span className="text-xs font-bold text-primary-c">Channel Status</span>
           </div>
           <div className="space-y-2 text-xs">
-            <SummaryRow icon={TrendingUp} label="Channel" value="WhatsApp Cloud API" />
+            <SummaryRow icon={TrendingUp} label="Channel" value={isTelegram ? "Telegram Bot API" : "WhatsApp Cloud API"} />
             <SummaryRow icon={MessageSquare} label="Session" value="Active Live" />
             <SummaryRow icon={Bot} label="Auto-Reply" value={contact?.botPaused ? 'Disabled' : 'Enabled'} />
           </div>

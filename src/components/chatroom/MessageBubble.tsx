@@ -25,7 +25,7 @@ export function MessageBubble({
   theme = 'whatsapp-dark',
 }: {
   msg: Message;
-  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
+  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'telegram-dark' | 'telegram-light' | 'glass';
 }) {
   if (msg.type === 'system' || msg.sender === 'system') {
     return <SystemMessage msg={msg} theme={theme} />;
@@ -33,9 +33,20 @@ export function MessageBubble({
 
   const isMe = msg.sender === 'me';
   const isBot = msg.sender === 'bot';
+  const isTelegram = theme.startsWith('telegram');
   const StatusIcon = msg.status ? STATUS_ICONS[msg.status] : null;
 
   const getBubbleStyle = () => {
+    if (theme === 'telegram-dark') {
+      if (isMe) return 'rounded-tr-xs bg-[#229ED9]/85 text-white border border-[#229ED9] shadow-xs';
+      if (isBot) return 'rounded-tl-xs bg-[#182533] text-[#e9edef] border border-[#229ED9]/50 shadow-xs';
+      return 'rounded-tl-xs bg-[#182533] text-[#e9edef] border border-[#243343] shadow-xs';
+    }
+    if (theme === 'telegram-light') {
+      if (isMe) return 'rounded-tr-xs bg-[#229ED9] text-white border border-[#1b8bc2] shadow-xs';
+      if (isBot) return 'rounded-tl-xs bg-[#ffffff] text-[#111b21] border border-[#229ED9]/40 shadow-xs';
+      return 'rounded-tl-xs bg-[#ffffff] text-[#111b21] border border-[#d7e4ea] shadow-xs';
+    }
     if (theme === 'whatsapp-dark') {
       if (isMe) return 'rounded-tr-xs bg-[#005c4b] text-[#e9edef] shadow-xs';
       if (isBot) return 'rounded-tl-xs bg-[#1f2c34] text-[#e9edef] border border-[#005c4b]/50 shadow-xs';
@@ -61,7 +72,10 @@ export function MessageBubble({
     >
       {/* Bot avatar */}
       {isBot && (
-        <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-soft">
+        <div className={cx(
+          "grid h-8 w-8 shrink-0 place-items-center rounded-full text-white shadow-soft",
+          isTelegram ? "bg-[#229ED9]" : "bg-emerald-600"
+        )}>
           <Bot className="h-4 w-4" />
         </div>
       )}
@@ -74,7 +88,10 @@ export function MessageBubble({
       >
         {/* Bot header badge */}
         {isBot && (
-          <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-emerald-500">
+          <p className={cx(
+            "mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider",
+            isTelegram ? "text-[#229ED9]" : "text-emerald-500"
+          )}>
             <Sparkles className="h-3 w-3" /> AI Assistant
           </p>
         )}
@@ -180,13 +197,20 @@ function SystemMessage({
   theme = 'whatsapp-dark',
 }: {
   msg: Message;
-  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
+  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'telegram-dark' | 'telegram-light' | 'glass';
 }) {
   const isBooking = Boolean(msg.text?.includes('booked'));
   const isHandoff = Boolean(msg.text?.includes('Human') || msg.text?.includes('manual'));
+  const isTelegram = theme.startsWith('telegram');
   const Icon = isBooking ? CalendarPlus : isHandoff ? UserCheck : Bot;
 
   const getSystemStyle = () => {
+    if (theme === 'telegram-dark') {
+      return 'bg-[#182533] text-[#8696a0] border-[#243343] shadow-xs';
+    }
+    if (theme === 'telegram-light') {
+      return 'bg-[#e7f1f8] text-[#335577] border-[#c5dbeb] shadow-xs';
+    }
     if (theme === 'whatsapp-dark') {
       return 'bg-[#182229] text-[#8696a0] border-[#222d34] shadow-xs';
     }
@@ -199,7 +223,7 @@ function SystemMessage({
   return (
     <div className="flex justify-center my-3">
       <div className={cx('flex items-center gap-2 rounded-xl border px-3.5 py-1.5 text-xs font-medium max-w-md text-center', getSystemStyle())}>
-        <Icon className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+        <Icon className={cx("h-3.5 w-3.5 shrink-0", isTelegram ? "text-[#229ED9]" : "text-emerald-500")} />
         <span>{msg.text}</span>
       </div>
     </div>

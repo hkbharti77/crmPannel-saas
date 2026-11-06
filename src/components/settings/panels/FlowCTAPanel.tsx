@@ -9,7 +9,7 @@ import { apiFetch } from '@/lib/api';
 interface ButtonItem {
   id: string;
   label: string;
-  linkType: 'lead' | 'appointment' | 'catalog';
+  linkType: 'lead' | 'appointment' | 'catalog' | 'submenu' | 'direct';
 }
 
 interface FlowSectionConfig {
@@ -38,10 +38,12 @@ const DEFAULT_BUTTONS: ButtonItem[] = [
   { id: 'btn_3', label: 'Our Services', linkType: 'catalog' },
 ];
 
-const LINK_LABELS: Record<'lead' | 'appointment' | 'catalog', string> = {
+const LINK_LABELS: Record<'lead' | 'appointment' | 'catalog' | 'submenu' | 'direct', string> = {
   lead: 'Lead Form Linked',
   appointment: 'Appointment Form Linked',
   catalog: 'Catalog Linked',
+  submenu: 'Sub-Menu Linked',
+  direct: 'Direct Message Linked',
 };
 
 const makeId = () => `btn_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -200,8 +202,8 @@ export function FlowCTAPanel() {
     });
   };
 
-  const cycleLinkType = (section: 'cancel' | 'complete' | 'ai', idx: number, current: 'lead' | 'appointment' | 'catalog') => {
-    const order: ('lead' | 'appointment' | 'catalog')[] = ['lead', 'appointment', 'catalog'];
+  const cycleLinkType = (section: 'cancel' | 'complete' | 'ai', idx: number, current: 'lead' | 'appointment' | 'catalog' | 'submenu' | 'direct') => {
+    const order: ('lead' | 'appointment' | 'catalog' | 'submenu' | 'direct')[] = ['lead', 'appointment', 'catalog', 'submenu', 'direct'];
     const nextIdx = (order.indexOf(current) + 1) % order.length;
     updateButton(section, idx, 'linkType', order[nextIdx]);
   };
@@ -231,6 +233,29 @@ export function FlowCTAPanel() {
         </div>
       )}
 
+      {/* Channel Scope Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-sky-500/10 to-indigo-500/10 border border-emerald-500/20">
+        <div>
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🛡️</span> Flow CTAs & AI Guardrails
+          </h2>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+            Configure automated guardrails against abusive language & gibberish, along with dynamic CTA buttons across all customer channels.
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+            🟢 WhatsApp
+          </span>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sky-500/15 text-sky-700 dark:text-sky-400 border border-sky-500/30">
+            💬 WebChat
+          </span>
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border border-indigo-500/30">
+            ✈️ Telegram
+          </span>
+        </div>
+      </div>
+
       {/* Main Card Container */}
       <div className="space-y-6">
 
@@ -239,7 +264,7 @@ export function FlowCTAPanel() {
           <div>
             <h3 className="text-base font-bold text-slate-900 dark:text-white">AI Fallback / Guardrail Messages</h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              These messages are sent inside the Main Menu when the AI blocks abusive or gibberish text.
+              These messages are sent across WhatsApp, WebChat, and Telegram when AI blocks abusive words or gibberish text.
             </p>
           </div>
 
@@ -276,7 +301,7 @@ export function FlowCTAPanel() {
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Cancel Flow Buttons</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Buttons shown when a user types &quot;cancel&quot; to stop an active form.
+                Buttons shown on WhatsApp, WebChat, and Telegram when a customer types &quot;cancel&quot; to stop an active form.
               </p>
             </div>
             {/* Toggle switch */}
@@ -359,7 +384,7 @@ export function FlowCTAPanel() {
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">Complete Flow Buttons</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Buttons shown when a user successfully submits a form.
+                Buttons shown on WhatsApp, WebChat, and Telegram when a customer successfully submits a form.
               </p>
             </div>
             {/* Toggle switch */}
@@ -444,7 +469,7 @@ export function FlowCTAPanel() {
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">AI Response Buttons</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                Buttons attached to every AI conversation message. If disabled, AI will reply with plain text.
+                Buttons dynamically attached to AI responses across WhatsApp, WebChat, and Telegram. If disabled, AI replies with plain text.
               </p>
             </div>
             {/* Toggle switch */}

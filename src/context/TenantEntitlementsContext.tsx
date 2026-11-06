@@ -56,6 +56,7 @@ const SETTINGS_TAB_MAP: Record<string, string> = {
   'account-profile': 'SETTINGS_PROFILE',
   security: 'SETTINGS_SECURITY',
   'google-workspace': 'SETTINGS_PROFILE',
+  'telegram-integration': 'SETTINGS_TELEGRAM',
   'google-calendar': 'SETTINGS_CALENDAR',
   'google-gmail': 'SETTINGS_PROFILE',
   'google-contacts': 'SETTINGS_PROFILE',
@@ -151,6 +152,7 @@ export const TenantEntitlementsProvider: React.FC<{ children: React.ReactNode }>
         normalizedKey === 'SETTINGS_PROFILE' ||
         normalizedKey === 'SETTINGS_SECURITY' ||
         normalizedKey === 'SETTINGS_BILLING' ||
+        normalizedKey === 'SETTINGS_TELEGRAM' ||
         normalizedKey === 'SETTINGS_HELP'
       ) {
         return true;

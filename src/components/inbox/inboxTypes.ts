@@ -1,10 +1,13 @@
 export type ConversationStatus = 'online' | 'typing' | 'away' | 'offline';
 export type ConversationTag = 'NEW' | 'HOT' | 'VIP' | 'RETURNING' | 'BOT';
+export type ConversationChannel = 'whatsapp' | 'webchat' | 'telegram';
 
 export type Conversation = {
   id: string;
   name: string;
   phone: string;
+  channel?: ConversationChannel;
+  telegramUsername?: string;
   avatar?: string;
   lastMessage: string;
   lastMessageSender: 'them' | 'me' | 'bot';

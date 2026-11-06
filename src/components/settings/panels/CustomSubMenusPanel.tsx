@@ -85,9 +85,9 @@ export function CustomSubMenusPanel() {
     setTimeout(() => { setMessage(null); setError(null); }, 3500);
   };
 
-  const ensure4Slots = (loaded: CustomSubMenu[]): CustomSubMenu[] => {
+  const ensure5Slots = (loaded: CustomSubMenu[]): CustomSubMenu[] => {
     const slots: CustomSubMenu[] = [];
-    for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 5; i++) {
       const id = `custom_list_${i}`;
       const existing = loaded.find((m) => m.id === id);
       slots.push(existing ?? {
@@ -108,10 +108,10 @@ export function CustomSubMenusPanel() {
     if (res.data?.customSubMenusJson) {
       try {
         const parsed = JSON.parse(res.data.customSubMenusJson);
-        if (Array.isArray(parsed)) { setSubMenus(ensure4Slots(parsed)); return; }
+        if (Array.isArray(parsed)) { setSubMenus(ensure5Slots(parsed)); return; }
       } catch { /* ignore */ }
     }
-    setSubMenus(ensure4Slots([]));
+    setSubMenus(ensure5Slots([]));
   };
 
   const handleSave = async () => {
@@ -220,14 +220,21 @@ export function CustomSubMenusPanel() {
       )}
 
       <SectionCard>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3.5 py-2 text-xs font-medium text-sky-800 dark:text-sky-300">
+          <div className="flex items-center gap-2">
+            <span className="font-bold">Omnichannel Sub-Menus:</span>
+            <span>Up to 5 Sub-Menus (10 buttons each) work across <b>WhatsApp 🟢</b>, <b>WebChat 💬</b>, and <b>Telegram ✈️</b>.</span>
+          </div>
+        </div>
+
         <PanelHeader
-          title="Custom Sub-Menus Builder"
-          desc="Create up to 4 multi-option sub-lists with images. Each appears when customers tap its linked button."
+          title="Custom Sub-Menus Builder (Up to 5 Sub-Menus)"
+          desc="Create up to 5 multi-option sub-lists with images (max 10 buttons per menu). Linked from Greeting Menus, Reply Keyboards, and Flow CTAs."
           icon={<ListTree className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
         />
 
-        {/* 4 Menu Selector Tabs */}
-        <div className="mb-6 mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {/* 5 Menu Selector Tabs */}
+        <div className="mb-6 mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
           {subMenus.map((menu, idx) => {
             const isSelected = activeTab === menu.id;
             return (

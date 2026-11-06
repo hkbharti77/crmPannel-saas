@@ -97,20 +97,42 @@ export function PaymentRequestModal({
     }
   };
 
-  // Fetch session status whenever clean WhatsApp ID changes
+  const isTelegram = targetWaId.startsWith('tg:') || targetWaId.endsWith('@telegram.contact');
+
+  // Fetch session status whenever clean WhatsApp / Telegram ID changes
   useEffect(() => {
     if (!isOpen) return;
+    if (isTelegram) {
+      checkSession(targetWaId);
+      return;
+    }
     const cleanWaId = targetWaId.replace(/[^0-9]/g, '');
     if (cleanWaId.length >= 10) {
       checkSession(cleanWaId);
     } else {
       setSessionInfo(null);
     }
-  }, [targetWaId, isOpen]);
+  }, [targetWaId, isOpen, isTelegram]);
 
   const checkSession = async (waId: string) => {
     try {
       setLoadingSession(true);
+      if (isTelegram) {
+        setSessionInfo({
+          sessionStatus: 'OPEN',
+          lastInboundMessageAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000 * 30).toISOString(),
+          remainingSeconds: 86400 * 30,
+          nativePaymentAllowed: false,
+          directGatewayAllowed: true,
+          templateRequired: false,
+          availableTemplates: [],
+        });
+        setDispatchMode('SESSION_MESSAGE');
+        setPreferredMode('DIRECT_LINK');
+        return;
+      }
+
       const info = await fetchSessionStatus(waId);
       setSessionInfo(info);
 
@@ -190,9 +212,14 @@ export function PaymentRequestModal({
 
   const handleSendBill = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanWaId = targetWaId.replace(/[^0-9]/g, '');
-    if (!cleanWaId || cleanWaId.length < 10) {
+    const isTg = targetWaId.startsWith('tg:') || targetWaId.endsWith('@telegram.contact');
+    const cleanWaId = isTg ? targetWaId : targetWaId.replace(/[^0-9]/g, '');
+    if (!isTg && (!cleanWaId || cleanWaId.length < 10)) {
       setError('Please enter a valid customer WhatsApp number with country code (e.g. 919876543210)');
+      return;
+    }
+    if (isTg && !cleanWaId.replace(/[^0-9]/g, '')) {
+      setError('Please enter a valid Telegram ID');
       return;
     }
 
@@ -222,10 +249,10 @@ export function PaymentRequestModal({
         discountMinor: Math.round(Number(discountRupees || 0) * 100),
         taxMinor: Math.round(Number(taxRupees || 0) * 100),
         shippingMinor: Math.round(Number(shippingRupees || 0) * 100),
-        preferredPaymentMode: preferredMode,
-        dispatchMode: dispatchMode,
-        templateDefinitionKey: dispatchMode === 'PAYMENT_TEMPLATE' ? selectedTemplateKey : undefined,
-        templateParameters: dispatchMode === 'PAYMENT_TEMPLATE' ? templateParams : undefined,
+        preferredPaymentMode: isTg ? 'DIRECT_LINK' : preferredMode,
+        dispatchMode: isTg ? 'SESSION_MESSAGE' : dispatchMode,
+        templateDefinitionKey: (!isTg && dispatchMode === 'PAYMENT_TEMPLATE') ? selectedTemplateKey : undefined,
+        templateParameters: (!isTg && dispatchMode === 'PAYMENT_TEMPLATE') ? templateParams : undefined,
         items: paymentItems,
       };
 
@@ -260,15 +287,22 @@ export function PaymentRequestModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+            <div className={cx(
+              'w-9 h-9 rounded-xl flex items-center justify-center font-bold',
+              isTelegram
+                ? 'bg-[#229ED9]/15 text-[#229ED9]'
+                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            )}>
               <ShoppingBag className="w-5 h-5" />
             </div>
             <div>
               <h3 className="font-semibold text-slate-900 dark:text-slate-100 text-base leading-tight">
-                Send WhatsApp Bill & Payment Request
+                {isTelegram ? 'Send Telegram Payment Request' : 'Send WhatsApp Bill & Payment Request'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Session-aware payment dispatch with 24-hour window policy
+                {isTelegram
+                  ? 'Interactive invoice card with 1-tap Razorpay / Stripe gateway checkout button'
+                  : 'Session-aware payment dispatch with 24-hour window policy'}
               </p>
             </div>
           </div>
@@ -294,17 +328,22 @@ export function PaymentRequestModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/60">
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                WhatsApp Phone Number <span className="text-rose-500">*</span>
+                {isTelegram ? 'Telegram Contact ID' : 'WhatsApp Phone Number'} <span className="text-rose-500">*</span>
               </label>
               <input
-                type="tel"
-                placeholder="e.g. 919876543210"
+                type="text"
+                placeholder={isTelegram ? 'e.g. tg:123456789' : 'e.g. 919876543210'}
                 value={targetWaId}
                 onChange={(e) => setTargetWaId(e.target.value)}
-                className="w-full text-xs font-mono px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                className={cx(
+                  'w-full text-xs font-mono px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 text-slate-900 dark:text-slate-100',
+                  isTelegram ? 'focus:ring-[#229ED9]' : 'focus:ring-emerald-500'
+                )}
                 required
               />
-              <span className="text-[10px] text-slate-400">With country code (e.g. 91 for India)</span>
+              <span className="text-[10px] text-slate-400">
+                {isTelegram ? 'Official Telegram Bot chat / user ID' : 'With country code (e.g. 91 for India)'}
+              </span>
             </div>
             <div>
               <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
@@ -315,137 +354,175 @@ export function PaymentRequestModal({
                 placeholder="e.g. Rahul Sharma"
                 value={targetName}
                 onChange={(e) => setTargetName(e.target.value)}
-                className="w-full text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-slate-100"
+                className={cx(
+                  'w-full text-xs px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1 text-slate-900 dark:text-slate-100',
+                  isTelegram ? 'focus:ring-[#229ED9]' : 'focus:ring-emerald-500'
+                )}
               />
-              <span className="text-[10px] text-slate-400">Appears on the bill and WhatsApp message</span>
+              <span className="text-[10px] text-slate-400">
+                {isTelegram ? 'Appears on the bill and Telegram invoice card' : 'Appears on the bill and WhatsApp message'}
+              </span>
             </div>
           </div>
 
-          {/* Server-Enforced 24-Hour Session Status Banner */}
-          {targetWaId.replace(/[^0-9]/g, '').length >= 10 && (
-            <div
-              className={cx(
-                'p-3.5 rounded-xl border flex items-start gap-3 transition-all',
-                loadingSession
-                  ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
-                  : sessionInfo?.sessionStatus === 'OPEN'
-                  ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800/60 dark:text-emerald-200'
-                  : 'bg-amber-50/70 border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800/60 dark:text-amber-200'
-              )}
-            >
-              {loadingSession ? (
-                <Loader2 className="w-4 h-4 animate-spin shrink-0 mt-0.5" />
-              ) : sessionInfo?.sessionStatus === 'OPEN' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-              ) : (
-                <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-              )}
+          {/* Session Status Banner */}
+          {isTelegram ? (
+            <div className="p-3.5 rounded-xl border flex items-start gap-3 bg-[#229ED9]/10 border-[#229ED9]/30 text-[#006699] dark:text-[#55bbee]">
+              <CheckCircle2 className="w-4 h-4 text-[#229ED9] shrink-0 mt-0.5" />
               <div className="flex-1 text-xs">
                 <div className="font-bold flex items-center justify-between">
-                  <span>
-                    {loadingSession
-                      ? 'Checking WhatsApp 24-hour service window...'
-                      : sessionInfo?.sessionStatus === 'OPEN'
-                      ? '🟢 Customer Service Window Open'
-                      : '🔴 Customer Service Window Expired / Closed'}
+                  <span>✈️ Telegram Payment Channel Ready</span>
+                  <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-[#229ED9]/20 text-[#006699] dark:text-[#99d7f7]">
+                    Direct Gateway
                   </span>
-                  {sessionInfo?.sessionStatus === 'OPEN' && (
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-800/40 text-emerald-800 dark:text-emerald-200 font-semibold">
-                      Expires in {remainingHours}h {remainingMins}m
-                    </span>
-                  )}
                 </div>
-                <p className="mt-0.5 opacity-85 text-[11px]">
-                  {sessionInfo?.sessionStatus === 'OPEN'
-                    ? 'You can dispatch an Interactive UPI Checkout card directly, or send a pre-built payment template.'
-                    : 'Customer has not sent an inbound message in the last 24 hours. Meta requires an approved WhatsApp Payment Template to contact this recipient.'}
+                <p className="mt-0.5 opacity-90 text-[11px] leading-relaxed">
+                  Telegram supports instant payment requests delivered as interactive invoice cards with a 1-tap checkout button. No 24-hour Meta template restrictions apply.
                 </p>
               </div>
             </div>
+          ) : (
+            targetWaId.replace(/[^0-9]/g, '').length >= 10 && (
+              <div
+                className={cx(
+                  'p-3.5 rounded-xl border flex items-start gap-3 transition-all',
+                  loadingSession
+                    ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'
+                    : sessionInfo?.sessionStatus === 'OPEN'
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800/60 dark:text-emerald-200'
+                    : 'bg-amber-50/70 border-amber-200 text-amber-900 dark:bg-amber-950/30 dark:border-amber-800/60 dark:text-amber-200'
+                )}
+              >
+                {loadingSession ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0 mt-0.5" />
+                ) : sessionInfo?.sessionStatus === 'OPEN' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                ) : (
+                  <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                )}
+                <div className="flex-1 text-xs">
+                  <div className="font-bold flex items-center justify-between">
+                    <span>
+                      {loadingSession
+                        ? 'Checking WhatsApp 24-hour service window...'
+                        : sessionInfo?.sessionStatus === 'OPEN'
+                        ? '🟢 Customer Service Window Open'
+                        : '🔴 Customer Service Window Expired / Closed'}
+                    </span>
+                    {sessionInfo?.sessionStatus === 'OPEN' && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-800/40 text-emerald-800 dark:text-emerald-200 font-semibold">
+                        Expires in {remainingHours}h {remainingMins}m
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 opacity-85 text-[11px]">
+                    {sessionInfo?.sessionStatus === 'OPEN'
+                      ? 'You can dispatch an Interactive UPI Checkout card directly, or send a pre-built payment template.'
+                      : 'Customer has not sent an inbound message in the last 24 hours. Meta requires an approved WhatsApp Payment Template to contact this recipient.'}
+                  </p>
+                </div>
+              </div>
+            )
           )}
 
-          {/* Delivery & Dispatch Mode Selector */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
-              Dispatch Delivery Mode
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  if (sessionInfo?.sessionStatus === 'CLOSED') return;
-                  setDispatchMode('SESSION_MESSAGE');
-                }}
-                disabled={sessionInfo?.sessionStatus === 'CLOSED'}
-                className={cx(
-                  'flex items-center gap-2.5 p-3 rounded-xl border text-left transition',
-                  dispatchMode === 'SESSION_MESSAGE'
-                    ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200 ring-1 ring-emerald-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300',
-                  sessionInfo?.sessionStatus === 'CLOSED' && 'opacity-40 cursor-not-allowed'
-                )}
-              >
-                <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <div>
-                  <div className="text-xs font-semibold">In-Chat Session Card</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {sessionInfo?.sessionStatus === 'CLOSED' ? 'Requires active 24h window' : 'Native UPI / Direct CTA'}
-                  </div>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDispatchMode('PAYMENT_TEMPLATE')}
-                className={cx(
-                  'flex items-center gap-2.5 p-3 rounded-xl border text-left transition',
-                  dispatchMode === 'PAYMENT_TEMPLATE'
-                    ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-500'
-                    : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                )}
-              >
-                <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-                <div>
-                  <div className="text-xs font-semibold">WhatsApp Payment Template</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400">24h Safe · Approved WABA Template</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* If In-Chat Session Mode -> Select Experience Sub-mode */}
-          {dispatchMode === 'SESSION_MESSAGE' && (
-            <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-              <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                In-Chat Checkout Experience
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPreferredMode('NATIVE_WHATSAPP')}
-                  className={cx(
-                    'p-2 rounded-lg text-xs font-semibold border text-center transition',
-                    preferredMode === 'NATIVE_WHATSAPP'
-                      ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                  )}
-                >
-                  ⚡ Native UPI (Order Details)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPreferredMode('DIRECT_LINK')}
-                  className={cx(
-                    'p-2 rounded-lg text-xs font-semibold border text-center transition',
-                    preferredMode === 'DIRECT_LINK'
-                      ? 'border-indigo-500 bg-indigo-600 text-white shadow-xs'
-                      : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                  )}
-                >
-                  💳 Gateway Link (Razorpay/PayU)
-                </button>
+          {/* Delivery & Dispatch Mode Selector (WhatsApp only) */}
+          {isTelegram ? (
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/60 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#229ED9]/10 text-[#229ED9] flex items-center justify-center shrink-0">
+                <CreditCard className="w-4 h-4" />
+              </div>
+              <div className="text-xs">
+                <span className="font-semibold text-slate-800 dark:text-slate-200">1-Tap Inline Payment Button</span>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Customer will receive an invoice card with a secure <span className="font-semibold text-[#229ED9]">[ 💳 Pay Securely ]</span> button supporting UPI, Google Pay, PhonePe, Cards, and Netbanking via Razorpay / Stripe.
+                </p>
               </div>
             </div>
+          ) : (
+            <>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-2">
+                  Dispatch Delivery Mode
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (sessionInfo?.sessionStatus === 'CLOSED') return;
+                      setDispatchMode('SESSION_MESSAGE');
+                    }}
+                    disabled={sessionInfo?.sessionStatus === 'CLOSED'}
+                    className={cx(
+                      'flex items-center gap-2.5 p-3 rounded-xl border text-left transition',
+                      dispatchMode === 'SESSION_MESSAGE'
+                        ? 'border-emerald-500 bg-emerald-50/40 dark:bg-emerald-950/20 text-emerald-900 dark:text-emerald-200 ring-1 ring-emerald-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300',
+                      sessionInfo?.sessionStatus === 'CLOSED' && 'opacity-40 cursor-not-allowed'
+                    )}
+                  >
+                    <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold">In-Chat Session Card</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {sessionInfo?.sessionStatus === 'CLOSED' ? 'Requires active 24h window' : 'Native UPI / Direct CTA'}
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDispatchMode('PAYMENT_TEMPLATE')}
+                    className={cx(
+                      'flex items-center gap-2.5 p-3 rounded-xl border text-left transition',
+                      dispatchMode === 'PAYMENT_TEMPLATE'
+                        ? 'border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-500'
+                        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    )}
+                  >
+                    <FileText className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold">WhatsApp Payment Template</div>
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">24h Safe · Approved WABA Template</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* If In-Chat Session Mode -> Select Experience Sub-mode */}
+              {dispatchMode === 'SESSION_MESSAGE' && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                    In-Chat Checkout Experience
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreferredMode('NATIVE_WHATSAPP')}
+                      className={cx(
+                        'p-2 rounded-lg text-xs font-semibold border text-center transition',
+                        preferredMode === 'NATIVE_WHATSAPP'
+                          ? 'border-emerald-500 bg-emerald-500 text-white shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                      )}
+                    >
+                      ⚡ Native UPI (Order Details)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreferredMode('DIRECT_LINK')}
+                      className={cx(
+                        'p-2 rounded-lg text-xs font-semibold border text-center transition',
+                        preferredMode === 'DIRECT_LINK'
+                          ? 'border-indigo-500 bg-indigo-600 text-white shadow-xs'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
+                      )}
+                    >
+                      💳 Gateway Link (Razorpay/PayU)
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
 
           {/* If Template Mode -> Select from 5 Pre-Built Definitions & Parameters */}
@@ -719,10 +796,15 @@ export function PaymentRequestModal({
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm transition disabled:opacity-50"
+              className={cx(
+                'flex items-center gap-2 px-5 py-2.5 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-sm transition disabled:opacity-50',
+                isTelegram ? 'bg-[#229ED9] hover:bg-[#1a8bc2]' : 'bg-emerald-600 hover:bg-emerald-700'
+              )}
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-              {dispatchMode === 'PAYMENT_TEMPLATE'
+              {isTelegram
+                ? `Send Telegram Payment Link (₹${total.toFixed(2)})`
+                : dispatchMode === 'PAYMENT_TEMPLATE'
                 ? `Dispatch Template Bill (₹${total.toFixed(2)})`
                 : `Send In-Chat Bill (₹${total.toFixed(2)})`}
             </button>

@@ -3,6 +3,10 @@ import { apiFetch } from './api';
 export type ApiChat = {
   id: string;
   name: string;
+  phone?: string;
+  channel?: 'whatsapp' | 'telegram' | string;
+  telegramUsername?: string;
+  source?: string;
   lastMessage: string;
   time: string;
   unread: number;

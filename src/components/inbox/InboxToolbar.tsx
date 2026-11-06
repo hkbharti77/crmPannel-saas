@@ -8,11 +8,12 @@ import {
   Inbox as InboxIcon,
   Globe,
   MessageSquare,
+  Send,
   X,
 } from 'lucide-react';
 import { TabSwitcher } from '@/components/ui/TabSwitcher';
 
-export type ChannelId = 'whatsapp' | 'webchat';
+export type ChannelId = 'whatsapp' | 'webchat' | 'telegram';
 export type FilterId = 'all' | 'unread' | 'unassigned' | 'bot' | 'vip' | 'mine';
 
 type FilterTab = {
@@ -55,12 +56,17 @@ export function InboxToolbar({
         tabs={[
           {
             id: 'whatsapp',
-            label: 'WhatsApp Inbox',
+            label: 'WhatsApp',
             icon: <MessageSquare className="h-4 w-4 text-emerald-500" />,
           },
           {
+            id: 'telegram',
+            label: 'Telegram Bot',
+            icon: <Send className="h-4 w-4 text-[#229ED9]" />,
+          },
+          {
             id: 'webchat',
-            label: 'WebChat Widget',
+            label: 'WebChat',
             icon: <Globe className="h-4 w-4 text-indigo-500" />,
           },
         ]}
@@ -78,9 +84,16 @@ export function InboxToolbar({
           placeholder={
             channel === 'whatsapp'
               ? 'Search contact, phone or message…'
+              : channel === 'telegram'
+              ? 'Search Telegram username or name…'
               : 'Search webchat sessions…'
           }
-          className="w-full rounded-xl border border-base-c/80 bg-card-c/90 py-2 pl-10 pr-9 text-xs sm:text-sm text-primary-c placeholder:text-muted-c transition-all focus:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-xs"
+          className={cx(
+            "w-full rounded-xl border border-base-c/80 bg-card-c/90 py-2 pl-10 pr-9 text-xs sm:text-sm text-primary-c placeholder:text-muted-c transition-all focus:outline-none focus:ring-2 shadow-xs",
+            channel === 'telegram'
+              ? 'focus:border-[#229ED9]/50 focus:ring-[#229ED9]/20'
+              : 'focus:border-emerald-500/50 focus:ring-emerald-500/20'
+          )}
         />
         {query && (
           <button
@@ -93,8 +106,8 @@ export function InboxToolbar({
         )}
       </div>
 
-      {/* Filter tabs (only for WhatsApp) */}
-      {channel === 'whatsapp' && (
+      {/* Filter tabs (for WhatsApp & Telegram) */}
+      {channel !== 'webchat' && (
         <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
           {filters.map((f) => {
             const Icon = f.icon;
@@ -106,8 +119,12 @@ export function InboxToolbar({
                 className={cx(
                   'flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all whitespace-nowrap btn-tactile',
                   active
-                    ? 'bg-emerald-600 text-white shadow-soft font-semibold'
-                    : 'border border-base-c/70 bg-card-c/60 text-secondary-c hover:border-emerald-500/40 hover:text-primary-c hover:bg-card-c',
+                    ? channel === 'telegram'
+                      ? 'bg-[#229ED9] text-white shadow-soft font-semibold'
+                      : 'bg-emerald-600 text-white shadow-soft font-semibold'
+                    : channel === 'telegram'
+                      ? 'border border-base-c/70 bg-card-c/60 text-secondary-c hover:border-[#229ED9]/40 hover:text-primary-c hover:bg-card-c'
+                      : 'border border-base-c/70 bg-card-c/60 text-secondary-c hover:border-emerald-500/40 hover:text-primary-c hover:bg-card-c',
                 )}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />

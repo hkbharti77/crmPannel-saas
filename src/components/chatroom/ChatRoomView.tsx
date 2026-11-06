@@ -25,6 +25,7 @@ import {
   RefreshCw,
   MessageSquare,
   IndianRupee,
+  Send,
 } from 'lucide-react';
 import { PaymentRequestModal } from '@/components/payments/PaymentRequestModal';
 import { SendFlowModal } from './SendFlowModal';
@@ -32,7 +33,7 @@ import { SendCatalogModal } from './SendCatalogModal';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '@/context/ThemeContext';
 
-export type ChatTheme = 'whatsapp-dark' | 'whatsapp-light';
+export type ChatTheme = 'whatsapp-dark' | 'whatsapp-light' | 'telegram-dark' | 'telegram-light' | 'glass';
 
 export function ChatRoomView() {
   const { contactId } = useParams<{ contactId: string }>();
@@ -71,10 +72,32 @@ export function ChatRoomView() {
     }
   }, []);
 
-  const chatTheme: ChatTheme = theme === 'dark' ? 'whatsapp-dark' : 'whatsapp-light';
+  const isTelegram =
+    contactDetails?.source === 'TELEGRAM' ||
+    contactDetails?.waId?.startsWith('tg:') ||
+    contactDetails?.phone?.startsWith('tg:') ||
+    contactDetails?.email?.endsWith('@telegram.contact') ||
+    Boolean(contactDetails?.name && contactDetails.name.toLowerCase().includes('telegram'));
 
-  const displayName = contactDetails?.name || contactDetails?.phone || (contactId ? `Contact (${contactId.slice(0, 8)})` : 'WhatsApp Chat');
-  const displayPhone = contactDetails?.phone || contactId || '';
+  const chatTheme: ChatTheme = isTelegram
+    ? (theme === 'dark' ? 'telegram-dark' : 'telegram-light')
+    : (theme === 'dark' ? 'whatsapp-dark' : 'whatsapp-light');
+
+  const displayName =
+    contactDetails?.name ||
+    contactDetails?.phone ||
+    (contactId
+      ? isTelegram
+        ? `Telegram User (${contactId.slice(0, 8)})`
+        : `Contact (${contactId.slice(0, 8)})`
+      : isTelegram
+      ? 'Telegram Chat'
+      : 'WhatsApp Chat');
+
+  const displayPhone =
+    isTelegram && contactDetails?.waId?.startsWith('tg:')
+      ? `Telegram ID: ${contactDetails.waId.replace('tg:', '')}`
+      : (contactDetails?.phone || contactId || '');
 
   const loadData = async () => {
     if (!contactId || !contactId.includes('-')) return;
@@ -256,23 +279,29 @@ export function ChatRoomView() {
         {/* Main Chat Area */}
         <div className={cx(
           'flex flex-1 flex-col overflow-hidden rounded-2xl border shadow-sm transition-colors duration-200',
-          chatTheme === 'whatsapp-dark' ? 'border-[#222d34]' : 'border-[#e9edef]'
+          chatTheme.startsWith('telegram')
+            ? (theme === 'dark' ? 'border-[#243343]' : 'border-[#d3e2ee]')
+            : (chatTheme === 'whatsapp-dark' ? 'border-[#222d34]' : 'border-[#e9edef]')
         )}>
           {/* Header */}
           <div className={cx(
             'flex items-center justify-between border-b px-3 sm:px-4 py-2.5 transition-colors duration-200',
-            chatTheme === 'whatsapp-dark'
-              ? 'bg-[#202c33] text-[#e9edef] border-[#222d34]'
-              : 'bg-[#f0f2f5] text-[#111b21] border-[#e9edef]'
+            chatTheme === 'telegram-dark'
+              ? 'bg-[#17212b] text-[#e9edef] border-[#243343]'
+              : chatTheme === 'telegram-light'
+                ? 'bg-[#f0f6fa] text-[#111b21] border-[#d3e2ee]'
+                : chatTheme === 'whatsapp-dark'
+                  ? 'bg-[#202c33] text-[#e9edef] border-[#222d34]'
+                  : 'bg-[#f0f2f5] text-[#111b21] border-[#e9edef]'
           )}>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <button
                 onClick={onBack}
                 className={cx(
                   'grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors',
-                  chatTheme === 'whatsapp-dark'
-                    ? 'hover:bg-[#374248] text-[#aebac1]'
-                    : 'hover:bg-[#e9edef] text-[#54656f]'
+                  chatTheme.startsWith('telegram')
+                    ? (theme === 'dark' ? 'hover:bg-[#242f3d] text-[#aebac1]' : 'hover:bg-[#e1edf5] text-[#54656f]')
+                    : (chatTheme === 'whatsapp-dark' ? 'hover:bg-[#374248] text-[#aebac1]' : 'hover:bg-[#e9edef] text-[#54656f]')
                 )}
                 title="Back to inbox"
               >
@@ -280,20 +309,31 @@ export function ChatRoomView() {
               </button>
 
               <div className="relative shrink-0">
-                <Avatar name={displayName} size="md" className="ring-2 ring-emerald-500/30" />
-                <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+                <Avatar name={displayName} size="md" className={cx("ring-2", isTelegram ? "ring-[#229ED9]/40" : "ring-emerald-500/30")} />
+                <span className={cx(
+                  "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-slate-900",
+                  isTelegram ? "bg-[#229ED9]" : "bg-emerald-500"
+                )} />
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <h2 className="truncate text-sm sm:text-base font-semibold">{displayName}</h2>
-                  <span className="hidden sm:inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
-                    Online
-                  </span>
+                  {isTelegram ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#229ED9]/15 border border-[#229ED9]/30 px-2 py-0.5 text-[10px] font-semibold text-[#229ED9]">
+                      ✈️ Telegram Online
+                    </span>
+                  ) : (
+                    <span className="hidden sm:inline-block rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      Online
+                    </span>
+                  )}
                 </div>
                 <p className={cx(
                   'truncate text-xs',
-                  chatTheme === 'whatsapp-dark' ? 'text-[#8696a0]' : 'text-[#667781]'
+                  chatTheme.startsWith('telegram')
+                    ? (theme === 'dark' ? 'text-[#7e8e9e]' : 'text-[#5d7385]')
+                    : (chatTheme === 'whatsapp-dark' ? 'text-[#8696a0]' : 'text-[#667781]')
                 )}>
                   {displayPhone}
                 </p>
@@ -309,7 +349,9 @@ export function ChatRoomView() {
                   'flex items-center gap-1.5 rounded-lg px-2.5 sm:px-3 py-1.5 text-xs font-semibold transition-all disabled:opacity-50',
                   botMode
                     ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-xs'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
+                    : isTelegram
+                      ? 'bg-[#229ED9] text-white hover:bg-[#1b8bc2] shadow-xs'
+                      : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
                 )}
               >
                 {botMode ? (
@@ -362,23 +404,39 @@ export function ChatRoomView() {
             onScroll={handleScroll}
             className={cx(
               'flex-1 space-y-3 overflow-y-auto p-3 scrollbar-thin lg:p-4 transition-colors duration-200',
-              chatTheme === 'whatsapp-dark' ? 'bg-[#0b141a]' : 'bg-[#efeae2]'
+              chatTheme === 'telegram-dark'
+                ? 'bg-[#0e1621]'
+                : chatTheme === 'telegram-light'
+                  ? 'bg-[#e5eff5]'
+                  : chatTheme === 'whatsapp-dark'
+                    ? 'bg-[#0b141a]'
+                    : 'bg-[#efeae2]'
             )}
             style={{
-              backgroundImage: chatTheme === 'whatsapp-dark'
-                ? 'radial-gradient(circle at 50% 50%, rgba(18, 28, 36, 0.5), transparent)'
-                : 'radial-gradient(circle at 50% 50%, rgba(220, 215, 205, 0.4), transparent)',
+              backgroundImage: chatTheme === 'telegram-dark'
+                ? 'radial-gradient(circle at 50% 50%, rgba(24, 37, 51, 0.6), transparent)'
+                : chatTheme === 'telegram-light'
+                  ? 'radial-gradient(circle at 50% 50%, rgba(200, 222, 238, 0.5), transparent)'
+                  : chatTheme === 'whatsapp-dark'
+                    ? 'radial-gradient(circle at 50% 50%, rgba(18, 28, 36, 0.5), transparent)'
+                    : 'radial-gradient(circle at 50% 50%, rgba(220, 215, 205, 0.4), transparent)',
             }}
           >
             {/* Encryption & Session Badge */}
             <div className="flex justify-center my-1">
               <span className={cx(
                 'rounded-lg px-3 py-1 text-[11px] font-medium border shadow-xs text-center max-w-md',
-                chatTheme === 'whatsapp-dark'
-                  ? 'bg-[#182229] text-[#8696a0] border-[#222d34]'
-                  : 'bg-[#ffffff] text-[#54656f] border-[#e9edef]'
+                chatTheme === 'telegram-dark'
+                  ? 'bg-[#182533] text-[#8696a0] border-[#243343]'
+                  : chatTheme === 'telegram-light'
+                    ? 'bg-[#ffffff] text-[#4a6375] border-[#d3e2ee]'
+                    : chatTheme === 'whatsapp-dark'
+                      ? 'bg-[#182229] text-[#8696a0] border-[#222d34]'
+                      : 'bg-[#ffffff] text-[#54656f] border-[#e9edef]'
               )}>
-                🔒 End-to-End Encrypted · Official WhatsApp API Session
+                {isTelegram
+                  ? '✈️ Telegram Bot Channel · Official Telegram Bot API Session'
+                  : '🔒 End-to-End Encrypted · Official WhatsApp API Session'}
               </span>
             </div>
 
@@ -388,27 +446,42 @@ export function ChatRoomView() {
               ))
             ) : (
               <div className="flex flex-col items-center justify-center py-20 text-center text-muted-c">
-                <MessageSquare className="h-12 w-12 opacity-30 mb-3 text-emerald-500" />
+                {isTelegram ? (
+                  <Send className="h-12 w-12 opacity-30 mb-3 text-[#229ED9]" />
+                ) : (
+                  <MessageSquare className="h-12 w-12 opacity-30 mb-3 text-emerald-500" />
+                )}
                 <p className="text-base font-bold">No messages yet in this conversation</p>
-                <p className="text-xs mt-1 max-w-sm opacity-70">Send a message below or click "Send Menu" to initiate automated customer onboarding.</p>
+                <p className="text-xs mt-1 max-w-sm opacity-70">
+                  {isTelegram
+                    ? 'Send a message below or click "Send Menu" to initiate automated customer onboarding on Telegram.'
+                    : 'Send a message below or click "Send Menu" to initiate automated customer onboarding.'}
+                </p>
               </div>
             )}
 
             {/* AI Typing Animation Indicator */}
             {botMode && messages.length > 0 && (
               <div className="flex items-end gap-2.5">
-                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-600 text-white shadow-soft">
+                <div className={cx(
+                  "grid h-8 w-8 shrink-0 place-items-center rounded-full text-white shadow-soft",
+                  isTelegram ? "bg-[#229ED9]" : "bg-emerald-600"
+                )}>
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className={cx(
                   'flex items-center gap-1.5 rounded-2xl rounded-tl-xs px-4 py-3 shadow-xs border',
-                  chatTheme === 'whatsapp-dark'
-                    ? 'bg-[#202c33] border-[#222d34]'
-                    : 'bg-[#ffffff] border-[#e9edef]'
+                  chatTheme === 'telegram-dark'
+                    ? 'bg-[#182533] border-[#243343]'
+                    : chatTheme === 'telegram-light'
+                      ? 'bg-[#ffffff] border-[#d3e2ee]'
+                      : chatTheme === 'whatsapp-dark'
+                        ? 'bg-[#202c33] border-[#222d34]'
+                        : 'bg-[#ffffff] border-[#e9edef]'
                 )}>
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-500 [animation-delay:0ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-500 [animation-delay:150ms]" />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-emerald-500 [animation-delay:300ms]" />
+                  <span className={cx("h-2 w-2 animate-bounce rounded-full [animation-delay:0ms]", isTelegram ? "bg-[#229ED9]" : "bg-emerald-500")} />
+                  <span className={cx("h-2 w-2 animate-bounce rounded-full [animation-delay:150ms]", isTelegram ? "bg-[#229ED9]" : "bg-emerald-500")} />
+                  <span className={cx("h-2 w-2 animate-bounce rounded-full [animation-delay:300ms]", isTelegram ? "bg-[#229ED9]" : "bg-emerald-500")} />
                 </div>
               </div>
             )}
@@ -432,13 +505,14 @@ export function ChatRoomView() {
             botMode={botMode}
             onToggleBot={handleToggleBot}
             theme={chatTheme}
+            isTelegram={isTelegram}
             contactId={contactId}
             contactName={contactDetails?.name}
             onVoiceNoteSent={() => loadData()}
             onRequestPayment={() => setIsPaymentModalOpen(true)}
             onSendMenu={contactId && contactId.includes('-') ? handleSendMenu : undefined}
-            onSendFlow={contactId && contactId.includes('-') ? () => setIsSendFlowModalOpen(true) : undefined}
-            onSendCatalog={() => setIsSendCatalogModalOpen(true)}
+            onSendFlow={!isTelegram && contactId && contactId.includes('-') ? () => setIsSendFlowModalOpen(true) : undefined}
+            onSendCatalog={!isTelegram ? () => setIsSendCatalogModalOpen(true) : undefined}
             sendingMenu={sendingMenu}
           />
         </div>

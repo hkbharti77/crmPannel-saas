@@ -152,9 +152,21 @@ export function FormFieldsPanel() {
       <SectionCard>
         <PanelHeader
           title="Form Fields Builder"
-          desc="Configure step-by-step questions and lead collection forms across your WhatsApp and Web Chat flows."
+          desc="Configure step-by-step questions and lead collection forms synchronized across WhatsApp, Telegram, and Web Chat bots."
           icon={<FormInput className="h-5 w-5 text-primary-600 dark:text-primary-400" />}
         />
+
+        <div className="flex flex-wrap items-center gap-2 mb-2 pt-1">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+            💬 WhatsApp Flow
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[#229ED9]/10 px-2.5 py-0.5 text-[11px] font-semibold text-[#229ED9] border border-[#229ED9]/20">
+            ✈️ Telegram Bot Form
+          </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/10 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-400 border border-indigo-500/20">
+            🌐 Web Chat Widget
+          </span>
+        </div>
 
         {/* Form Type Selector Tabs */}
         <div className="mb-6 grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">

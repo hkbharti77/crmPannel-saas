@@ -8,7 +8,7 @@ import {
   MessageSquare, MousePointerClick,
   HelpCircle, Zap, LifeBuoy, SlidersHorizontal, Smartphone, ChevronRight,
   Mail, FileText, Users, CheckSquare, HardDrive, FileSpreadsheet,
-  Bot,
+  Bot, Send,
   type LucideIcon,
 } from 'lucide-react';
 import { AccountProfilePanel } from './panels/AccountPanels';
@@ -40,9 +40,10 @@ import { BroadcastFilterConfigPanel } from './panels/BroadcastFilterConfigPanel'
 import { NotFoundView } from '@/components/notfound/NotFoundView';
 
 import { SmsProvidersPanel } from './panels/SmsProvidersPanel';
+import { TelegramIntegrationPanel } from './panels/TelegramIntegrationPanel';
 
 export type SettingsSub =
-  | 'account-profile' | 'security' | 'google-workspace' | 'google-calendar' | 'google-gmail' | 'google-contacts' | 'google-tasks' | 'google-drive' | 'google-sheets' | 'integrations' | 'billing' | 'payment-gateways'
+  | 'account-profile' | 'security' | 'google-workspace' | 'telegram-integration' | 'google-calendar' | 'google-gmail' | 'google-contacts' | 'google-tasks' | 'google-drive' | 'google-sheets' | 'integrations' | 'billing' | 'payment-gateways'
   | 'branding' | 'bot-builder' | 'dark-mode'
   | 'push-notifications' | 'notifications'
   | 'menu-buttons' | 'menu-builder' | 'whatsapp-flows'
@@ -80,6 +81,7 @@ const NAV: NavGroup[] = [
     section: 'Integrations',
     items: [
       { id: 'google-workspace', label: 'Google Workspace', desc: 'Unified Google suite integration', icon: Globe },
+      { id: 'telegram-integration', label: 'Telegram Bots', desc: 'Customer & Agent bot automation', icon: Send },
     ],
   },
   {
@@ -105,7 +107,7 @@ const NAV: NavGroup[] = [
       { id: 'custom-submenus', label: 'Custom Sub-Menus', desc: 'Create custom lists', icon: ListTree },
       { id: 'email-providers', label: 'Email Providers', desc: 'AWS SES, SMTP, Brevo', icon: Plug },
       { id: 'sms-providers', label: 'SMS Gateways', desc: 'Twilio, MSG91, Fast2SMS', icon: MessageSquare },
-      { id: 'quick-responses', label: 'Quick Responses', desc: 'Text & image replies', icon: MessageSquare },
+      { id: 'quick-responses', label: 'Quick Responses', desc: 'Bot buttons & agent snippets', icon: MessageSquare },
       { id: 'flow-cta', label: 'Flow CTA Buttons', desc: 'Cancel & complete buttons', icon: MousePointerClick },
     ],
   },
@@ -143,6 +145,7 @@ const PANEL_MAP: Record<SettingsSub, () => JSX.Element> = {
   'account-profile': AccountProfilePanel,
   'security': SecurityPanel,
   'google-workspace': GoogleWorkspacePanel,
+  'telegram-integration': TelegramIntegrationPanel,
   'google-calendar': () => <LegacyGoogleRedirect defaultTab="meet" />,
   'google-gmail': () => <LegacyGoogleRedirect defaultTab="gmail" />,
   'google-contacts': () => <LegacyGoogleRedirect defaultTab="contacts" />,

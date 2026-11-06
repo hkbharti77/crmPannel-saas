@@ -89,7 +89,7 @@ export function Sidebar({
       <aside
         className={cx(
           'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-base-c bg-card-c transition-all duration-300 lg:static lg:translate-x-0',
-          collapsed ? 'w-[72px]' : 'w-[248px]',
+          collapsed ? 'w-[72px]' : 'w-[216px]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -133,7 +133,7 @@ export function Sidebar({
                     active && 'text-primary-600 dark:text-primary-400',
                   )}
                 />
-                {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+                {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
                 {!collapsed && item.badge && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gradient-accent px-1.5 text-[10px] font-bold text-white">
                     {item.badge}

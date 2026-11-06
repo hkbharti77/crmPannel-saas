@@ -66,7 +66,7 @@ export function AdminShell() {
       <aside
         className={cx(
           'fixed inset-y-0 left-0 z-50 flex flex-col border-r border-base-c bg-card-c transition-all duration-300 lg:static lg:translate-x-0',
-          collapsed ? 'w-[72px]' : 'w-[248px]',
+          collapsed ? 'w-[72px]' : 'w-[216px]',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
@@ -119,7 +119,7 @@ export function AdminShell() {
               >
                 {active && <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gradient-to-b from-rose-500 to-orange-500" />}
                 <Icon className={cx('h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110', active && 'text-rose-500')} />
-                {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+                {!collapsed && <span className="flex-1 text-left truncate">{item.label}</span>}
                 {!collapsed && badge && (
                   <span className="grid h-5 min-w-5 place-items-center rounded-full bg-gradient-to-br from-rose-500 to-orange-500 px-1.5 text-[10px] font-bold text-white">
                     {badge}

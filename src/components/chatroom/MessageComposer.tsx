@@ -32,6 +32,7 @@ export function MessageComposer({
   onSendCatalog,
   sendingMenu = false,
   theme = 'whatsapp-dark',
+  isTelegram = false,
   contactId,
   contactName,
   agentName,
@@ -47,12 +48,14 @@ export function MessageComposer({
   onSendFlow?: () => void;
   onSendCatalog?: () => void;
   sendingMenu?: boolean;
-  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'glass';
+  theme?: 'whatsapp-dark' | 'whatsapp-light' | 'telegram-dark' | 'telegram-light' | 'glass';
+  isTelegram?: boolean;
   contactId?: string;
   contactName?: string;
   agentName?: string;
   onVoiceNoteSent?: () => void;
 }) {
+  const isTg = Boolean(isTelegram || theme?.startsWith('telegram'));
   const [showAttach, setShowAttach] = useState(false);
   const [isSendingVoice, setIsSendingVoice] = useState(false);
   const [showSlashPopup, setShowSlashPopup] = useState(false);
@@ -167,12 +170,16 @@ export function MessageComposer({
   ];
 
   const getContainerStyle = () => {
+    if (theme === 'telegram-dark') return 'bg-[#17212b] border-[#243343] text-[#e9edef]';
+    if (theme === 'telegram-light') return 'bg-[#f0f6fa] border-[#d3e2ee] text-[#111b21]';
     if (theme === 'whatsapp-dark') return 'bg-[#202c33] border-[#222d34] text-[#e9edef]';
     if (theme === 'whatsapp-light') return 'bg-[#f0f2f5] border-[#e9edef] text-[#111b21]';
     return 'bg-card-c/90 backdrop-blur-md border-base-c/80';
   };
 
   const getInputStyle = () => {
+    if (theme === 'telegram-dark') return 'bg-[#242f3d] border-[#243343] text-[#e9edef] placeholder-[#7e8e9e]';
+    if (theme === 'telegram-light') return 'bg-[#ffffff] border-[#d3e2ee] text-[#111b21] placeholder-[#7e8e9e]';
     if (theme === 'whatsapp-dark') return 'bg-[#2a3942] border-none text-[#e9edef] placeholder-[#8696a0]';
     if (theme === 'whatsapp-light') return 'bg-[#ffffff] border-none text-[#111b21] placeholder-[#54656f]';
     return 'bg-card-c border-base-c text-primary-c placeholder:text-muted-c';
@@ -196,22 +203,31 @@ export function MessageComposer({
         /* ── BOT ACTIVE: locked state ─────────────────────────── */
         <div className={cx(
           'flex flex-col items-center justify-center gap-2 rounded-2xl border p-4 shadow-soft',
-          theme === 'whatsapp-dark'
-            ? 'border-[#005c4b]/40 bg-[#111b21]/80 text-[#e9edef]'
-            : theme === 'whatsapp-light'
-              ? 'border-emerald-500/30 bg-[#ffffff]/90 text-[#111b21]'
-              : 'border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-purple-500/10'
+          isTg
+            ? (theme === 'telegram-dark'
+                ? 'border-[#229ED9]/40 bg-[#17212b]/90 text-[#e9edef]'
+                : 'border-[#229ED9]/30 bg-[#f0f6fa]/95 text-[#111b21]')
+            : (theme === 'whatsapp-dark'
+                ? 'border-[#005c4b]/40 bg-[#111b21]/80 text-[#e9edef]'
+                : theme === 'whatsapp-light'
+                  ? 'border-emerald-500/30 bg-[#ffffff]/90 text-[#111b21]'
+                  : 'border-violet-500/30 bg-gradient-to-r from-violet-500/10 via-indigo-500/10 to-purple-500/10')
         )}>
-          <div className="flex items-center gap-2 text-emerald-500 font-bold text-xs">
+          <div className={cx("flex items-center gap-2 font-bold text-xs", isTg ? "text-[#229ED9]" : "text-emerald-500")}>
             <ShieldAlert className="h-4 w-4" />
             <span>AI Bot is handling real-time customer replies</span>
           </div>
           <p className="text-[11px] opacity-75 text-center max-w-sm">
-            AI Assistant is automatically analyzing incoming WhatsApp queries. Switch to Human Takeover to send manual messages.
+            {isTg
+              ? 'AI Assistant is automatically analyzing incoming Telegram messages. Switch to Human Takeover to send manual messages.'
+              : 'AI Assistant is automatically analyzing incoming WhatsApp queries. Switch to Human Takeover to send manual messages.'}
           </p>
           <button
             onClick={onToggleBot}
-            className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 px-5 py-2 text-xs font-bold text-white shadow-md transition-all hover:scale-105 btn-tactile"
+            className={cx(
+              "flex items-center gap-2 rounded-xl px-5 py-2 text-xs font-bold text-white shadow-md transition-all hover:scale-105 btn-tactile",
+              isTg ? "bg-[#229ED9] hover:bg-[#1b8bc2]" : "bg-emerald-600 hover:bg-emerald-700"
+            )}
           >
             <UserCheck className="h-4 w-4" />
             Take Over — Switch to Human Mode
@@ -223,17 +239,25 @@ export function MessageComposer({
           {/* Action & Status toolbar */}
           <div className="mb-2.5 flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div className={cx(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-bold",
+                isTg
+                  ? "bg-[#229ED9]/15 border-[#229ED9]/30 text-[#229ED9]"
+                  : "bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400"
+              )}>
+                <span className={cx("h-2 w-2 rounded-full animate-pulse", isTg ? "bg-[#229ED9]" : "bg-emerald-500")} />
                 Human Mode Active
               </div>
 
               <button
                 onClick={onToggleBot}
-                className="flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c px-3 py-1 text-[11px] font-semibold hover:border-emerald-500/40 transition-all shadow-xs"
+                className={cx(
+                  "flex items-center gap-1.5 rounded-xl border border-base-c bg-card-c px-3 py-1 text-[11px] font-semibold transition-all shadow-xs",
+                  isTg ? "hover:border-[#229ED9]/40" : "hover:border-emerald-500/40"
+                )}
                 title="Hand back conversation to AI Bot"
               >
-                <Bot className="h-3.5 w-3.5 text-emerald-500" />
+                <Bot className={cx("h-3.5 w-3.5", isTg ? "text-[#229ED9]" : "text-emerald-500")} />
                 Hand Back to AI Bot
               </button>
 
@@ -266,16 +290,21 @@ export function MessageComposer({
               {onRequestPayment && (
                 <button
                   onClick={onRequestPayment}
-                  className="flex items-center gap-1.5 text-[11px] font-bold rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 btn-tactile shadow-xs transition-all cursor-pointer"
-                  title="Send WhatsApp Bill & Payment Request"
+                  className={cx(
+                    "flex items-center gap-1.5 text-[11px] font-bold rounded-xl border px-3 py-1 btn-tactile shadow-xs transition-all cursor-pointer",
+                    isTg
+                      ? "border-[#229ED9]/40 bg-[#229ED9]/10 text-[#229ED9] hover:bg-[#229ED9]/20"
+                      : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20"
+                  )}
+                  title={isTg ? "Send Payment Request" : "Send WhatsApp Bill & Payment Request"}
                 >
-                  <IndianRupee className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                  <IndianRupee className={cx("h-3.5 w-3.5 shrink-0", isTg ? "text-[#229ED9]" : "text-emerald-500")} />
                   <span>Request Payment</span>
                 </button>
               )}
 
-              {/* Send Catalog Button */}
-              {onSendCatalog && (
+              {/* Send Catalog Button (WhatsApp only) */}
+              {!isTg && onSendCatalog && (
                 <button
                   onClick={onSendCatalog}
                   className="flex items-center gap-1.5 text-[11px] font-bold rounded-xl border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 btn-tactile shadow-xs transition-all cursor-pointer"
@@ -306,11 +335,11 @@ export function MessageComposer({
           {showAttach && (
             <div className="mb-2.5 flex items-center gap-2 rounded-xl border border-base-c/80 bg-card-c p-2.5 shadow-soft animate-slide-down flex-wrap">
               {[
-                { icon: ImageIcon, label: 'Photo & Video', color: 'text-emerald-500', action: () => fileRef.current?.click() },
+                { icon: ImageIcon, label: 'Photo & Video', color: isTg ? 'text-[#229ED9]' : 'text-emerald-500', action: () => fileRef.current?.click() },
                 { icon: Paperclip, label: 'Document', color: 'text-indigo-500', action: () => fileRef.current?.click() },
                 { icon: Mic, label: 'Voice Note', color: 'text-amber-500', action: () => handleStartVoice() },
-                ...(onRequestPayment ? [{ icon: IndianRupee, label: 'Request Payment', color: 'text-emerald-600', action: onRequestPayment }] : []),
-                ...(onSendCatalog ? [{ icon: ShoppingBag, label: 'Catalog Products', color: 'text-violet-600', action: onSendCatalog }] : []),
+                ...(onRequestPayment ? [{ icon: IndianRupee, label: isTg ? 'Payment Request' : 'Request Payment', color: isTg ? 'text-[#229ED9]' : 'text-emerald-600', action: onRequestPayment }] : []),
+                ...(!isTg && onSendCatalog ? [{ icon: ShoppingBag, label: 'Catalog Products', color: 'text-violet-600', action: onSendCatalog }] : []),
               ].map((a) => {
                 const Icon = a.icon;
                 return (
@@ -376,13 +405,16 @@ export function MessageComposer({
                     handleSend();
                   }
                 }}
-                placeholder="Type a message or type '/' for canned responses…"
+                placeholder={isTg ? "Type a Telegram reply message or '/' for canned responses…" : "Type a message or type '/' for canned responses…"}
                 className="flex-1 bg-transparent text-sm font-medium outline-none border-none focus:outline-none focus:ring-0"
               />
 
               <button
                 onClick={handleStartVoice}
-                className="opacity-70 transition-all hover:opacity-100 hover:text-emerald-500 p-1 cursor-pointer active:scale-95"
+                className={cx(
+                  "opacity-70 transition-all hover:opacity-100 p-1 cursor-pointer active:scale-95",
+                  isTg ? "hover:text-[#229ED9]" : "hover:text-emerald-500"
+                )}
                 aria-label="Record Voice Message"
                 title="Record Voice Note"
               >
@@ -395,7 +427,9 @@ export function MessageComposer({
                 className={cx(
                   'grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white transition-all shadow-sm',
                   draft.trim()
-                    ? 'bg-emerald-600 hover:bg-emerald-700 hover:scale-105 active:scale-95 shadow-emerald-500/25 cursor-pointer'
+                    ? (isTg
+                        ? 'bg-[#229ED9] hover:bg-[#1b8bc2] hover:scale-105 active:scale-95 shadow-[#229ED9]/25 cursor-pointer'
+                        : 'bg-emerald-600 hover:bg-emerald-700 hover:scale-105 active:scale-95 shadow-emerald-500/25 cursor-pointer')
                     : 'bg-slate-400/50 opacity-60 cursor-not-allowed',
                 )}
                 aria-label="Send Message"
